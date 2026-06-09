@@ -155,19 +155,19 @@ export function ImmersiveStoryHero() {
           </AnimatePresence>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <MagneticButton>
-              <Button asChild className="min-h-12">
+            <MagneticButton className="w-full sm:w-auto">
+              <Button asChild className="min-h-12 w-full sm:w-auto">
                 <Link href="/join">
                   Join CampusHub
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </Link>
               </Button>
             </MagneticButton>
-            <MagneticButton>
+            <MagneticButton className="w-full sm:w-auto">
               <Button
                 asChild
                 variant="secondary"
-                className="min-h-12 border-white/15 bg-white/12 text-white hover:bg-white/18"
+                className="min-h-12 w-full border-white/15 bg-white/12 text-white hover:bg-white/18 sm:w-auto"
               >
                 <Link href={activeStory.href}>
                   Explore {activeStory.audience}
