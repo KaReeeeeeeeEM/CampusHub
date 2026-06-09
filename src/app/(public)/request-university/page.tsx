@@ -1,5 +1,9 @@
 import { PageHero } from "@/components/public/page-hero";
-import { Section, SectionHeading, SectionInner } from "@/components/public/section";
+import {
+  Section,
+  SectionHeading,
+  SectionInner,
+} from "@/components/public/section";
 import { RequestUniversityForm } from "@/features/universities/components/request-university-form";
 
 export default function RequestUniversityPage() {
@@ -11,7 +15,7 @@ export default function RequestUniversityPage() {
         primaryHref="/universities"
         primaryLabel="Browse listed universities"
         secondaryHref="/join-university"
-        secondaryLabel="Join university"
+        secondaryLabel="Invitation enrollment"
         title="Request a new university on CampusHub."
         description="If your institution is not listed yet, submit a request so CampusHub can review it for future onboarding."
       />

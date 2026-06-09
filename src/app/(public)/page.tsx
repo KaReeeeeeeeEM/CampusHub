@@ -286,7 +286,7 @@ export default function LandingPage() {
           />
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Button asChild>
-              <Link href="/join">Join CampusHub</Link>
+              <Link href="/employers/apply">Employer Apply</Link>
             </Button>
             <Button asChild variant="secondary">
               <Link href="/contact">Talk to us</Link>

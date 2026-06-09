@@ -157,8 +157,8 @@ export function ImmersiveStoryHero() {
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <MagneticButton className="w-full sm:w-auto">
               <Button asChild className="min-h-12 w-full sm:w-auto">
-                <Link href="/join">
-                  Join CampusHub
+                <Link href="/employers/apply">
+                  Employer Apply
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </Link>
               </Button>

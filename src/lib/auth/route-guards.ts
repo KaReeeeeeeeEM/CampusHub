@@ -1,12 +1,20 @@
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 
-import { AUTH_ROUTES, DEFAULT_AUTHENTICATED_REDIRECT } from "@/constants/routes";
+import {
+  AUTH_ROUTES,
+  DEFAULT_AUTHENTICATED_REDIRECT,
+  DEFAULT_ONBOARDING_REDIRECT,
+} from "@/constants/routes";
 import { auth } from "@/lib/auth/auth";
+import type { AuthSession } from "@/types/auth";
 
 export async function getServerSession() {
   return auth.api.getSession({
-    headers: await headers()
+    headers: await headers(),
+    query: {
+      disableCookieCache: true,
+    },
   });
 }
 
@@ -20,14 +28,50 @@ export async function requireSession() {
   return session;
 }
 
-export async function redirectAuthenticatedUser(
-  destination = DEFAULT_AUTHENTICATED_REDIRECT
-) {
-  const session = await getServerSession();
+export function isOnboardingComplete(session: AuthSession | null | undefined) {
+  return Boolean(session?.user.onboardingCompleted);
+}
+
+export function getAuthenticatedRedirect(session: AuthSession) {
+  return isOnboardingComplete(session)
+    ? DEFAULT_AUTHENTICATED_REDIRECT
+    : DEFAULT_ONBOARDING_REDIRECT;
+}
+
+export async function redirectAuthenticatedUser(destination?: string) {
+  let session: AuthSession | null = null;
+
+  try {
+    session = (await getServerSession()) as AuthSession | null;
+  } catch (error) {
+    unstable_rethrow(error);
+    console.warn("Unable to resolve auth session for auth route.", error);
+    return null;
+  }
 
   if (session) {
-    redirect(destination);
+    redirect(destination ?? getAuthenticatedRedirect(session));
   }
 
   return null;
+}
+
+export async function requireOnboarding() {
+  const session = (await requireSession()) as AuthSession;
+
+  if (isOnboardingComplete(session)) {
+    redirect(DEFAULT_AUTHENTICATED_REDIRECT);
+  }
+
+  return session;
+}
+
+export async function requireCompletedOnboarding() {
+  const session = (await requireSession()) as AuthSession;
+
+  if (!isOnboardingComplete(session)) {
+    redirect(DEFAULT_ONBOARDING_REDIRECT);
+  }
+
+  return session;
 }

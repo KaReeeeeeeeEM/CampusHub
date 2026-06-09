@@ -1,12 +1,19 @@
+import Image from "next/image";
 import Link from "next/link";
 
 export function PublicLogo() {
   return (
     <Link className="flex items-center gap-3" href="/">
-      <span className="flex h-10 w-10 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
-        CH
+      <span className="relative h-20 w-56 overflow-hidden rounded-md sm:h-24 sm:w-72">
+        <Image
+          src="/logo.png"
+          alt="CampusHub logo"
+          fill
+          className="object-contain"
+          sizes="(min-width: 640px) 288px, 224px"
+          priority
+        />
       </span>
-      <span className="text-base font-semibold tracking-normal">CampusHub</span>
     </Link>
   );
 }

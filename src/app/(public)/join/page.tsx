@@ -1,9 +1,5 @@
-import {
-  CampusFormField,
-  CampusInput,
-  CampusSelect,
-  CampusTextarea,
-} from "@/components/campushub";
+import Link from "next/link";
+
 import { PageHero } from "@/components/public/page-hero";
 import {
   Section,
@@ -12,63 +8,70 @@ import {
 } from "@/components/public/section";
 import { Button } from "@/components/ui/button";
 
-const options = [
-  "University leadership",
-  "Campus administrator",
-  "Student representative",
-  "Employer",
-  "University advancement team",
-  "Business partner",
+const onboardingPaths = [
+  {
+    title: "Students",
+    description:
+      "Join through a College Representative invitation link that locks the correct university and college.",
+  },
+  {
+    title: "Teachers and Representatives",
+    description:
+      "Join through Campus Admin invitations after institutional verification.",
+  },
+  {
+    title: "Campus Admins",
+    description:
+      "Join through Super Admin invitations tied to university setup and governance.",
+  },
+  {
+    title: "Employers",
+    description:
+      "Apply for verified employer access. Approved organizations receive activation invitations.",
+  },
 ];
 
 export default function JoinPage() {
   return (
     <>
       <PageHero
-        eyebrow="Join CampusHub"
+        eyebrow="Access CampusHub"
         image="/images/photography/landing-hero.webp"
-        primaryLabel="Submit interest"
+        primaryHref="/employers/apply"
+        primaryLabel="Employer application"
         secondaryHref="/features"
         secondaryLabel="Explore features"
-        title="Register interest in the CampusHub ecosystem."
-        description="Tell us who you are and how you want to participate. CampusHub will use this information to shape onboarding conversations and launch planning."
+        title="Access starts through verified onboarding."
+        description="CampusHub no longer supports public user registration. Accounts originate through authorized invitations, institution workflows, or approved employer applications."
       />
       <Section>
-        <SectionInner className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr]">
+        <SectionInner>
           <SectionHeading
-            eyebrow="Interest form"
-            title="Help us understand your role in the ecosystem."
-            description="Share your organization, role, and goals so the CampusHub team can understand the right onboarding path."
+            eyebrow="Onboarding paths"
+            title="Every account starts from a trusted source."
+            description="This keeps student, staff, administrator, and employer access aligned with university records and platform governance."
           />
-          <form className="rounded-lg border border-border bg-surface p-6 shadow-sm">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <CampusFormField label="Full name">
-                <CampusInput />
-              </CampusFormField>
-              <CampusFormField label="Work email">
-                <CampusInput type="email" />
-              </CampusFormField>
-              <CampusFormField label="Organization">
-                <CampusInput />
-              </CampusFormField>
-              <CampusFormField label="Role">
-                <CampusSelect>
-                  {options.map((option) => (
-                    <option key={option}>{option}</option>
-                  ))}
-                </CampusSelect>
-              </CampusFormField>
-              <CampusFormField
-                label="What are you interested in?"
-                className="flex flex-col gap-3 text-sm font-medium sm:col-span-2"
+          <div className="mt-10 grid gap-5 md:grid-cols-2">
+            {onboardingPaths.map((path) => (
+              <article
+                key={path.title}
+                className="rounded-lg border border-border bg-surface p-6 shadow-sm"
               >
-                <CampusTextarea className="min-h-36" />
-              </CampusFormField>
-            </div>
-            <Button className="mt-6" type="button">
-              Submit interest
+                <h2 className="text-lg font-semibold">{path.title}</h2>
+                <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                  {path.description}
+                </p>
+              </article>
+            ))}
+          </div>
+          <div className="mt-10 flex flex-col gap-3 sm:flex-row">
+            <Button asChild>
+              <Link href="/employers/apply">Apply as employer</Link>
             </Button>
-          </form>
+            <Button asChild variant="secondary">
+              <Link href="/login">Login</Link>
+            </Button>
+          </div>
         </SectionInner>
       </Section>
     </>

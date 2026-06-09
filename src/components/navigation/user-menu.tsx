@@ -3,8 +3,10 @@
 import * as Avatar from "@radix-ui/react-avatar";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { LogOut, Settings, User } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { authClient } from "@/lib/auth/client";
 
 type UserMenuProps = {
   name?: string | null;
@@ -12,12 +14,24 @@ type UserMenuProps = {
 };
 
 export function UserMenu({ name, email }: UserMenuProps) {
+  const router = useRouter();
   const initials = name
     ?.split(" ")
     .map((part) => part[0])
     .join("")
     .slice(0, 2)
     .toUpperCase();
+
+  async function handleSignOut() {
+    await authClient.signOut({
+      fetchOptions: {
+        onSuccess: () => {
+          router.push("/login");
+          router.refresh();
+        },
+      },
+    });
+  }
 
   return (
     <DropdownMenu.Root>
@@ -34,7 +48,9 @@ export function UserMenu({ name, email }: UserMenuProps) {
           className="z-50 w-64 rounded-lg border border-border bg-surface p-2 text-foreground shadow-lg"
         >
           <div className="px-3 py-2">
-            <p className="truncate text-sm font-medium">{name || "CampusHub User"}</p>
+            <p className="truncate text-sm font-medium">
+              {name || "CampusHub User"}
+            </p>
             {email ? (
               <p className="truncate text-xs text-muted-foreground">{email}</p>
             ) : null}
@@ -49,7 +65,13 @@ export function UserMenu({ name, email }: UserMenuProps) {
             Settings
           </DropdownMenu.Item>
           <DropdownMenu.Separator className="my-1 h-px bg-border" />
-          <DropdownMenu.Item className="flex cursor-default items-center gap-2 rounded-md px-3 py-2 text-sm text-destructive outline-none focus:bg-background">
+          <DropdownMenu.Item
+            className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm text-destructive outline-none focus:bg-background"
+            onSelect={(event) => {
+              event.preventDefault();
+              void handleSignOut();
+            }}
+          >
             <LogOut className="h-4 w-4" aria-hidden="true" />
             Sign out
           </DropdownMenu.Item>

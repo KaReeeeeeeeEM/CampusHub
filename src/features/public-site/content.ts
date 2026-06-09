@@ -249,7 +249,7 @@ export const faqs = [
   {
     question: "How do universities join?",
     answer:
-      "Universities can register interest through the Join CampusHub page. The onboarding team will qualify needs, tenant setup, user roles, and launch readiness.",
+      "Universities start through a qualified onboarding conversation. Student and staff accounts are created only through authorized invitations.",
   },
 ];
 

@@ -18,6 +18,16 @@ export const metadata: Metadata = {
   description: "Enterprise university ecosystem platform foundation.",
   applicationName: "CampusHub",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      {
+        url: "/logo.png",
+        type: "image/png",
+      },
+    ],
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
   appleWebApp: {
     capable: true,
     title: "CampusHub",

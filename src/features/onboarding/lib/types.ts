@@ -4,7 +4,7 @@ export const ONBOARDING_ROLES = [
   "REPRESENTATIVE",
   "CAMPUS_ADMIN",
   "ALUMNI",
-  "EMPLOYER"
+  "EMPLOYER",
 ] as const;
 
 export type OnboardingRole = (typeof ONBOARDING_ROLES)[number];
@@ -13,15 +13,16 @@ export type StudentOnboardingData = {
   university: string;
   college: string;
   department: string;
-  yearOfStudy: string;
+  year: string;
 };
 
 export type TeacherOnboardingData = {
+  university: string;
   department: string;
-  courses: string;
 };
 
 export type RepresentativeOnboardingData = {
+  university: string;
   college: string;
   committeeCategory: string;
 };
@@ -34,16 +35,14 @@ export type CampusAdminOnboardingData = {
 
 export type AlumniOnboardingData = {
   graduationYear: string;
-  careerTitle: string;
-  organization: string;
-  industry: string;
+  currentEmployer: string;
+  position: string;
 };
 
 export type EmployerOnboardingData = {
-  companyName: string;
-  companyWebsite: string;
+  company: string;
   industry: string;
-  hiringInterest: string;
+  companySize: string;
 };
 
 export type OnboardingData = {
@@ -63,7 +62,7 @@ export const roleLabels: Record<OnboardingRole, string> = {
   REPRESENTATIVE: "Representative",
   CAMPUS_ADMIN: "Campus Admin",
   ALUMNI: "Alumni",
-  EMPLOYER: "Employer"
+  EMPLOYER: "Employer",
 };
 
 export const defaultOnboardingData: OnboardingData = {
@@ -71,31 +70,30 @@ export const defaultOnboardingData: OnboardingData = {
     university: "",
     college: "",
     department: "",
-    yearOfStudy: ""
+    year: "",
   },
   TEACHER: {
+    university: "",
     department: "",
-    courses: ""
   },
   REPRESENTATIVE: {
+    university: "",
     college: "",
-    committeeCategory: ""
+    committeeCategory: "",
   },
   CAMPUS_ADMIN: {
     university: "",
     administrativeUnit: "",
-    position: ""
+    position: "",
   },
   ALUMNI: {
     graduationYear: "",
-    careerTitle: "",
-    organization: "",
-    industry: ""
+    currentEmployer: "",
+    position: "",
   },
   EMPLOYER: {
-    companyName: "",
-    companyWebsite: "",
+    company: "",
     industry: "",
-    hiringInterest: ""
-  }
+    companySize: "",
+  },
 };

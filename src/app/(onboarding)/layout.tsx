@@ -1,12 +1,12 @@
 import { AppShell } from "@/components/layout/app-shell";
-import { requireSession } from "@/lib/auth/route-guards";
+import { requireOnboarding } from "@/lib/auth/route-guards";
 
 export default async function OnboardingLayout({
-  children
+  children,
 }: {
   children: React.ReactNode;
 }) {
-  await requireSession();
+  await requireOnboarding();
 
   return <AppShell>{children}</AppShell>;
 }

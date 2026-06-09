@@ -37,7 +37,7 @@ export function PublicNavbar() {
           : "bg-transparent text-white",
       )}
     >
-      <div className="mx-auto flex h-20 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-28 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
         <PublicLogo />
         <nav className="ml-8 hidden items-center gap-1 lg:flex">
           {publicNavItems.map((item) => (
@@ -80,7 +80,7 @@ export function PublicNavbar() {
             <Link href="/login">Login</Link>
           </Button>
           <Button asChild data-magnetic>
-            <Link href="/join">Join CampusHub</Link>
+            <Link href="/employers/apply">Employer Apply</Link>
           </Button>
         </div>
         <div className="ml-auto flex items-center gap-2 lg:hidden">
@@ -128,7 +128,7 @@ export function PublicNavbar() {
                 <Link href="/login">Login</Link>
               </Button>
               <Button asChild data-magnetic>
-                <Link href="/join">Join</Link>
+                <Link href="/employers/apply">Apply</Link>
               </Button>
             </div>
           </nav>

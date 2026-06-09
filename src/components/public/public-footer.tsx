@@ -10,8 +10,8 @@ const footerGroups = [
       { label: "Features", href: "/features" },
       { label: "Universities", href: "/universities" },
       { label: "Employers", href: "/employers" },
-      { label: "Alumni", href: "/alumni" }
-    ]
+      { label: "Alumni", href: "/alumni" },
+    ],
   },
   {
     title: "Company",
@@ -19,9 +19,9 @@ const footerGroups = [
       { label: "About", href: "/about" },
       { label: "Pricing", href: "/pricing" },
       { label: "Contact", href: "/contact" },
-      { label: "FAQ", href: "/faq" }
-    ]
-  }
+      { label: "FAQ", href: "/faq" },
+    ],
+  },
 ];
 
 export function PublicFooter() {
@@ -36,9 +36,9 @@ export function PublicFooter() {
           </p>
           <Link
             className="mt-6 inline-flex text-sm font-medium text-primary hover:underline"
-            href="/join"
+            href="/employers/apply"
           >
-            Join CampusHub
+            Employer application
           </Link>
         </div>
         {footerGroups.map((group) => (
@@ -64,7 +64,11 @@ export function PublicFooter() {
           <p>© {new Date().getFullYear()} CampusHub. All rights reserved.</p>
           <div className="flex flex-wrap gap-4">
             {publicNavItems.slice(0, 4).map((item) => (
-              <Link key={item.href} href={item.href} className="hover:text-foreground">
+              <Link
+                key={item.href}
+                href={item.href}
+                className="hover:text-foreground"
+              >
                 {item.label}
               </Link>
             ))}

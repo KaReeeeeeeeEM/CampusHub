@@ -13,13 +13,12 @@ import { AuthAlert } from "@/features/auth/components/auth-alert";
 import { AuthField } from "@/features/auth/components/auth-field";
 import { loginSchema, type LoginInput } from "@/features/auth/lib/schemas";
 import { authClient } from "@/lib/auth/client";
-import { DEFAULT_AUTHENTICATED_REDIRECT } from "@/constants/routes";
+import { getSafeCallbackUrl } from "@/lib/auth/redirects";
 
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl =
-    searchParams.get("callbackUrl") || DEFAULT_AUTHENTICATED_REDIRECT;
+  const callbackUrl = getSafeCallbackUrl(searchParams.get("callbackUrl"));
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -113,15 +112,15 @@ export function LoginForm() {
       <div className="flex items-center justify-between gap-4 text-sm">
         <Link
           className="font-medium text-primary transition-colors hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          href="/register"
-        >
-          Create account
-        </Link>
-        <Link
-          className="font-medium text-primary transition-colors hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           href="/verify-email"
         >
           Verify email
+        </Link>
+        <Link
+          className="font-medium text-primary transition-colors hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          href="/employers/apply"
+        >
+          Employer access
         </Link>
       </div>
     </form>

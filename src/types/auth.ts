@@ -9,11 +9,18 @@ export type AuthUser = {
   role: RoleKey;
   roles?: RoleKey[];
   universityId?: string | null;
+  collegeId?: string | null;
+  onboardingCompleted?: boolean;
 };
 
 export type AuthSession = {
   user: AuthUser;
-  expiresAt: Date;
+  session: {
+    id: string;
+    userId: string;
+    token: string;
+    expiresAt: Date;
+  };
   tenant?: TenantContextValue | null;
 };
 

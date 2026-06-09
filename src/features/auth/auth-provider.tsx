@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo } from "react";
 
+import { ROLES, type RoleKey } from "@/features/authorization/roles";
 import { authClient } from "@/lib/auth/client";
 import { useUserStore } from "@/store/user-store";
 import type { AuthUser } from "@/types/auth";
@@ -15,12 +16,33 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue>({
   user: null,
   isAuthenticated: false,
-  isPending: true
+  isPending: true,
 });
 
 type AuthProviderProps = {
   children: React.ReactNode;
 };
+
+type SessionUser = {
+  id: string;
+  name?: string | null;
+  email: string;
+  image?: string | null;
+  role?: string | null;
+  roles?: string[] | null;
+  universityId?: string | null;
+  collegeId?: string | null;
+  onboardingCompleted?: boolean | null;
+};
+
+function normalizeRole(value?: string | null): RoleKey {
+  return value && value in ROLES ? (value as RoleKey) : "STUDENT";
+}
+
+function normalizeRoles(user: SessionUser) {
+  const roles = user.roles?.filter((role): role is RoleKey => role in ROLES);
+  return roles?.length ? roles : [normalizeRole(user.role)];
+}
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const session = authClient.useSession();
@@ -28,7 +50,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const setUser = useUserStore((state) => state.setUser);
 
   useEffect(() => {
-    const sessionUser = session.data?.user;
+    const sessionUser = session.data?.user as SessionUser | undefined;
 
     if (!sessionUser) {
       setUser(null);
@@ -40,9 +62,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       name: sessionUser.name ?? null,
       email: sessionUser.email,
       image: sessionUser.image,
-      role: "STUDENT",
-      roles: ["STUDENT"],
-      universityId: null
+      role: normalizeRole(sessionUser.role),
+      roles: normalizeRoles(sessionUser),
+      universityId: sessionUser.universityId ?? null,
+      collegeId: sessionUser.collegeId ?? null,
+      onboardingCompleted: Boolean(sessionUser.onboardingCompleted),
     });
   }, [session.data?.user, setUser]);
 
@@ -50,9 +74,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     () => ({
       user: storedUser,
       isAuthenticated: Boolean(storedUser),
-      isPending: session.isPending
+      isPending: session.isPending,
     }),
-    [session.isPending, storedUser]
+    [session.isPending, storedUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

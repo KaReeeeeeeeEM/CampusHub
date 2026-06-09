@@ -112,14 +112,10 @@ export default async function UniversityProfilePage({
             </div>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button asChild>
-                <Link href={`/join-university?university=${university.slug}`}>
-                  Join this university
-                </Link>
+                <Link href="/join">Invitation enrollment</Link>
               </Button>
               <Button asChild variant="secondary">
-                <Link href="/request-university">
-                  Request another university
-                </Link>
+                <Link href="/contact">Contact CampusHub</Link>
               </Button>
             </div>
           </div>

@@ -54,7 +54,7 @@ export default function EmployersPage() {
             description="Register employer interest and prepare for future opportunities, recruiting workflows, and university partnerships."
           />
           <Button asChild className="mt-8">
-            <Link href="/join">Join as an employer</Link>
+            <Link href="/employers/apply">Apply as an employer</Link>
           </Button>
         </SectionInner>
       </Section>

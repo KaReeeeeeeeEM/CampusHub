@@ -7,7 +7,7 @@ import {
   defaultOnboardingData,
   type OnboardingData,
   type OnboardingRole,
-  type OnboardingStep
+  type OnboardingStep,
 } from "@/features/onboarding/lib/types";
 
 type OnboardingStore = {
@@ -16,11 +16,20 @@ type OnboardingStore = {
   data: OnboardingData;
   completed: boolean;
   savedAt: string | null;
+  completedAt: string | null;
+  hydrate: (state: {
+    role: OnboardingRole | null;
+    currentStep: OnboardingStep;
+    data: OnboardingData;
+    completed: boolean;
+    savedAt: string | null;
+    completedAt?: string | null;
+  }) => void;
   setRole: (role: OnboardingRole) => void;
   setStep: (step: OnboardingStep) => void;
   updateRoleData: <TRole extends OnboardingRole>(
     role: TRole,
-    data: Partial<OnboardingData[TRole]>
+    data: Partial<OnboardingData[TRole]>,
   ) => void;
   saveProgress: () => void;
   complete: () => void;
@@ -35,12 +44,23 @@ export const useOnboardingStore = create<OnboardingStore>()(
       data: defaultOnboardingData,
       completed: false,
       savedAt: null,
+      completedAt: null,
+      hydrate: (state) =>
+        set({
+          role: state.role,
+          currentStep: state.currentStep,
+          data: state.data,
+          completed: state.completed,
+          savedAt: state.savedAt,
+          completedAt: state.completedAt ?? null,
+        }),
       setRole: (role) =>
         set({
           role,
           currentStep: "details",
           completed: false,
-          savedAt: new Date().toISOString()
+          completedAt: null,
+          savedAt: new Date().toISOString(),
         }),
       setStep: (currentStep) => set({ currentStep }),
       updateRoleData: (role, data) =>
@@ -49,18 +69,20 @@ export const useOnboardingStore = create<OnboardingStore>()(
             ...state.data,
             [role]: {
               ...state.data[role],
-              ...data
-            }
+              ...data,
+            },
           },
           completed: false,
-          savedAt: new Date().toISOString()
+          completedAt: null,
+          savedAt: new Date().toISOString(),
         })),
       saveProgress: () => set({ savedAt: new Date().toISOString() }),
       complete: () =>
         set({
           currentStep: "complete",
           completed: true,
-          savedAt: new Date().toISOString()
+          savedAt: new Date().toISOString(),
+          completedAt: new Date().toISOString(),
         }),
       reset: () =>
         set({
@@ -68,11 +90,12 @@ export const useOnboardingStore = create<OnboardingStore>()(
           currentStep: "role",
           data: defaultOnboardingData,
           completed: false,
-          savedAt: null
-        })
+          savedAt: null,
+          completedAt: null,
+        }),
     }),
     {
-      name: "campushub.onboarding"
-    }
-  )
+      name: "campushub.onboarding",
+    },
+  ),
 );

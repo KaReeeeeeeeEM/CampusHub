@@ -1,5 +1,7 @@
 export { CampusButton } from "./campus-button";
 export { CampusCheckbox } from "./campus-checkbox";
+export { CampusCombobox } from "./campus-combobox";
+export type { CampusComboboxOption } from "./campus-combobox";
 export { CampusDataTable } from "./campus-data-table";
 export { CampusEmptyState } from "./campus-empty-state";
 export { CampusErrorState } from "./campus-error-state";

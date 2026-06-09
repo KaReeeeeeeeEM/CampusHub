@@ -58,7 +58,7 @@ export default function PricingPage() {
                   className="mt-8 w-full"
                   variant={plan.featured ? "default" : "secondary"}
                 >
-                  <Link href="/join">Request pricing</Link>
+                  <Link href="/contact">Request pricing</Link>
                 </Button>
               </article>
             ))}

@@ -100,10 +100,10 @@ export function UniversityDiscovery({
       ) : (
         <EmptyState
           title="No universities found"
-          description="Try a different search term or request your university to be added to CampusHub."
-          actionLabel="Request university"
+          description="Try a different search term. Student enrollment still requires an invitation from an authorized college representative."
+          actionLabel="Contact CampusHub"
           onAction={() => {
-            window.location.href = "/request-university";
+            window.location.href = "/contact";
           }}
         />
       )}

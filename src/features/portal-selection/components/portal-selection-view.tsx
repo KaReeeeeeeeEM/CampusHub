@@ -2,14 +2,17 @@
 
 import {
   ArrowRight,
+  CheckCircle2,
   Clock3,
   Info,
   LockKeyhole,
+  Loader2,
   Pin,
   RotateCcw,
   Star,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ROLE_LABELS, type RoleKey } from "@/features/authorization/roles";
@@ -22,7 +25,16 @@ import {
   type PortalKey,
 } from "@/features/portal-selection/lib/portals";
 import { cn } from "@/lib/utils";
-import { usePortalSelectionStore } from "@/store/portal-selection-store";
+import {
+  type PortalSelectionSnapshot,
+  usePortalSelectionStore,
+} from "@/store/portal-selection-store";
+
+type PortalPreferencesResponse = {
+  preferences: PortalSelectionSnapshot;
+  redirectHref?: string;
+  error?: string;
+};
 
 function formatSelectedAt(value: string | null) {
   if (!value) {
@@ -47,15 +59,21 @@ function PortalCard({
   portal,
   isAvailable,
   isLastUsed,
+  isDefault,
   isQuickAccess,
+  isPending,
   onSelect,
+  onSetDefault,
   onToggleQuickAccess,
 }: {
   portal: PortalDefinition;
   isAvailable: boolean;
   isLastUsed: boolean;
+  isDefault: boolean;
   isQuickAccess: boolean;
+  isPending: boolean;
   onSelect: (portal: PortalKey) => void;
+  onSetDefault: (portal: PortalKey) => void;
   onToggleQuickAccess: (portal: PortalKey) => void;
 }) {
   const Icon = portal.icon;
@@ -79,6 +97,12 @@ function PortalCard({
             <span className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-xs font-semibold text-primary-foreground">
               <Clock3 className="h-3 w-3" aria-hidden="true" />
               Last used
+            </span>
+          ) : null}
+          {isDefault ? (
+            <span className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
+              <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+              Default
             </span>
           ) : null}
           {isQuickAccess ? (
@@ -129,15 +153,29 @@ function PortalCard({
       <div className="mt-6 flex flex-col gap-3 sm:flex-row">
         <Button
           className="sm:flex-1"
-          disabled={!isAvailable}
+          disabled={!isAvailable || isPending}
           type="button"
           onClick={() => onSelect(portal.key)}
         >
+          {isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          ) : null}
           Enter portal
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Button>
         <Button
           className="sm:flex-1"
+          disabled={!isAvailable || isPending}
+          type="button"
+          variant="secondary"
+          onClick={() => onSetDefault(portal.key)}
+        >
+          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+          {isDefault ? "Default" : "Make default"}
+        </Button>
+        <Button
+          className="sm:flex-1"
+          disabled={!isAvailable || isPending}
           type="button"
           variant="secondary"
           onClick={() => onToggleQuickAccess(portal.key)}
@@ -151,7 +189,12 @@ function PortalCard({
 }
 
 export function PortalSelectionView() {
+  const router = useRouter();
   const { user, isPending } = useAuth();
+  const availablePortals = usePortalSelectionStore(
+    (state) => state.availablePortals,
+  );
+  const defaultPortal = usePortalSelectionStore((state) => state.defaultPortal);
   const lastUsedPortal = usePortalSelectionStore(
     (state) => state.lastUsedPortal,
   );
@@ -161,13 +204,20 @@ export function PortalSelectionView() {
   );
   const selectedAt = usePortalSelectionStore((state) => state.selectedAt);
   const selectPortal = usePortalSelectionStore((state) => state.selectPortal);
+  const setDefaultPortal = usePortalSelectionStore(
+    (state) => state.setDefaultPortal,
+  );
   const toggleQuickAccess = usePortalSelectionStore(
     (state) => state.toggleQuickAccess,
   );
-  const resetPortalSelection = usePortalSelectionStore(
-    (state) => state.resetPortalSelection,
+  const hydratePortalSelection = usePortalSelectionStore(
+    (state) => state.hydrate,
   );
   const [notice, setNotice] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isLoadingPreferences, setIsLoadingPreferences] = useState(true);
+  const [pendingPortal, setPendingPortal] = useState<PortalKey | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
 
   const userRoles = useMemo(
     () => getUserRoles(user?.role, user?.roles),
@@ -176,16 +226,147 @@ export function PortalSelectionView() {
 
   const lastUsed = getPortalByKey(lastUsedPortal);
   const selected = getPortalByKey(selectedPortal);
+  const defaultPortalDefinition = getPortalByKey(defaultPortal);
   const quickAccessPortals = quickAccess
     .map((key) => getPortalByKey(key))
     .filter((portal): portal is PortalDefinition => Boolean(portal));
 
-  function handleSelect(portal: PortalKey) {
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadPreferences() {
+      setIsLoadingPreferences(true);
+      setLoadError(null);
+
+      const response = await fetch("/api/portal-preferences", {
+        cache: "no-store",
+      });
+
+      if (!mounted) {
+        return;
+      }
+
+      if (!response.ok) {
+        setLoadError("Unable to load portal preferences.");
+        setIsLoadingPreferences(false);
+        return;
+      }
+
+      const payload = (await response.json()) as PortalPreferencesResponse;
+      hydratePortalSelection(payload.preferences);
+      setIsLoadingPreferences(false);
+    }
+
+    void loadPreferences();
+
+    return () => {
+      mounted = false;
+    };
+  }, [hydratePortalSelection]);
+
+  async function updatePreferences(
+    body:
+      | { action: "select"; portal: PortalKey }
+      | { action: "set-default"; portal: PortalKey }
+      | { action: "toggle-quick"; portal: PortalKey }
+      | { action: "reset" },
+  ) {
+    const response = await fetch("/api/portal-preferences", {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    const payload = (await response.json()) as PortalPreferencesResponse;
+
+    if (!response.ok) {
+      throw new Error(payload.error || "Unable to update portal preferences.");
+    }
+
+    hydratePortalSelection(payload.preferences);
+
+    return payload;
+  }
+
+  async function handleSelect(portal: PortalKey) {
     const definition = getPortalByKey(portal);
-    selectPortal(portal);
-    setNotice(
-      `${definition?.title ?? "Portal"} selected. Dashboard routing is ready for the future portal implementation.`,
-    );
+    setPendingPortal(portal);
+    setNotice(null);
+    setLoadError(null);
+
+    try {
+      const payload = await updatePreferences({ action: "select", portal });
+      selectPortal(portal);
+      router.push(
+        payload.redirectHref ?? definition?.href ?? "/portal-selection",
+      );
+    } catch (error) {
+      setLoadError(
+        error instanceof Error ? error.message : "Unable to enter portal.",
+      );
+    } finally {
+      setPendingPortal(null);
+    }
+  }
+
+  async function handleSetDefault(portal: PortalKey) {
+    setPendingPortal(portal);
+    setNotice(null);
+    setLoadError(null);
+
+    try {
+      await updatePreferences({ action: "set-default", portal });
+      setDefaultPortal(portal);
+      setNotice(`${getPortalByKey(portal)?.title ?? "Portal"} set as default.`);
+    } catch (error) {
+      setLoadError(
+        error instanceof Error
+          ? error.message
+          : "Unable to set default portal.",
+      );
+    } finally {
+      setPendingPortal(null);
+    }
+  }
+
+  async function handleToggleQuickAccess(portal: PortalKey) {
+    setPendingPortal(portal);
+    setNotice(null);
+    setLoadError(null);
+
+    try {
+      await updatePreferences({ action: "toggle-quick", portal });
+      toggleQuickAccess(portal);
+    } catch (error) {
+      setLoadError(
+        error instanceof Error
+          ? error.message
+          : "Unable to update quick access.",
+      );
+    } finally {
+      setPendingPortal(null);
+    }
+  }
+
+  async function handleReset() {
+    setIsResetting(true);
+    setNotice(null);
+    setLoadError(null);
+
+    try {
+      await updatePreferences({ action: "reset" });
+      setNotice("Portal preferences reset.");
+    } catch (error) {
+      setLoadError(
+        error instanceof Error
+          ? error.message
+          : "Unable to reset portal preferences.",
+      );
+    } finally {
+      setIsResetting(false);
+    }
   }
 
   return (
@@ -212,6 +393,12 @@ export function PortalSelectionView() {
               <p>{notice}</p>
             </div>
           ) : null}
+          {loadError ? (
+            <div className="mt-5 flex gap-3 rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+              <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <p>{loadError}</p>
+            </div>
+          ) : null}
         </div>
 
         <aside className="rounded-lg border border-border bg-surface p-5 shadow-sm">
@@ -229,12 +416,14 @@ export function PortalSelectionView() {
               size="icon"
               type="button"
               variant="ghost"
-              onClick={() => {
-                resetPortalSelection();
-                setNotice("Portal selection preferences reset.");
-              }}
+              disabled={isResetting || isLoadingPreferences}
+              onClick={handleReset}
             >
-              <RotateCcw className="h-4 w-4" aria-hidden="true" />
+              {isResetting ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <RotateCcw className="h-4 w-4" aria-hidden="true" />
+              )}
             </Button>
           </div>
 
@@ -258,6 +447,15 @@ export function PortalSelectionView() {
                 </span>
               )}
             </div>
+          </div>
+
+          <div className="mt-5 border-t border-border pt-5">
+            <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
+              Default portal
+            </p>
+            <p className="mt-2 text-sm font-medium">
+              {defaultPortalDefinition?.title ?? "No default portal"}
+            </p>
           </div>
 
           <div className="mt-5 border-t border-border pt-5">
@@ -305,7 +503,7 @@ export function PortalSelectionView() {
                     "h-auto flex-col items-start rounded-lg border border-border bg-background p-4 text-left text-foreground hover:border-primary hover:bg-background",
                     !isAvailable && "opacity-70",
                   )}
-                  disabled={!isAvailable}
+                  disabled={!isAvailable || Boolean(pendingPortal)}
                   variant="secondary"
                   type="button"
                   onClick={() => handleSelect(portal.key)}
@@ -340,11 +538,18 @@ export function PortalSelectionView() {
             <PortalCard
               key={portal.key}
               portal={portal}
-              isAvailable={canAccessPortal(userRoles, portal)}
+              isAvailable={
+                availablePortals.length > 0
+                  ? availablePortals.includes(portal.key)
+                  : canAccessPortal(userRoles, portal)
+              }
               isLastUsed={lastUsedPortal === portal.key}
+              isDefault={defaultPortal === portal.key}
               isQuickAccess={quickAccess.includes(portal.key)}
+              isPending={pendingPortal === portal.key || isLoadingPreferences}
               onSelect={handleSelect}
-              onToggleQuickAccess={toggleQuickAccess}
+              onSetDefault={handleSetDefault}
+              onToggleQuickAccess={handleToggleQuickAccess}
             />
           ))}
         </div>

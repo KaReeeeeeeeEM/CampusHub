@@ -11,15 +11,16 @@ import {
   UserRoundCheck,
   UsersRound,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   CampusFormField,
   CampusInput,
   CampusSelect,
-  CampusTextarea,
 } from "@/components/campushub";
 import { Button } from "@/components/ui/button";
+import { AuthAlert } from "@/features/auth/components/auth-alert";
 import {
   collegeOptions,
   committeeCategoryOptions,
@@ -46,12 +47,22 @@ const steps = [
 
 const roleDescriptions: Record<OnboardingRole, string> = {
   STUDENT: "Set up your university, college, department, and year of study.",
-  TEACHER: "Add your department and the courses you currently teach.",
-  REPRESENTATIVE: "Connect your college and representative committee category.",
+  TEACHER: "Add your university and department context.",
+  REPRESENTATIVE:
+    "Connect your university, college, and representative committee category.",
   CAMPUS_ADMIN: "Prepare your administrative profile for campus operations.",
-  ALUMNI: "Share graduation and career information for alumni networking.",
+  ALUMNI: "Share graduation and current employment information.",
   EMPLOYER: "Create your employer context for future talent workflows.",
 };
+
+const companySizeOptions = [
+  "1-10",
+  "11-50",
+  "51-200",
+  "201-500",
+  "501-1000",
+  "1000+",
+];
 
 const roleIcons: Record<
   OnboardingRole,
@@ -101,17 +112,18 @@ function validateRoleData(
     if (!value.university) errors.university = "Select a university.";
     if (!value.college) errors.college = "Select a college.";
     if (!value.department) errors.department = "Select a department.";
-    if (!value.yearOfStudy) errors.yearOfStudy = "Select your year of study.";
+    if (!value.year) errors.year = "Select your year.";
   }
 
   if (role === "TEACHER") {
     const value = data.TEACHER;
+    if (!value.university) errors.university = "Select a university.";
     if (!value.department) errors.department = "Select a department.";
-    if (!value.courses.trim()) errors.courses = "Enter at least one course.";
   }
 
   if (role === "REPRESENTATIVE") {
     const value = data.REPRESENTATIVE;
+    if (!value.university) errors.university = "Select a university.";
     if (!value.college) errors.college = "Select a college.";
     if (!value.committeeCategory) {
       errors.committeeCategory = "Select a committee category.";
@@ -132,20 +144,17 @@ function validateRoleData(
     if (!value.graduationYear.trim()) {
       errors.graduationYear = "Enter your graduation year.";
     }
-    if (!value.careerTitle.trim())
-      errors.careerTitle = "Enter your career title.";
-    if (!value.organization.trim())
-      errors.organization = "Enter your organization.";
-    if (!value.industry) errors.industry = "Select your industry.";
+    if (!value.currentEmployer.trim()) {
+      errors.currentEmployer = "Enter your current employer.";
+    }
+    if (!value.position.trim()) errors.position = "Enter your position.";
   }
 
   if (role === "EMPLOYER") {
     const value = data.EMPLOYER;
-    if (!value.companyName.trim()) errors.companyName = "Enter company name.";
+    if (!value.company.trim()) errors.company = "Enter company name.";
     if (!value.industry) errors.industry = "Select company industry.";
-    if (!value.hiringInterest.trim()) {
-      errors.hiringInterest = "Describe your hiring interest.";
-    }
+    if (!value.companySize) errors.companySize = "Select company size.";
   }
 
   return errors;
@@ -207,31 +216,6 @@ function TextField({
   );
 }
 
-function TextAreaField({
-  label,
-  value,
-  placeholder,
-  error,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  placeholder?: string;
-  error?: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <CampusFormField label={label} error={error}>
-      <CampusTextarea
-        invalid={Boolean(error)}
-        placeholder={placeholder}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </CampusFormField>
-  );
-}
-
 function RoleDetailsForm({
   role,
   errors,
@@ -268,11 +252,11 @@ function RoleDetailsForm({
           onChange={(department) => updateRoleData(role, { department })}
         />
         <SelectField
-          label="Year of study"
-          value={value.yearOfStudy}
+          label="Year"
+          value={value.year}
           options={yearOfStudyOptions}
-          error={errors.yearOfStudy}
-          onChange={(yearOfStudy) => updateRoleData(role, { yearOfStudy })}
+          error={errors.year}
+          onChange={(year) => updateRoleData(role, { year })}
         />
       </div>
     );
@@ -283,18 +267,18 @@ function RoleDetailsForm({
     return (
       <div className="grid gap-4">
         <SelectField
+          label="University"
+          value={value.university}
+          options={universityOptions}
+          error={errors.university}
+          onChange={(university) => updateRoleData(role, { university })}
+        />
+        <SelectField
           label="Department"
           value={value.department}
           options={departmentOptions}
           error={errors.department}
           onChange={(department) => updateRoleData(role, { department })}
-        />
-        <TextAreaField
-          label="Courses"
-          value={value.courses}
-          placeholder="Example: Data Structures, Software Engineering, Research Methods"
-          error={errors.courses}
-          onChange={(courses) => updateRoleData(role, { courses })}
         />
       </div>
     );
@@ -304,6 +288,13 @@ function RoleDetailsForm({
     const value = data.REPRESENTATIVE;
     return (
       <div className="grid gap-4 sm:grid-cols-2">
+        <SelectField
+          label="University"
+          value={value.university}
+          options={universityOptions}
+          error={errors.university}
+          onChange={(university) => updateRoleData(role, { university })}
+        />
         <SelectField
           label="College"
           value={value.college}
@@ -371,25 +362,20 @@ function RoleDetailsForm({
           }
         />
         <TextField
-          label="Career title"
-          value={value.careerTitle}
-          placeholder="Product Manager"
-          error={errors.careerTitle}
-          onChange={(careerTitle) => updateRoleData(role, { careerTitle })}
+          label="Current employer"
+          value={value.currentEmployer}
+          placeholder="Company or institution"
+          error={errors.currentEmployer}
+          onChange={(currentEmployer) =>
+            updateRoleData(role, { currentEmployer })
+          }
         />
         <TextField
-          label="Organization"
-          value={value.organization}
-          placeholder="Company or institution"
-          error={errors.organization}
-          onChange={(organization) => updateRoleData(role, { organization })}
-        />
-        <SelectField
-          label="Industry"
-          value={value.industry}
-          options={industryOptions}
-          error={errors.industry}
-          onChange={(industry) => updateRoleData(role, { industry })}
+          label="Position"
+          value={value.position}
+          placeholder="Product Manager"
+          error={errors.position}
+          onChange={(position) => updateRoleData(role, { position })}
         />
       </div>
     );
@@ -401,20 +387,18 @@ function RoleDetailsForm({
     <div className="grid gap-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <TextField
-          label="Company name"
-          value={value.companyName}
+          label="Company"
+          value={value.company}
           placeholder="Company name"
-          error={errors.companyName}
-          onChange={(companyName) => updateRoleData(role, { companyName })}
+          error={errors.company}
+          onChange={(company) => updateRoleData(role, { company })}
         />
-        <TextField
-          label="Company website"
-          value={value.companyWebsite}
-          placeholder="https://company.com"
-          error={errors.companyWebsite}
-          onChange={(companyWebsite) =>
-            updateRoleData(role, { companyWebsite })
-          }
+        <SelectField
+          label="Company size"
+          value={value.companySize}
+          options={companySizeOptions}
+          error={errors.companySize}
+          onChange={(companySize) => updateRoleData(role, { companySize })}
         />
       </div>
       <SelectField
@@ -424,29 +408,28 @@ function RoleDetailsForm({
         error={errors.industry}
         onChange={(industry) => updateRoleData(role, { industry })}
       />
-      <TextAreaField
-        label="Hiring interest"
-        value={value.hiringInterest}
-        placeholder="Describe internships, graduate hiring, partnerships, or campus engagement goals."
-        error={errors.hiringInterest}
-        onChange={(hiringInterest) => updateRoleData(role, { hiringInterest })}
-      />
     </div>
   );
 }
 
 export function OnboardingFlow() {
+  const router = useRouter();
   const role = useOnboardingStore((state) => state.role);
   const currentStep = useOnboardingStore((state) => state.currentStep);
   const data = useOnboardingStore((state) => state.data);
   const savedAt = useOnboardingStore((state) => state.savedAt);
+  const hydrate = useOnboardingStore((state) => state.hydrate);
   const setRole = useOnboardingStore((state) => state.setRole);
   const setStep = useOnboardingStore((state) => state.setStep);
   const saveProgress = useOnboardingStore((state) => state.saveProgress);
   const complete = useOnboardingStore((state) => state.complete);
   const reset = useOnboardingStore((state) => state.reset);
   const [errors, setErrors] = useState<FieldErrors>({});
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
 
   const activeStepIndex = steps.findIndex((step) => step.key === currentStep);
   const reviewEntries = useMemo(
@@ -454,11 +437,86 @@ export function OnboardingFlow() {
     [data, role],
   );
 
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadOnboardingProgress() {
+      setIsLoading(true);
+      setLoadError(null);
+
+      const response = await fetch("/api/onboarding", {
+        cache: "no-store",
+      });
+
+      if (!mounted) {
+        return;
+      }
+
+      if (!response.ok) {
+        setLoadError("Unable to load saved onboarding progress.");
+        setIsLoading(false);
+        return;
+      }
+
+      const payload = (await response.json()) as {
+        onboarding: Parameters<typeof hydrate>[0];
+      };
+
+      hydrate(payload.onboarding);
+      setIsLoading(false);
+    }
+
+    void loadOnboardingProgress();
+
+    return () => {
+      mounted = false;
+    };
+  }, [hydrate]);
+
+  async function persistProgress(nextStep = currentStep) {
+    const response = await fetch("/api/onboarding", {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        role,
+        currentStep: nextStep,
+        data,
+        completed: false,
+      }),
+    });
+
+    if (!response.ok) {
+      const payload = (await response.json()) as { error?: string };
+      throw new Error(payload.error || "Unable to save onboarding progress.");
+    }
+
+    const payload = (await response.json()) as {
+      onboarding: Parameters<typeof hydrate>[0];
+    };
+
+    hydrate(payload.onboarding);
+  }
+
   async function handleSaveProgress() {
     setIsSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 350));
-    saveProgress();
-    setIsSaving(false);
+    setStatusMessage(null);
+    setLoadError(null);
+
+    try {
+      await persistProgress();
+      saveProgress();
+      setStatusMessage("Progress saved.");
+    } catch (error) {
+      setLoadError(
+        error instanceof Error
+          ? error.message
+          : "Unable to save onboarding progress.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   function handleContinueFromDetails() {
@@ -472,7 +530,72 @@ export function OnboardingFlow() {
 
     if (Object.keys(validationErrors).length === 0) {
       setStep("review");
+      void persistProgress("review").catch((error) => {
+        setLoadError(
+          error instanceof Error
+            ? error.message
+            : "Unable to save onboarding progress.",
+        );
+      });
     }
+  }
+
+  async function handleCompleteOnboarding() {
+    if (!role) {
+      return;
+    }
+
+    setIsCompleting(true);
+    setLoadError(null);
+    setStatusMessage(null);
+
+    try {
+      const response = await fetch("/api/onboarding", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          role,
+          currentStep: "complete",
+          data,
+          completed: true,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json()) as { error?: string };
+        throw new Error(payload.error || "Unable to complete onboarding.");
+      }
+
+      const payload = (await response.json()) as {
+        onboarding: Parameters<typeof hydrate>[0];
+      };
+
+      hydrate(payload.onboarding);
+      complete();
+      router.push("/portal-selection");
+      router.refresh();
+    } catch (error) {
+      setLoadError(
+        error instanceof Error
+          ? error.message
+          : "Unable to complete onboarding.",
+      );
+    } finally {
+      setIsCompleting(false);
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4">
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          Loading onboarding progress
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -486,8 +609,7 @@ export function OnboardingFlow() {
             Complete your role-based setup.
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Your progress is saved locally on this device. Future releases can
-            sync this data to the CampusHub onboarding API.
+            Your progress is saved securely and can be resumed when you return.
           </p>
         </div>
         <div className="flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:items-center">
@@ -507,6 +629,17 @@ export function OnboardingFlow() {
           </Button>
         </div>
       </div>
+
+      {loadError ? (
+        <div className="mb-6">
+          <AuthAlert type="error" message={loadError} />
+        </div>
+      ) : null}
+      {statusMessage ? (
+        <div className="mb-6">
+          <AuthAlert type="success" message={statusMessage} />
+        </div>
+      ) : null}
 
       <div className="mb-8 grid gap-3 sm:grid-cols-4">
         {steps.map((step, index) => (
@@ -636,7 +769,17 @@ export function OnboardingFlow() {
               >
                 Back
               </Button>
-              <Button type="button" onClick={complete}>
+              <Button
+                type="button"
+                disabled={isCompleting}
+                onClick={handleCompleteOnboarding}
+              >
+                {isCompleting ? (
+                  <Loader2
+                    className="h-4 w-4 animate-spin"
+                    aria-hidden="true"
+                  />
+                ) : null}
                 Complete onboarding
               </Button>
             </div>
@@ -667,6 +810,12 @@ export function OnboardingFlow() {
               <Button type="button" variant="secondary" onClick={reset}>
                 <RotateCcw className="h-4 w-4" aria-hidden="true" />
                 Start over
+              </Button>
+              <Button
+                type="button"
+                onClick={() => router.push("/portal-selection")}
+              >
+                Enter CampusHub
               </Button>
             </div>
           </div>

@@ -110,9 +110,7 @@ export function UniversityCard({ university }: { university: University }) {
             </Link>
           </Button>
           <Button asChild variant="secondary">
-            <Link href={`/join-university?university=${university.slug}`}>
-              Join university
-            </Link>
+            <Link href="/join">Invitation access</Link>
           </Button>
         </div>
       </div>
