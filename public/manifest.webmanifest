@@ -1,0 +1,10 @@
+{
+  "name": "CampusHub",
+  "short_name": "CampusHub",
+  "description": "Multi-tenant university ecosystem platform.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0A0A",
+  "theme_color": "#4F46E5",
+  "icons": []
+}
