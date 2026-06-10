@@ -76,7 +76,10 @@ export default function LandingPage() {
               description="CampusHub is designed around the daily reality of university communities: collaboration, events, study spaces, career development, networking, and student representation."
             />
           </ScrollReveal>
-          <ScrollReveal stagger className="mt-10 grid gap-5 lg:grid-cols-3">
+          <ScrollReveal
+            stagger
+            className="mt-10 grid items-stretch gap-5 lg:grid-cols-3"
+          >
             {[
               {
                 title: "Students attending events",
@@ -99,9 +102,9 @@ export default function LandingPage() {
             ].map((item) => (
               <article
                 key={item.title}
-                className="premium-card overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+                className="premium-card flex h-full min-h-[27rem] flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm"
               >
-                <div className="relative aspect-[16/10]">
+                <div className="relative aspect-[16/10] shrink-0">
                   <Image
                     alt=""
                     className="h-full w-full object-cover image-zoom"
@@ -110,7 +113,7 @@ export default function LandingPage() {
                     sizes="(min-width: 1024px) 33vw, 100vw"
                   />
                 </div>
-                <div className="p-5">
+                <div className="flex flex-1 flex-col p-5">
                   <h3 className="font-semibold">{item.title}</h3>
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">
                     {item.description}
@@ -182,11 +185,14 @@ export default function LandingPage() {
               description="Each stakeholder group gets a clear role in the wider CampusHub ecosystem."
             />
           </ScrollReveal>
-          <ScrollReveal stagger className="mt-10 grid gap-6 md:grid-cols-2">
+          <ScrollReveal
+            stagger
+            className="mt-10 grid items-stretch gap-6 md:grid-cols-2"
+          >
             {audienceBenefits.map((audience) => (
               <article
                 key={audience.title}
-                className="premium-card overflow-hidden rounded-lg border border-border bg-surface shadow-sm"
+                className="premium-card flex h-full min-h-[35rem] flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-sm"
               >
                 <div className="relative aspect-[16/8]">
                   <Image
@@ -197,7 +203,7 @@ export default function LandingPage() {
                     sizes="(min-width: 768px) 50vw, 100vw"
                   />
                 </div>
-                <div className="p-6">
+                <div className="flex flex-1 flex-col p-6">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/15 text-primary">
                       <audience.icon className="h-5 w-5" aria-hidden="true" />
@@ -207,7 +213,7 @@ export default function LandingPage() {
                   <p className="mt-4 text-sm leading-6 text-muted-foreground">
                     {audience.description}
                   </p>
-                  <div className="mt-5 flex flex-wrap gap-2">
+                  <div className="mt-5 flex min-h-20 flex-wrap content-start gap-2">
                     {audience.points.map((point) => (
                       <span
                         key={point}
@@ -219,7 +225,7 @@ export default function LandingPage() {
                   </div>
                   <Button
                     asChild
-                    className="mt-6"
+                    className="mt-auto w-full"
                     data-magnetic
                     variant="secondary"
                   >
@@ -257,13 +263,16 @@ export default function LandingPage() {
               title="A platform vision built for serious campus transformation."
             />
           </ScrollReveal>
-          <ScrollReveal stagger className="mt-10 grid gap-5 lg:grid-cols-3">
+          <ScrollReveal
+            stagger
+            className="mt-10 grid items-stretch gap-5 lg:grid-cols-3"
+          >
             {testimonials.map((item) => (
               <figure
                 key={item.name}
-                className="premium-card rounded-lg border border-border bg-surface p-6 shadow-sm"
+                className="premium-card flex h-full min-h-72 flex-col rounded-lg border border-border bg-surface p-6 shadow-sm"
               >
-                <blockquote className="text-base leading-7 text-foreground">
+                <blockquote className="flex-1 text-base leading-7 text-foreground">
                   “{item.quote}”
                 </blockquote>
                 <figcaption className="mt-6">

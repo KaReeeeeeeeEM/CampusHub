@@ -1,6 +1,9 @@
 import { model, models, Schema, type InferSchemaType } from "mongoose";
 
-import { ROLES } from "@/features/authorization/roles";
+import {
+  ROLES,
+  STUDENT_LEADERSHIP_POSITIONS,
+} from "@/features/authorization/roles";
 
 function hasEmployerRoleConflict(roles: string[]) {
   return (
@@ -55,6 +58,12 @@ const userSchema = new Schema(
         validator: (roles: string[]) => !hasEmployerRoleConflict(roles),
         message: "Employer accounts cannot hold any other CampusHub role.",
       },
+    },
+    studentLeadershipPositions: {
+      type: [String],
+      enum: Object.values(STUDENT_LEADERSHIP_POSITIONS),
+      default: [],
+      index: true,
     },
     universityId: {
       type: String,

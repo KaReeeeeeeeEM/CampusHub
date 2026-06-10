@@ -1,4 +1,4 @@
-import { Loader2 } from "lucide-react";
+import { FiLoader } from "react-icons/fi";
 
 import { cn } from "@/lib/utils";
 
@@ -18,7 +18,7 @@ export function LoadingState({
         className,
       )}
     >
-      <Loader2
+      <FiLoader
         className="h-4 w-4 animate-spin text-primary"
         aria-hidden="true"
       />

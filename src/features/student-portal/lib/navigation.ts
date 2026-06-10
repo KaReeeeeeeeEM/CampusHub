@@ -1,36 +1,46 @@
 import {
-  Bell,
-  BookOpen,
-  CalendarDays,
-  Compass,
-  Home,
-  Lightbulb,
-  Map,
-  MessageSquareText,
-  PackageSearch,
-  ShoppingBag,
-  UsersRound,
-} from "lucide-react";
+  FiBell,
+  FiBookOpen,
+  FiCalendar,
+  FiClipboard,
+  FiHome,
+  FiMap,
+  FiMessageSquare,
+  FiPieChart,
+  FiSend,
+  FiShield,
+  FiUser,
+  FiUsers,
+  FiZap,
+} from "react-icons/fi";
+import type { StudentLeadershipPosition } from "@/features/authorization/roles";
 
 export type StudentNavKey =
   | "dashboard"
   | "announcements"
   | "events"
   | "almanac"
-  | "campus-map"
+  | "map"
   | "forum"
   | "suggestions"
-  | "opportunities"
-  | "alumni"
-  | "marketplace"
-  | "lost-and-found";
+  | "profile"
+  | "notifications";
 
 export type StudentNavItem = {
   key: StudentNavKey;
   label: string;
   href: string;
   description: string;
-  comingSoon: boolean;
+  icon: React.ComponentType<{ className?: string }>;
+};
+
+export type StudentLeadershipNavItem = {
+  key: string;
+  label: string;
+  href: string;
+  description: string;
+  section: "Leadership" | "My Committee";
+  requiredPosition: StudentLeadershipPosition;
   icon: React.ComponentType<{ className?: string }>;
 };
 
@@ -39,95 +49,178 @@ export const studentNavigationItems: StudentNavItem[] = [
     key: "dashboard",
     label: "Dashboard",
     href: "/student/dashboard",
-    description: "Student portal overview and activity foundation.",
-    comingSoon: false,
-    icon: Home,
+    description: "Daily feed, campus updates, and quick access.",
+    icon: FiHome,
   },
   {
     key: "announcements",
     label: "Announcements",
     href: "/student/announcements",
-    description: "Official university and college communication.",
-    comingSoon: true,
-    icon: Bell,
+    description: "Official academic and college updates.",
+    icon: FiBell,
   },
   {
     key: "events",
     label: "Events",
     href: "/student/events",
-    description: "Campus events, sessions, and student activities.",
-    comingSoon: true,
-    icon: CalendarDays,
+    description: "Campus activities, workshops, sports, and conferences.",
+    icon: FiCalendar,
   },
   {
     key: "almanac",
     label: "Almanac",
     href: "/student/almanac",
-    description: "Academic dates, deadlines, and semester milestones.",
-    comingSoon: true,
-    icon: BookOpen,
+    description: "Academic dates, exams, and semester milestones.",
+    icon: FiBookOpen,
   },
   {
-    key: "campus-map",
+    key: "map",
     label: "Campus Map",
-    href: "/student/campus-map",
-    description: "Buildings, offices, labs, services, and campus places.",
-    comingSoon: true,
-    icon: Map,
+    href: "/student/map",
+    description: "Find lecture halls, libraries, services, and student spaces.",
+    icon: FiMap,
   },
   {
     key: "forum",
     label: "Forum",
     href: "/student/forum",
-    description: "Moderated academic and campus community discussions.",
-    comingSoon: true,
-    icon: MessageSquareText,
+    description: "Student discussions and moderated campus communities.",
+    icon: FiMessageSquare,
   },
   {
     key: "suggestions",
     label: "Suggestions",
     href: "/student/suggestions",
-    description: "Structured feedback for representatives and leadership.",
-    comingSoon: true,
-    icon: Lightbulb,
+    description: "Submit and track feedback for representatives.",
+    icon: FiZap,
   },
   {
-    key: "opportunities",
-    label: "Opportunities",
-    href: "/student/opportunities",
-    description: "Internships, scholarships, competitions, and programs.",
-    comingSoon: true,
-    icon: Compass,
+    key: "profile",
+    label: "Profile",
+    href: "/student/profile",
+    description: "Academic profile, skills, interests, and achievements.",
+    icon: FiUser,
   },
   {
-    key: "alumni",
-    label: "Alumni",
-    href: "/student/alumni",
-    description: "Mentorship, graduate stories, and network access.",
-    comingSoon: true,
-    icon: UsersRound,
-  },
-  {
-    key: "marketplace",
-    label: "Marketplace",
-    href: "/student/marketplace",
-    description: "Trusted campus commerce and partner services.",
-    comingSoon: true,
-    icon: ShoppingBag,
-  },
-  {
-    key: "lost-and-found",
-    label: "Lost & Found",
-    href: "/student/lost-and-found",
-    description: "Report, search, and recover lost campus items.",
-    comingSoon: true,
-    icon: PackageSearch,
+    key: "notifications",
+    label: "Notifications",
+    href: "/student/notifications",
+    description: "Announcement, event, forum, suggestion, and system alerts.",
+    icon: FiBell,
   },
 ];
 
-export const futureStudentNavigationItems = studentNavigationItems.filter(
-  (item) => item.comingSoon,
-);
+export const futureStudentNavigationItems: StudentNavItem[] = [];
+
+export const studentLeadershipNavigationItems: StudentLeadershipNavItem[] = [
+  {
+    key: "representative-committee",
+    label: "Committee Management",
+    href: "/student/leadership/committee",
+    description: "College coordination and student leadership workflows.",
+    section: "Leadership",
+    requiredPosition: "REPRESENTATIVE",
+    icon: FiUsers,
+  },
+  {
+    key: "representative-invitations",
+    label: "Student Invitations",
+    href: "/student/leadership/invitations",
+    description: "Invitation links and student enrollment tracking.",
+    section: "Leadership",
+    requiredPosition: "REPRESENTATIVE",
+    icon: FiSend,
+  },
+  {
+    key: "representative-announcements",
+    label: "College Announcements",
+    href: "/student/leadership/announcements",
+    description: "College-level announcements and communication.",
+    section: "Leadership",
+    requiredPosition: "REPRESENTATIVE",
+    icon: FiBell,
+  },
+  {
+    key: "representative-events",
+    label: "College Events",
+    href: "/student/leadership/events",
+    description: "College events, workshops, and community activities.",
+    section: "Leadership",
+    requiredPosition: "REPRESENTATIVE",
+    icon: FiCalendar,
+  },
+  {
+    key: "representative-forums",
+    label: "Forums Management",
+    href: "/student/leadership/forums",
+    description: "Moderate college community discussions.",
+    section: "Leadership",
+    requiredPosition: "REPRESENTATIVE",
+    icon: FiMessageSquare,
+  },
+  {
+    key: "representative-suggestions",
+    label: "Suggestions Management",
+    href: "/student/leadership/suggestions",
+    description: "Review and track student feedback.",
+    section: "Leadership",
+    requiredPosition: "REPRESENTATIVE",
+    icon: FiZap,
+  },
+  {
+    key: "representative-polls",
+    label: "Polls Management",
+    href: "/student/leadership/polls",
+    description: "Structured polls for student-informed decisions.",
+    section: "Leadership",
+    requiredPosition: "REPRESENTATIVE",
+    icon: FiPieChart,
+  },
+  {
+    key: "committee-tasks",
+    label: "Tasks",
+    href: "/student/my-committee/tasks",
+    description: "Assigned committee tasks and progress.",
+    section: "My Committee",
+    requiredPosition: "COMMITTEE_MEMBER",
+    icon: FiClipboard,
+  },
+  {
+    key: "committee-announcements",
+    label: "Category Announcements",
+    href: "/student/my-committee/announcements",
+    description: "Category-specific announcements.",
+    section: "My Committee",
+    requiredPosition: "COMMITTEE_MEMBER",
+    icon: FiBell,
+  },
+  {
+    key: "committee-events",
+    label: "Category Events",
+    href: "/student/my-committee/events",
+    description: "Category-specific events and calendar work.",
+    section: "My Committee",
+    requiredPosition: "COMMITTEE_MEMBER",
+    icon: FiCalendar,
+  },
+  {
+    key: "committee-discussions",
+    label: "Category Discussions",
+    href: "/student/my-committee/discussions",
+    description: "Category-specific committee operations.",
+    section: "My Committee",
+    requiredPosition: "COMMITTEE_MEMBER",
+    icon: FiShield,
+  },
+];
+
+export function getVisibleStudentLeadershipNavigationItems(
+  positions: StudentLeadershipPosition[],
+) {
+  return studentLeadershipNavigationItems.filter((item) =>
+    positions.includes(item.requiredPosition),
+  );
+}
 
 export function getStudentNavItemByKey(key: string) {
   return studentNavigationItems.find((item) => item.key === key) ?? null;

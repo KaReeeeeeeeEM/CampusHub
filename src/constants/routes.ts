@@ -30,6 +30,9 @@ export const APP_ROUTE_PREFIXES = [
   "/student",
   "/dashboard",
   "/portal",
+  "/representative",
+  "/committee-member",
+  "/super-admin",
 ] as const;
 
 export const DEFAULT_AUTHENTICATED_REDIRECT = "/portal-selection";

@@ -1,4 +1,19 @@
+import {
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+  type ColumnDef,
+  type RowData,
+} from "@tanstack/react-table";
+
 import { cn } from "@/lib/utils";
+
+declare module "@tanstack/react-table" {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData extends RowData, TValue> {
+    className?: string;
+  }
+}
 
 export type DataTableColumn<T> = {
   key: keyof T | string;
@@ -15,40 +30,94 @@ type DataTableProps<T> = {
   className?: string;
 };
 
-export function DataTable<T extends Record<string, unknown>>({
+export function DataTable<T extends object>({
   columns,
   data,
   getRowId,
   empty,
-  className
+  className,
 }: DataTableProps<T>) {
+  const tableColumns: ColumnDef<T>[] = columns.map((column) => ({
+    id: String(column.key),
+    header: () => column.header,
+    cell: ({ row }) =>
+      column.cell
+        ? column.cell(row.original)
+        : String(
+            (row.original as Record<string, unknown>)[String(column.key)] ?? "",
+          ),
+    meta: {
+      className: column.className,
+    },
+  }));
+
+  const table = useReactTable({
+    data,
+    columns: tableColumns,
+    getCoreRowModel: getCoreRowModel(),
+    getRowId,
+  });
+
   return (
-    <div className={cn("overflow-hidden rounded-lg border border-border bg-surface", className)}>
+    <div
+      className={cn(
+        "overflow-hidden rounded-lg border border-border bg-surface",
+        className,
+      )}
+    >
       <div className="overflow-x-auto">
         <table className="w-full min-w-full border-collapse text-sm">
           <thead className="bg-background text-left text-xs uppercase tracking-normal text-muted-foreground">
-            <tr>
-              {columns.map((column) => (
-                <th key={String(column.key)} className={cn("px-4 py-3 font-medium", column.className)}>
-                  {column.header}
-                </th>
-              ))}
-            </tr>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <th
+                    key={header.id}
+                    className={cn(
+                      "px-4 py-3 font-medium",
+                      header.column.columnDef.meta?.className,
+                    )}
+                  >
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
+                  </th>
+                ))}
+              </tr>
+            ))}
           </thead>
           <tbody className="divide-y divide-border">
-            {data.length > 0 ? (
-              data.map((row, index) => (
-                <tr key={getRowId(row, index)} className="hover:bg-background/70">
-                  {columns.map((column) => (
-                    <td key={String(column.key)} className={cn("px-4 py-3", column.className)}>
-                      {column.cell ? column.cell(row) : String(row[column.key] ?? "")}
+            {table.getRowModel().rows.length > 0 ? (
+              table.getRowModel().rows.map((row) => (
+                <tr
+                  key={row.id}
+                  className="transition-colors hover:bg-background/70"
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <td
+                      key={cell.id}
+                      className={cn(
+                        "px-4 py-3",
+                        cell.column.columnDef.meta?.className,
+                      )}
+                    >
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
                     </td>
                   ))}
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={columns.length} className="px-4 py-10 text-center text-muted-foreground">
+                <td
+                  colSpan={columns.length}
+                  className="px-4 py-10 text-center text-muted-foreground"
+                >
                   {empty ?? "No records found."}
                 </td>
               </tr>

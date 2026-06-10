@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu } from "lucide-react";
+import { FiMenu } from "react-icons/fi";
 
 import { NotificationMenu } from "@/components/navigation/notification-menu";
 import { Search } from "@/components/navigation/search";
@@ -22,7 +22,7 @@ export function Topbar() {
         variant="ghost"
         onClick={toggleSidebar}
       >
-        <Menu className="h-4 w-4" aria-hidden="true" />
+        <FiMenu className="h-4 w-4" aria-hidden="true" />
       </Button>
       <Search className="max-w-md" placeholder="Search CampusHub" />
       <div className="ml-auto flex items-center gap-1">

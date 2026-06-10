@@ -3,6 +3,8 @@
 import { FadeIn } from "@/components/motion/fade-in";
 import { HoverCard } from "@/components/motion/hover-card";
 import { universities } from "@/features/universities/lib/mock-data";
+import { cn } from "@/lib/utils";
+import { useThemeStore } from "@/store/theme-store";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
@@ -56,11 +58,35 @@ function asArc(arc: object): UniversityArc {
   return arc as UniversityArc;
 }
 
+function getSystemTheme() {
+  if (typeof window === "undefined") {
+    return "light";
+  }
+
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
 export function UniversityNetworkGlobe() {
   const reducedMotion = useReducedMotion();
+  const theme = useThemeStore((state) => state.theme);
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [width, setWidth] = useState(720);
+  const [systemTheme, setSystemTheme] = useState<"light" | "dark">("light");
+  const resolvedTheme = theme === "system" ? systemTheme : theme;
+  const isDark = resolvedTheme === "dark";
+  const globeTheme = {
+    globeImageUrl: isDark
+      ? "//unpkg.com/three-globe/example/img/earth-dark.jpg"
+      : "//unpkg.com/three-globe/example/img/earth-blue-marble.jpg",
+    atmosphereColor: isDark ? "#4F46E5" : "#4338CA",
+    arcColor: isDark
+      ? ["rgba(129,140,248,0.2)", "rgba(79,70,229,0.95)"]
+      : ["rgba(67,56,202,0.18)", "rgba(55,48,163,0.9)"],
+    pointColor: isDark ? "#818CF8" : "#4F46E5",
+  };
 
   const nodes = useMemo<UniversityNode[]>(
     () =>
@@ -110,6 +136,16 @@ export function UniversityNetworkGlobe() {
   }, []);
 
   useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const syncSystemTheme = () => setSystemTheme(getSystemTheme());
+
+    syncSystemTheme();
+    media.addEventListener("change", syncSystemTheme);
+
+    return () => media.removeEventListener("change", syncSystemTheme);
+  }, []);
+
+  useEffect(() => {
     const globe = globeRef.current;
 
     if (!globe) {
@@ -128,17 +164,17 @@ export function UniversityNetworkGlobe() {
     width,
     height: Math.min(520, Math.max(360, Math.round(width * 0.72))),
     backgroundColor: "rgba(0,0,0,0)",
-    globeImageUrl: "//unpkg.com/three-globe/example/img/earth-dark.jpg",
+    globeImageUrl: globeTheme.globeImageUrl,
     bumpImageUrl: "//unpkg.com/three-globe/example/img/earth-topology.png",
     showAtmosphere: true,
-    atmosphereColor: "#4F46E5",
-    atmosphereAltitude: 0.14,
+    atmosphereColor: globeTheme.atmosphereColor,
+    atmosphereAltitude: isDark ? 0.14 : 0.1,
     pointsData: nodes,
     pointLat: (point) => asNode(point).lat,
     pointLng: (point) => asNode(point).lng,
     pointAltitude: 0.025,
     pointRadius: (point) => asNode(point).size,
-    pointColor: (point) => asNode(point).color,
+    pointColor: (point) => (isDark ? asNode(point).color : globeTheme.pointColor),
     pointLabel: (point) => {
       const node = asNode(point);
       return `${node.name}<br />${node.city}`;
@@ -148,7 +184,7 @@ export function UniversityNetworkGlobe() {
     arcStartLng: (arc: object) => asArc(arc).startLng,
     arcEndLat: (arc: object) => asArc(arc).endLat,
     arcEndLng: (arc: object) => asArc(arc).endLng,
-    arcColor: (arc: object) => asArc(arc).color,
+    arcColor: () => globeTheme.arcColor,
     arcAltitude: 0.22,
     arcStroke: 0.7,
     arcDashLength: 0.55,
@@ -187,9 +223,14 @@ export function UniversityNetworkGlobe() {
           </div>
           <div
             ref={containerRef}
-            className="min-h-96 overflow-hidden rounded-lg border border-border bg-background"
+            className={cn(
+              "min-h-96 overflow-hidden rounded-lg border border-border transition-colors duration-300",
+              isDark
+                ? "bg-background"
+                : "bg-[radial-gradient(circle_at_center,rgba(79,70,229,0.08),rgba(255,255,255,0)_62%),linear-gradient(180deg,rgba(248,250,252,0.92),rgba(255,255,255,1))]",
+            )}
           >
-            <Globe ref={globeRef} {...globeProps} />
+            <Globe key={resolvedTheme} ref={globeRef} {...globeProps} />
           </div>
         </div>
       </HoverCard>

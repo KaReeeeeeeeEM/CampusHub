@@ -1,4 +1,4 @@
-import { Search } from "lucide-react";
+import { FiSearch } from "react-icons/fi";
 
 import {
   CampusInput,
@@ -22,7 +22,7 @@ export function CampusSearch({
         wrapperClassName,
       )}
     >
-      <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
+      <FiSearch className="h-4 w-4 shrink-0" aria-hidden="true" />
       <CampusInput
         className={cn("h-full border-0 px-0 focus:ring-0", className)}
         {...props}

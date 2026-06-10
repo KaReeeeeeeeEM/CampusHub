@@ -1,8 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { Home, Shield, University } from "lucide-react";
+import { Suspense } from "react";
+import { FiBookOpen, FiHome, FiShield } from "react-icons/fi";
 
+import { DevelopmentRoleSwitcher } from "@/components/navigation/development-role-switcher";
 import { cn } from "@/lib/utils";
 
 type SidebarItem = {
@@ -17,9 +19,9 @@ type SidebarProps = {
 };
 
 const defaultItems: SidebarItem[] = [
-  { label: "Foundation", href: "#", icon: Home },
-  { label: "Tenant", href: "#", icon: University },
-  { label: "Access", href: "#", icon: Shield },
+  { label: "Foundation", href: "#", icon: FiHome },
+  { label: "Tenant", href: "#", icon: FiBookOpen },
+  { label: "Access", href: "#", icon: FiShield },
 ];
 
 export function Sidebar({ items = defaultItems, className }: SidebarProps) {
@@ -30,7 +32,7 @@ export function Sidebar({ items = defaultItems, className }: SidebarProps) {
         className,
       )}
     >
-      <div className="mb-6 flex h-10 items-center gap-3 px-2 text-base font-semibold">
+      <div className="mb-4 flex h-10 items-center gap-3 px-2 text-base font-semibold">
         <span className="relative h-9 w-9 overflow-hidden rounded-md">
           <Image
             src="/logo.png"
@@ -43,6 +45,9 @@ export function Sidebar({ items = defaultItems, className }: SidebarProps) {
         </span>
         <span>CampusHub</span>
       </div>
+      <Suspense fallback={null}>
+        <DevelopmentRoleSwitcher />
+      </Suspense>
       <nav className="space-y-1">
         {items.map((item) => {
           const Icon = item.icon;
@@ -53,8 +58,10 @@ export function Sidebar({ items = defaultItems, className }: SidebarProps) {
               className="flex h-10 items-center gap-3 rounded-md px-3 text-sm text-muted-foreground hover:bg-background hover:text-foreground"
               href={item.href}
             >
-              {Icon ? <Icon className="h-4 w-4" aria-hidden="true" /> : null}
-              {item.label}
+              {Icon ? (
+                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+              ) : null}
+              <span className="truncate">{item.label}</span>
             </a>
           );
         })}

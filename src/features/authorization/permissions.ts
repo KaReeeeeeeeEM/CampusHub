@@ -1,4 +1,7 @@
-import type { RoleKey } from "@/features/authorization/roles";
+import type {
+  RoleKey,
+  StudentLeadershipPosition,
+} from "@/features/authorization/roles";
 
 export const PERMISSIONS = {
   PLATFORM_MANAGE: "platform:manage",
@@ -6,7 +9,10 @@ export const PERMISSIONS = {
   USER_READ: "user:read",
   USER_MANAGE: "user:manage",
   TENANT_READ: "tenant:read",
-  TENANT_MANAGE: "tenant:manage"
+  TENANT_MANAGE: "tenant:manage",
+  STUDENT_LEADERSHIP_ACCESS: "student-leadership:access",
+  REPRESENTATIVE_ACCESS: "student-leadership:representative",
+  COMMITTEE_MEMBER_ACCESS: "student-leadership:committee-member",
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -27,10 +33,26 @@ export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
     PERMISSIONS.TENANT_READ,
     PERMISSIONS.TENANT_MANAGE
   ],
-  REPRESENTATIVE: [PERMISSIONS.USER_READ, PERMISSIONS.TENANT_READ],
-  COMMITTEE_MEMBER: [PERMISSIONS.USER_READ, PERMISSIONS.TENANT_READ],
   TEACHER: [PERMISSIONS.USER_READ, PERMISSIONS.TENANT_READ],
   STUDENT: [PERMISSIONS.TENANT_READ],
   ALUMNI: [PERMISSIONS.TENANT_READ],
   EMPLOYER: [PERMISSIONS.TENANT_READ]
+};
+
+export const STUDENT_LEADERSHIP_PERMISSIONS: Record<
+  StudentLeadershipPosition,
+  Permission[]
+> = {
+  REPRESENTATIVE: [
+    PERMISSIONS.TENANT_READ,
+    PERMISSIONS.USER_READ,
+    PERMISSIONS.STUDENT_LEADERSHIP_ACCESS,
+    PERMISSIONS.REPRESENTATIVE_ACCESS,
+  ],
+  COMMITTEE_MEMBER: [
+    PERMISSIONS.TENANT_READ,
+    PERMISSIONS.USER_READ,
+    PERMISSIONS.STUDENT_LEADERSHIP_ACCESS,
+    PERMISSIONS.COMMITTEE_MEMBER_ACCESS,
+  ],
 };

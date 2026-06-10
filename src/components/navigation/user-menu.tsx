@@ -1,11 +1,17 @@
 "use client";
 
 import * as Avatar from "@radix-ui/react-avatar";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { LogOut, Settings, User } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { FiLogOut, FiSettings, FiUser } from "react-icons/fi";
 
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { authClient } from "@/lib/auth/client";
 
 type UserMenuProps = {
@@ -34,49 +40,44 @@ export function UserMenu({ name, email }: UserMenuProps) {
   }
 
   return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger asChild>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
         <Button aria-label="Open user menu" size="icon" variant="ghost">
           <Avatar.Root className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
             <Avatar.Fallback>{initials || "CH"}</Avatar.Fallback>
           </Avatar.Root>
         </Button>
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          align="end"
-          className="z-50 w-64 rounded-lg border border-border bg-surface p-2 text-foreground shadow-lg"
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64 p-2">
+        <div className="px-3 py-2">
+          <p className="truncate text-sm font-medium">
+            {name || "CampusHub User"}
+          </p>
+          {email ? (
+            <p className="truncate text-xs text-muted-foreground">{email}</p>
+          ) : null}
+        </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem>
+          <FiUser className="h-4 w-4" aria-hidden="true" />
+          Profile
+        </DropdownMenuItem>
+        <DropdownMenuItem>
+          <FiSettings className="h-4 w-4" aria-hidden="true" />
+          Settings
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          destructive
+          onSelect={(event) => {
+            event.preventDefault();
+            void handleSignOut();
+          }}
         >
-          <div className="px-3 py-2">
-            <p className="truncate text-sm font-medium">
-              {name || "CampusHub User"}
-            </p>
-            {email ? (
-              <p className="truncate text-xs text-muted-foreground">{email}</p>
-            ) : null}
-          </div>
-          <DropdownMenu.Separator className="my-1 h-px bg-border" />
-          <DropdownMenu.Item className="flex cursor-default items-center gap-2 rounded-md px-3 py-2 text-sm outline-none focus:bg-background">
-            <User className="h-4 w-4" aria-hidden="true" />
-            Profile
-          </DropdownMenu.Item>
-          <DropdownMenu.Item className="flex cursor-default items-center gap-2 rounded-md px-3 py-2 text-sm outline-none focus:bg-background">
-            <Settings className="h-4 w-4" aria-hidden="true" />
-            Settings
-          </DropdownMenu.Item>
-          <DropdownMenu.Separator className="my-1 h-px bg-border" />
-          <DropdownMenu.Item
-            className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm text-destructive outline-none focus:bg-background"
-            onSelect={(event) => {
-              event.preventDefault();
-              void handleSignOut();
-            }}
-          >
-            <LogOut className="h-4 w-4" aria-hidden="true" />
-            Sign out
-          </DropdownMenu.Item>
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
+          <FiLogOut className="h-4 w-4" aria-hidden="true" />
+          Sign out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

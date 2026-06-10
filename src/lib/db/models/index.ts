@@ -1,5 +1,13 @@
 export { CollegeModel, type CollegeDocument } from "@/lib/db/models/college";
 export {
+  DepartmentModel,
+  type DepartmentDocument,
+} from "@/lib/db/models/department";
+export {
+  CampusAdminInvitationModel,
+  type CampusAdminInvitationDocument,
+} from "@/lib/db/models/campus-admin-invitation";
+export {
   EmployerApplicationModel,
   type EmployerApplicationDocument,
 } from "@/lib/db/models/employer-application";
@@ -19,9 +27,17 @@ export {
   RepresentativeModel,
   type RepresentativeDocument,
 } from "@/lib/db/models/representative";
+export {
+  RepresentativeInvitationModel,
+  type RepresentativeInvitationDocument,
+} from "@/lib/db/models/representative-invitation";
 export { RoleModel, type RoleDocument } from "@/lib/db/models/role";
 export { SessionModel, type SessionDocument } from "@/lib/db/models/session";
 export { StudentModel, type StudentDocument } from "@/lib/db/models/student";
+export {
+  TeacherInvitationModel,
+  type TeacherInvitationDocument,
+} from "@/lib/db/models/teacher-invitation";
 export {
   UniversityModel,
   type UniversityDocument,

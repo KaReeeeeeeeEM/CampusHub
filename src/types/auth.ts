@@ -1,4 +1,7 @@
-import type { RoleKey } from "@/features/authorization/roles";
+import type {
+  RoleKey,
+  StudentLeadershipPosition,
+} from "@/features/authorization/roles";
 import type { TenantContextValue } from "@/types/tenant";
 
 export type AuthUser = {
@@ -7,7 +10,8 @@ export type AuthUser = {
   email: string;
   image?: string | null;
   role: RoleKey;
-  roles?: RoleKey[];
+  roles?: string[];
+  studentLeadershipPositions?: StudentLeadershipPosition[];
   universityId?: string | null;
   collegeId?: string | null;
   onboardingCompleted?: boolean;

@@ -3,14 +3,19 @@ import Link from "next/link";
 
 export function PublicLogo() {
   return (
-    <Link className="flex items-center gap-3" href="/">
-      <span className="relative h-20 w-56 overflow-hidden rounded-md sm:h-24 sm:w-72">
+    <Link
+      aria-label="CampusHub home"
+      className="flex shrink-0 items-center gap-3"
+      href="/"
+    >
+      <span className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-md sm:h-14 sm:w-14">
         <Image
           src="/logo.png"
-          alt="CampusHub logo"
-          fill
-          className="object-contain"
-          sizes="(min-width: 640px) 288px, 224px"
+          alt=""
+          width={56}
+          height={56}
+          className="h-full w-full object-contain"
+          sizes="(min-width: 640px) 56px, 48px"
           priority
         />
       </span>

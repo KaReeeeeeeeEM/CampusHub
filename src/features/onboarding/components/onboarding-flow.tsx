@@ -9,7 +9,6 @@ import {
   Save,
   ShieldCheck,
   UserRoundCheck,
-  UsersRound,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -23,7 +22,6 @@ import { Button } from "@/components/ui/button";
 import { AuthAlert } from "@/features/auth/components/auth-alert";
 import {
   collegeOptions,
-  committeeCategoryOptions,
   departmentOptions,
   industryOptions,
   universityOptions,
@@ -48,8 +46,6 @@ const steps = [
 const roleDescriptions: Record<OnboardingRole, string> = {
   STUDENT: "Set up your university, college, department, and year of study.",
   TEACHER: "Add your university and department context.",
-  REPRESENTATIVE:
-    "Connect your university, college, and representative committee category.",
   CAMPUS_ADMIN: "Prepare your administrative profile for campus operations.",
   ALUMNI: "Share graduation and current employment information.",
   EMPLOYER: "Create your employer context for future talent workflows.",
@@ -70,7 +66,6 @@ const roleIcons: Record<
 > = {
   STUDENT: GraduationCap,
   TEACHER: UserRoundCheck,
-  REPRESENTATIVE: UsersRound,
   CAMPUS_ADMIN: ShieldCheck,
   ALUMNI: GraduationCap,
   EMPLOYER: BriefcaseBusiness,
@@ -119,15 +114,6 @@ function validateRoleData(
     const value = data.TEACHER;
     if (!value.university) errors.university = "Select a university.";
     if (!value.department) errors.department = "Select a department.";
-  }
-
-  if (role === "REPRESENTATIVE") {
-    const value = data.REPRESENTATIVE;
-    if (!value.university) errors.university = "Select a university.";
-    if (!value.college) errors.college = "Select a college.";
-    if (!value.committeeCategory) {
-      errors.committeeCategory = "Select a committee category.";
-    }
   }
 
   if (role === "CAMPUS_ADMIN") {
@@ -279,37 +265,6 @@ function RoleDetailsForm({
           options={departmentOptions}
           error={errors.department}
           onChange={(department) => updateRoleData(role, { department })}
-        />
-      </div>
-    );
-  }
-
-  if (role === "REPRESENTATIVE") {
-    const value = data.REPRESENTATIVE;
-    return (
-      <div className="grid gap-4 sm:grid-cols-2">
-        <SelectField
-          label="University"
-          value={value.university}
-          options={universityOptions}
-          error={errors.university}
-          onChange={(university) => updateRoleData(role, { university })}
-        />
-        <SelectField
-          label="College"
-          value={value.college}
-          options={collegeOptions}
-          error={errors.college}
-          onChange={(college) => updateRoleData(role, { college })}
-        />
-        <SelectField
-          label="Committee category"
-          value={value.committeeCategory}
-          options={committeeCategoryOptions}
-          error={errors.committeeCategory}
-          onChange={(committeeCategory) =>
-            updateRoleData(role, { committeeCategory })
-          }
         />
       </div>
     );

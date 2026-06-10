@@ -4,7 +4,6 @@ import {
   GraduationCap,
   ShieldCheck,
   UserRoundCheck,
-  UsersRound,
 } from "lucide-react";
 
 import type { RoleKey } from "@/features/authorization/roles";
@@ -12,7 +11,6 @@ import type { RoleKey } from "@/features/authorization/roles";
 export type PortalKey =
   | "student"
   | "teacher"
-  | "representative"
   | "campus-admin"
   | "alumni"
   | "employer";
@@ -20,7 +18,6 @@ export type PortalKey =
 export const PORTAL_KEYS = [
   "student",
   "teacher",
-  "representative",
   "campus-admin",
   "alumni",
   "employer",
@@ -43,7 +40,7 @@ export const portalDefinitions: PortalDefinition[] = [
     title: "Student",
     roleLabel: "Student",
     description:
-      "Access academic life, campus engagement, opportunities, representatives, and student services.",
+      "Access academic life, campus engagement, leadership workspaces, opportunities, and student services.",
     href: "/student",
     requiredRoles: ["STUDENT"],
     capabilities: ["Academic profile", "Campus updates", "Opportunities"],
@@ -65,27 +62,12 @@ export const portalDefinitions: PortalDefinition[] = [
     icon: UserRoundCheck,
   },
   {
-    key: "representative",
-    title: "Representative",
-    roleLabel: "Representative",
-    description:
-      "Coordinate student communities, committees, college engagement, and representative workflows.",
-    href: "/portal/representative",
-    requiredRoles: ["REPRESENTATIVE", "COMMITTEE_MEMBER"],
-    capabilities: [
-      "Committee tools",
-      "Student feedback",
-      "College coordination",
-    ],
-    icon: UsersRound,
-  },
-  {
     key: "campus-admin",
     title: "Campus Admin",
     roleLabel: "Campus Admin",
     description:
       "Manage institutional operations, tenant settings, user access, and governance workflows.",
-    href: "/portal/campus-admin",
+    href: "/campus-admin/dashboard",
     requiredRoles: ["CAMPUS_ADMIN", "SUPER_ADMIN"],
     capabilities: [
       "Tenant governance",
@@ -134,5 +116,7 @@ export function canAccessPortal(
   userRoles: RoleKey[],
   portal: PortalDefinition,
 ) {
-  return portal.requiredRoles.some((role) => userRoles.includes(role));
+  return portal.requiredRoles.some((role) =>
+    userRoles.includes(role),
+  );
 }

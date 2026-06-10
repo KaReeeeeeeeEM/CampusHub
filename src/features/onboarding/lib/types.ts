@@ -1,7 +1,6 @@
 export const ONBOARDING_ROLES = [
   "STUDENT",
   "TEACHER",
-  "REPRESENTATIVE",
   "CAMPUS_ADMIN",
   "ALUMNI",
   "EMPLOYER",
@@ -59,7 +58,6 @@ export type OnboardingStep = "role" | "details" | "review" | "complete";
 export const roleLabels: Record<OnboardingRole, string> = {
   STUDENT: "Student",
   TEACHER: "Teacher",
-  REPRESENTATIVE: "Representative",
   CAMPUS_ADMIN: "Campus Admin",
   ALUMNI: "Alumni",
   EMPLOYER: "Employer",

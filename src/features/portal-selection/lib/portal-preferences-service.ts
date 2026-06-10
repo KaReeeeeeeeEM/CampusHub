@@ -1,8 +1,18 @@
 import { randomUUID } from "node:crypto";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { ROLES, type RoleKey } from "@/features/authorization/roles";
+import {
+  isLegacyStudentLeadershipRoleKey,
+  isRoleKey,
+  isStudentLeadershipPosition,
+  type RoleKey,
+} from "@/features/authorization/roles";
+import {
+  DEV_ROLE_PREVIEW_COOKIE,
+  isRolePreviewKey,
+} from "@/features/development/role-preview";
 import {
   canAccessPortal,
   getPortalByKey,
@@ -48,11 +58,51 @@ export function resolveUserRoles(session: AuthSession) {
     : [session.user.role];
 
   return Array.from(
-    new Set(roles.filter((role): role is RoleKey => role in ROLES)),
+    new Set(roles.filter(isRoleKey)),
   );
 }
 
-export function getAvailablePortalsForRoles(userRoles: RoleKey[]) {
+export function resolveStudentLeadershipPositions(session: AuthSession) {
+  const explicitPositions =
+    session.user.studentLeadershipPositions?.filter(
+      isStudentLeadershipPosition,
+    ) ?? [];
+  const legacyPositions =
+    session.user.roles
+      ?.filter(isLegacyStudentLeadershipRoleKey)
+      .filter(isStudentLeadershipPosition) ?? [];
+
+  return Array.from(new Set([...explicitPositions, ...legacyPositions]));
+}
+
+async function resolvePreviewableAccess(session: AuthSession) {
+  const roles = resolveUserRoles(session);
+  const studentLeadershipPositions = resolveStudentLeadershipPositions(session);
+
+  if (
+    process.env.NODE_ENV === "production" ||
+    !roles.includes("SUPER_ADMIN")
+  ) {
+    return { roles, studentLeadershipPositions };
+  }
+
+  const previewRole = (await cookies()).get(DEV_ROLE_PREVIEW_COOKIE)?.value;
+
+  if (!isRolePreviewKey(previewRole)) {
+    return { roles, studentLeadershipPositions };
+  }
+
+  if (isStudentLeadershipPosition(previewRole)) {
+    return {
+      roles: ["STUDENT"] satisfies RoleKey[],
+      studentLeadershipPositions: [previewRole],
+    };
+  }
+
+  return { roles: [previewRole], studentLeadershipPositions: [] };
+}
+
+export function getAvailablePortalsForAccess(userRoles: RoleKey[]) {
   return portalDefinitions
     .filter((portal) => canAccessPortal(userRoles, portal))
     .map((portal) => portal.key);
@@ -136,8 +186,8 @@ function serializePreferenceState(
 async function getOrCreatePortalPreference(session: AuthSession) {
   await connectMongo();
 
-  const roles = resolveUserRoles(session);
-  const availablePortals = getAvailablePortalsForRoles(roles);
+  const { roles } = await resolvePreviewableAccess(session);
+  const availablePortals = getAvailablePortalsForAccess(roles);
   const fallbackPortal = availablePortals[0] ?? null;
 
   const preference = await PortalPreferenceModel.findOneAndUpdate(

@@ -23,10 +23,14 @@ const collegeSchema = new Schema(
       trim: true,
       index: true,
     },
-    code: {
+    shortName: {
       type: String,
       default: null,
-      uppercase: true,
+      trim: true,
+    },
+    logo: {
+      type: String,
+      default: null,
       trim: true,
     },
     description: {

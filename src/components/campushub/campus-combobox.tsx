@@ -1,7 +1,7 @@
 "use client";
 
-import { Check, ChevronsUpDown, Search } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
+import { FiCheck, FiChevronDown, FiSearch } from "react-icons/fi";
 
 import { CampusInput } from "@/components/campushub/campus-input";
 import { Button } from "@/components/ui/button";
@@ -76,7 +76,7 @@ export function CampusCombobox({
         onClick={() => setOpen((current) => !current)}
       >
         <span className="truncate">{selected?.label ?? placeholder}</span>
-        <ChevronsUpDown
+        <FiChevronDown
           className="h-4 w-4 shrink-0 text-muted-foreground"
           aria-hidden="true"
         />
@@ -85,7 +85,7 @@ export function CampusCombobox({
       {open ? (
         <div className="absolute z-50 mt-2 w-full rounded-lg border border-border bg-surface p-2 shadow-lg">
           <div className="flex h-10 items-center gap-2 rounded-md border border-border bg-background px-3 text-muted-foreground focus-within:ring-2 focus-within:ring-ring">
-            <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <FiSearch className="h-4 w-4 shrink-0" aria-hidden="true" />
             <CampusInput
               autoFocus
               className="h-full border-0 px-0 focus:ring-0"
@@ -123,7 +123,7 @@ export function CampusCombobox({
                       close();
                     }}
                   >
-                    <Check
+                    <FiCheck
                       className={cn(
                         "h-4 w-4 shrink-0",
                         active ? "opacity-100" : "opacity-0",

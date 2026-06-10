@@ -15,8 +15,18 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { ROLE_LABELS, type RoleKey } from "@/features/authorization/roles";
+import {
+  ROLE_LABELS,
+  isRoleKey,
+  isStudentLeadershipPosition,
+  type RoleKey,
+} from "@/features/authorization/roles";
 import { useAuth } from "@/features/auth/auth-provider";
+import {
+  DEV_ROLE_PREVIEW_COOKIE,
+  isRolePreviewKey,
+  type RolePreviewKey,
+} from "@/features/development/role-preview";
 import {
   canAccessPortal,
   getPortalByKey,
@@ -49,10 +59,27 @@ function formatSelectedAt(value: string | null) {
   }).format(new Date(value));
 }
 
-function getUserRoles(userRole: RoleKey | undefined, userRoles?: RoleKey[]) {
+function getUserRoles(userRole: RoleKey | undefined, userRoles?: string[]) {
   const roles = userRoles?.length ? userRoles : userRole ? [userRole] : [];
 
-  return Array.from(new Set(roles));
+  return Array.from(new Set(roles.filter(isRoleKey)));
+}
+
+function readDevelopmentPreviewRole() {
+  if (
+    process.env.NODE_ENV === "production" ||
+    typeof document === "undefined"
+  ) {
+    return null;
+  }
+
+  const value = document.cookie
+    .split("; ")
+    .find((item) => item.startsWith(`${DEV_ROLE_PREVIEW_COOKIE}=`))
+    ?.split("=")[1];
+  const decoded = value ? decodeURIComponent(value) : null;
+
+  return isRolePreviewKey(decoded) ? decoded : null;
 }
 
 function PortalCard({
@@ -127,7 +154,7 @@ function PortalCard({
 
       <div className="mt-5">
         <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
-          Role access
+          Access requirements
         </p>
         <div className="mt-2 flex flex-wrap gap-2">
           {portal.requiredRoles.map((role) => (
@@ -218,18 +245,46 @@ export function PortalSelectionView() {
   const [isLoadingPreferences, setIsLoadingPreferences] = useState(true);
   const [pendingPortal, setPendingPortal] = useState<PortalKey | null>(null);
   const [isResetting, setIsResetting] = useState(false);
+  const [previewRole, setPreviewRole] = useState<RolePreviewKey | null>(null);
 
-  const userRoles = useMemo(
+  const baseUserRoles = useMemo(
     () => getUserRoles(user?.role, user?.roles),
     [user?.role, user?.roles],
   );
+  const userRoles = useMemo(() => {
+    if (
+      previewRole &&
+      baseUserRoles.includes("SUPER_ADMIN") &&
+      process.env.NODE_ENV !== "production"
+    ) {
+      if (isStudentLeadershipPosition(previewRole)) {
+        return ["STUDENT"] satisfies RoleKey[];
+      }
 
+      return [previewRole];
+    }
+
+    return baseUserRoles;
+  }, [baseUserRoles, previewRole]);
   const lastUsed = getPortalByKey(lastUsedPortal);
   const selected = getPortalByKey(selectedPortal);
   const defaultPortalDefinition = getPortalByKey(defaultPortal);
   const quickAccessPortals = quickAccess
     .map((key) => getPortalByKey(key))
     .filter((portal): portal is PortalDefinition => Boolean(portal));
+
+  useEffect(() => {
+    const syncPreviewRole = () => setPreviewRole(readDevelopmentPreviewRole());
+
+    syncPreviewRole();
+    window.addEventListener("campushub:dev-role-preview", syncPreviewRole);
+
+    return () =>
+      window.removeEventListener(
+        "campushub:dev-role-preview",
+        syncPreviewRole,
+      );
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -262,7 +317,7 @@ export function PortalSelectionView() {
     return () => {
       mounted = false;
     };
-  }, [hydratePortalSelection]);
+  }, [hydratePortalSelection, previewRole]);
 
   async function updatePreferences(
     body:
@@ -529,7 +584,7 @@ export function PortalSelectionView() {
           <div>
             <h2 className="text-xl font-semibold">Supported portals</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Select an available portal or review required role access.
+              Select an available portal or review required access.
             </p>
           </div>
         </div>

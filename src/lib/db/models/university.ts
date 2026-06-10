@@ -24,6 +24,48 @@ const universitySchema = new Schema(
       default: null,
       trim: true,
     },
+    logo: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    coverImage: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    country: {
+      type: String,
+      default: null,
+      trim: true,
+      index: true,
+    },
+    region: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    website: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    email: {
+      type: String,
+      default: null,
+      lowercase: true,
+      trim: true,
+    },
+    phone: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    description: {
+      type: String,
+      default: null,
+      trim: true,
+    },
     domain: {
       type: String,
       default: null,
@@ -31,18 +73,13 @@ const universitySchema = new Schema(
       trim: true,
       index: true,
     },
-    description: {
-      type: String,
-      default: null,
-      trim: true,
-    },
     logoUrl: {
       type: String,
       default: null,
     },
     status: {
       type: String,
-      enum: ["ACTIVE", "INACTIVE"],
+      enum: ["ACTIVE", "INACTIVE", "ONBOARDING"],
       default: "ACTIVE",
       index: true,
     },

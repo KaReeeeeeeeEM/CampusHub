@@ -27,15 +27,42 @@ export function getAcquisitionSecret() {
 }
 
 function isAllowedAcquisitionSourceForRole(source: string, role: string) {
-  const sourceRoleMap: Record<string, string> = {
-    STUDENT_INVITATION: "STUDENT",
-    TEACHER_INVITATION: "TEACHER",
-    REPRESENTATIVE_INVITATION: "REPRESENTATIVE",
-    CAMPUS_ADMIN_INVITATION: "CAMPUS_ADMIN",
-    EMPLOYER_ACTIVATION: "EMPLOYER",
+  const sourceRoleMap: Record<string, string[]> = {
+    STUDENT_INVITATION: ["STUDENT"],
+    TEACHER_INVITATION: ["TEACHER"],
+    REPRESENTATIVE_INVITATION: ["STUDENT", "REPRESENTATIVE"],
+    CAMPUS_ADMIN_INVITATION: ["CAMPUS_ADMIN"],
+    EMPLOYER_ACTIVATION: ["EMPLOYER"],
   };
 
-  return sourceRoleMap[source] === role;
+  return sourceRoleMap[source]?.includes(role) ?? false;
+}
+
+function resolveCreatedUserAccess(source: string, intendedRole: string) {
+  if (
+    source === "REPRESENTATIVE_INVITATION" ||
+    intendedRole === "REPRESENTATIVE"
+  ) {
+    return {
+      role: "STUDENT",
+      roles: ["STUDENT"],
+      studentLeadershipPositions: ["REPRESENTATIVE"],
+    };
+  }
+
+  if (intendedRole === "COMMITTEE_MEMBER") {
+    return {
+      role: "STUDENT",
+      roles: ["STUDENT"],
+      studentLeadershipPositions: ["COMMITTEE_MEMBER"],
+    };
+  }
+
+  return {
+    role: intendedRole,
+    roles: [intendedRole],
+    studentLeadershipPositions: [],
+  };
 }
 
 export const auth = betterAuth({
@@ -88,6 +115,13 @@ export const auth = betterAuth({
         input: false,
         returned: true,
         defaultValue: ["STUDENT"],
+      },
+      studentLeadershipPositions: {
+        type: "string[]",
+        required: false,
+        input: false,
+        returned: true,
+        defaultValue: [],
       },
       universityId: {
         type: "string",
@@ -193,12 +227,19 @@ export const auth = betterAuth({
             typeof user.intendedRole === "string"
               ? user.intendedRole
               : "STUDENT";
+          const acquisitionSource =
+            typeof user.acquisitionSource === "string"
+              ? user.acquisitionSource
+              : "";
+          const access = resolveCreatedUserAccess(
+            acquisitionSource,
+            intendedRole,
+          );
 
           return {
             data: {
               ...user,
-              role: intendedRole,
-              roles: [intendedRole],
+              ...access,
               onboardingCompleted: false,
             },
           };
@@ -214,6 +255,8 @@ export const auth = betterAuth({
             intendedRole: user.intendedRole as never,
             role: user.role as never,
             roles: user.roles as never,
+            studentLeadershipPositions:
+              user.studentLeadershipPositions as never,
             universityId: user.universityId as never,
             collegeId: user.collegeId as never,
             onboardingCompleted: user.onboardingCompleted as never,
@@ -231,6 +274,8 @@ export const auth = betterAuth({
             intendedRole: user.intendedRole as never,
             role: user.role as never,
             roles: user.roles as never,
+            studentLeadershipPositions:
+              user.studentLeadershipPositions as never,
             universityId: user.universityId as never,
             collegeId: user.collegeId as never,
             onboardingCompleted: user.onboardingCompleted as never,

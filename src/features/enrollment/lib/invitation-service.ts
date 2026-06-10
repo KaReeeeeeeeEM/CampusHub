@@ -3,6 +3,11 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { headers } from "next/headers";
 
 import { auth, getAcquisitionSecret } from "@/lib/auth/auth";
+import {
+  isLegacyStudentLeadershipRoleKey,
+  isRoleKey,
+  isStudentLeadershipPosition,
+} from "@/features/authorization/roles";
 import { connectMongo } from "@/lib/db/mongodb";
 import {
   CollegeModel,
@@ -34,9 +39,16 @@ function createInvitationToken() {
 }
 
 function isRepresentative(user: RepresentativeSessionUser) {
-  return (
-    user.roles?.includes("REPRESENTATIVE") || user.role === "REPRESENTATIVE"
-  );
+  const roles = user.roles?.length ? user.roles : [user.role];
+  const hasStudentRole = roles.filter(isRoleKey).includes("STUDENT");
+  const hasRepresentativePosition = [
+    ...(user.studentLeadershipPositions ?? []),
+    ...(user.roles ?? []).filter(isLegacyStudentLeadershipRoleKey),
+  ]
+    .filter(isStudentLeadershipPosition)
+    .includes("REPRESENTATIVE");
+
+  return hasStudentRole && hasRepresentativePosition;
 }
 
 function isInvitationExpired(expiresAt?: Date | null) {

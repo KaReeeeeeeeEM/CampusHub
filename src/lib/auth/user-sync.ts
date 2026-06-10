@@ -2,7 +2,10 @@ import { ROLE_PERMISSIONS } from "@/features/authorization/permissions";
 import {
   ROLE_LABELS,
   ROLES,
+  isLegacyStudentLeadershipRoleKey,
+  isStudentLeadershipPosition,
   type RoleKey,
+  type StudentLeadershipPosition,
 } from "@/features/authorization/roles";
 import { connectMongo } from "@/lib/db/mongodb";
 import { RoleModel, SessionModel, UserModel } from "@/lib/db/models";
@@ -13,9 +16,10 @@ type AuthUserRecord = {
   email: string;
   emailVerified?: boolean;
   image?: string | null;
-  intendedRole?: RoleKey | null;
-  role?: RoleKey | null;
-  roles?: RoleKey[] | null;
+  intendedRole?: string | null;
+  role?: string | null;
+  roles?: string[] | null;
+  studentLeadershipPositions?: StudentLeadershipPosition[] | null;
   universityId?: string | null;
   collegeId?: string | null;
   onboardingCompleted?: boolean | null;
@@ -52,6 +56,20 @@ function normalizeRoles(user: AuthUserRecord) {
   return resolvedRoles;
 }
 
+function normalizeStudentLeadershipPositions(user: AuthUserRecord) {
+  const explicitPositions =
+    user.studentLeadershipPositions?.filter(isStudentLeadershipPosition) ?? [];
+  const legacyPositions = [
+    user.role,
+    user.intendedRole,
+    ...(user.roles ?? []),
+  ]
+    .filter(isLegacyStudentLeadershipRoleKey)
+    .filter(isStudentLeadershipPosition);
+
+  return Array.from(new Set([...explicitPositions, ...legacyPositions]));
+}
+
 export async function ensureSystemRoles() {
   await connectMongo();
 
@@ -80,6 +98,7 @@ export async function syncAuthUser(user: AuthUserRecord) {
 
   const roles = normalizeRoles(user);
   const role = roles[0] ?? "STUDENT";
+  const studentLeadershipPositions = normalizeStudentLeadershipPositions(user);
 
   await UserModel.updateOne(
     { _id: user.id },
@@ -92,6 +111,7 @@ export async function syncAuthUser(user: AuthUserRecord) {
         intendedRole: normalizeRole(user.intendedRole),
         role,
         roles,
+        studentLeadershipPositions,
         universityId: user.universityId ?? null,
         collegeId: user.collegeId ?? null,
         onboardingCompleted: Boolean(user.onboardingCompleted),

@@ -1,20 +1,42 @@
 import {
   ROLE_PERMISSIONS,
+  STUDENT_LEADERSHIP_PERMISSIONS,
   type Permission,
 } from "@/features/authorization/permissions";
-import type { RoleKey } from "@/features/authorization/roles";
+import {
+  isLegacyStudentLeadershipRoleKey,
+  isRoleKey,
+  isStudentLeadershipPosition,
+  type RoleKey,
+  type StudentLeadershipPosition,
+} from "@/features/authorization/roles";
 
 export function normalizeUserRoles(
   userRole: RoleKey | undefined,
-  userRoles?: RoleKey[],
+  userRoles?: string[],
 ) {
-  return userRoles?.length ? userRoles : userRole ? [userRole] : [];
+  const roles = userRoles?.length ? userRoles : userRole ? [userRole] : [];
+
+  return Array.from(new Set(roles.filter(isRoleKey)));
+}
+
+export function normalizeStudentLeadershipPositions(
+  positions?: string[],
+  userRoles?: string[],
+) {
+  const normalizedPositions = positions?.filter(isStudentLeadershipPosition) ?? [];
+  const legacyPositions =
+    userRoles
+      ?.filter(isLegacyStudentLeadershipRoleKey)
+      .filter(isStudentLeadershipPosition) ?? [];
+
+  return Array.from(new Set([...normalizedPositions, ...legacyPositions]));
 }
 
 export function hasRole(
   userRole: RoleKey | undefined,
   allowedRoles: RoleKey[],
-  userRoles?: RoleKey[],
+  userRoles?: string[],
 ) {
   return normalizeUserRoles(userRole, userRoles).some((role) =>
     allowedRoles.includes(role),
@@ -24,29 +46,43 @@ export function hasRole(
 export function hasPermission(
   userRole: RoleKey | undefined,
   requiredPermission: Permission,
-  userRoles?: RoleKey[],
+  userRoles?: string[],
+  studentLeadershipPositions?: StudentLeadershipPosition[],
 ) {
-  return normalizeUserRoles(userRole, userRoles).some((role) =>
+  const roleHasPermission = normalizeUserRoles(userRole, userRoles).some((role) =>
     ROLE_PERMISSIONS[role].includes(requiredPermission),
+  );
+
+  if (roleHasPermission) {
+    return true;
+  }
+
+  return normalizeStudentLeadershipPositions(
+    studentLeadershipPositions,
+    userRoles,
+  ).some((position) =>
+    STUDENT_LEADERSHIP_PERMISSIONS[position].includes(requiredPermission),
   );
 }
 
 export function hasEveryPermission(
   userRole: RoleKey | undefined,
   requiredPermissions: Permission[],
-  userRoles?: RoleKey[],
+  userRoles?: string[],
+  studentLeadershipPositions?: StudentLeadershipPosition[],
 ) {
   return requiredPermissions.every((permission) =>
-    hasPermission(userRole, permission, userRoles),
+    hasPermission(userRole, permission, userRoles, studentLeadershipPositions),
   );
 }
 
 export function hasAnyPermission(
   userRole: RoleKey | undefined,
   requiredPermissions: Permission[],
-  userRoles?: RoleKey[],
+  userRoles?: string[],
+  studentLeadershipPositions?: StudentLeadershipPosition[],
 ) {
   return requiredPermissions.some((permission) =>
-    hasPermission(userRole, permission, userRoles),
+    hasPermission(userRole, permission, userRoles, studentLeadershipPositions),
   );
 }

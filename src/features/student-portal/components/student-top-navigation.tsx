@@ -1,18 +1,17 @@
 "use client";
 
-import { Menu } from "lucide-react";
+import { FiMenu } from "react-icons/fi";
 
 import { Button } from "@/components/ui/button";
 import { UserMenu } from "@/components/navigation/user-menu";
-import { useAuth } from "@/features/auth/auth-provider";
 import { StudentBreadcrumbs } from "@/features/student-portal/components/student-breadcrumbs";
 import { StudentNotificationArea } from "@/features/student-portal/components/student-notification-area";
 import { StudentSearch } from "@/features/student-portal/components/student-search";
+import { mockStudentProfile } from "@/features/student-portal/lib/mock-data";
 import { useNavigationStore } from "@/store/navigation-store";
 
 export function StudentTopNavigation() {
   const toggleSidebar = useNavigationStore((state) => state.toggleSidebar);
-  const { user } = useAuth();
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur-xl">
@@ -25,7 +24,7 @@ export function StudentTopNavigation() {
           variant="ghost"
           onClick={toggleSidebar}
         >
-          <Menu className="h-4 w-4" aria-hidden="true" />
+          <FiMenu className="h-4 w-4" aria-hidden="true" />
         </Button>
         <div className="hidden min-w-0 md:block">
           <StudentBreadcrumbs />
@@ -33,7 +32,10 @@ export function StudentTopNavigation() {
         <StudentSearch className="ml-auto hidden max-w-md flex-1 lg:flex" />
         <div className="ml-auto flex items-center gap-1 lg:ml-0">
           <StudentNotificationArea />
-          <UserMenu name={user?.name} email={user?.email} />
+          <UserMenu
+            name={mockStudentProfile.name}
+            email={mockStudentProfile.email}
+          />
         </div>
       </div>
       <div className="border-t border-border px-4 py-3 md:hidden">
