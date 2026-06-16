@@ -7,6 +7,8 @@ import {
   FiCopy,
   FiEdit,
   FiEye,
+  FiGrid,
+  FiList,
   FiLoader,
   FiMail,
   FiPlus,
@@ -19,6 +21,7 @@ import type { z } from "zod";
 import {
   CampusDataTable,
   CampusInput,
+  CampusViewToggle,
   campusToast,
 } from "@/components/campushub";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -50,6 +53,10 @@ type TeachersManagementProps = {
     SerializedTeacherInvitation & { photo?: string | null }
   >;
 };
+const viewOptions = [
+  { value: "table", label: "Table view", icon: FiList },
+  { value: "cards", label: "Card view", icon: FiGrid },
+] as const;
 
 function StatusBadge({
   status,
@@ -177,7 +184,7 @@ function TeacherInvitationForm({
           <CampusInput {...register("phone")} placeholder="+255 000 000 000" />
         </label>
       </div>
-      <Button disabled={isSubmitting} type="submit">
+      <Button className="w-full" disabled={isSubmitting} type="submit">
         {isSubmitting ? (
           <FiLoader className="h-4 w-4 animate-spin" aria-hidden="true" />
         ) : (
@@ -233,6 +240,7 @@ export function TeachersManagement({
 }: TeachersManagementProps) {
   const [invitations, setInvitations] = useState(initialInvitations);
   const [query, setQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
   const [createOpen, setCreateOpen] = useState(false);
   const [viewing, setViewing] = useState<SerializedTeacherInvitation | null>(
     null,
@@ -451,22 +459,87 @@ export function TeachersManagement({
             onChange={(event) => setQuery(event.target.value)}
           />
         </div>
-        <Button
-          disabled={departments.length === 0}
-          type="button"
-          onClick={() => setCreateOpen(true)}
-        >
-          <FiPlus className="h-4 w-4" aria-hidden="true" />
-          Create Teacher
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <CampusViewToggle
+            value={viewMode}
+            options={viewOptions}
+            onValueChange={setViewMode}
+          />
+          <Button
+            disabled={departments.length === 0}
+            type="button"
+            onClick={() => setCreateOpen(true)}
+          >
+            <FiPlus className="h-4 w-4" aria-hidden="true" />
+            Create Teacher
+          </Button>
+        </div>
       </div>
 
-      <div className="mt-5">
-        <CampusDataTable
-          columns={columns}
-          data={filteredInvitations}
-          getRowId={(invitation) => invitation.id}
-          empty={
+      {viewMode === "cards" ? (
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {filteredInvitations.length > 0 ? (
+            filteredInvitations.map((invitation) => (
+              <article
+                key={invitation.id}
+                className="flex h-full flex-col rounded-xl border border-border bg-surface p-4 transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                    {invitation.firstName.charAt(0)}
+                    {invitation.lastName.charAt(0)}
+                  </span>
+                  <AdminActionMenu
+                    items={[
+                      {
+                        label: "View",
+                        icon: FiEye,
+                        onSelect: () => setViewing(invitation),
+                      },
+                      {
+                        label: "Edit",
+                        icon: FiEdit,
+                        onSelect: () => setEditing(invitation),
+                      },
+                      {
+                        label: "Copy Link",
+                        icon: FiCopy,
+                        onSelect: () => void copyInvitationUrl(invitation),
+                      },
+                      {
+                        label: "Resend Invitation",
+                        icon: FiRefreshCw,
+                        onSelect: () => patchInvitation(invitation, "resend"),
+                      },
+                      {
+                        label: "Deactivate",
+                        icon: FiSlash,
+                        destructive: true,
+                        disabled: invitation.status === "DISABLED",
+                        onSelect: () => setDeactivating(invitation),
+                      },
+                    ]}
+                  />
+                </div>
+                <h3 className="mt-4 text-base font-semibold">
+                  {invitation.firstName} {invitation.lastName}
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {invitation.departmentName}
+                </p>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  {invitation.email}
+                </p>
+                <div className="mt-auto flex items-center justify-between gap-3 pt-5">
+                  <StatusBadge status={invitation.status} />
+                  <span className="text-xs text-muted-foreground">
+                    Expires{" "}
+                    {new Date(invitation.expiresAt).toLocaleDateString()}
+                  </span>
+                </div>
+              </article>
+            ))
+          ) : (
             <EmptyState
               title={
                 departments.length === 0
@@ -482,11 +555,38 @@ export function TeachersManagement({
                     ? "Adjust your search and try again."
                     : "Invite the first teacher."
               }
-              className="mx-auto border-0 bg-transparent"
+              className="mx-auto border-0 bg-transparent md:col-span-2 xl:col-span-3"
             />
-          }
-        />
-      </div>
+          )}
+        </div>
+      ) : (
+        <div className="mt-5">
+          <CampusDataTable
+            columns={columns}
+            data={filteredInvitations}
+            getRowId={(invitation) => invitation.id}
+            empty={
+              <EmptyState
+                title={
+                  departments.length === 0
+                    ? "Create a department first"
+                    : query
+                      ? "No matching teachers"
+                      : "No teachers yet"
+                }
+                description={
+                  departments.length === 0
+                    ? "Teachers must be invited into a department."
+                    : query
+                      ? "Adjust your search and try again."
+                      : "Invite the first teacher."
+                }
+                className="mx-auto border-0 bg-transparent"
+              />
+            }
+          />
+        </div>
+      )}
 
       <Modal
         open={createOpen}

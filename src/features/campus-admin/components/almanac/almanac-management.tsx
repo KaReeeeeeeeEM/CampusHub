@@ -1,12 +1,25 @@
 "use client";
 
+import type {
+  EventClickArg,
+  EventInput as FullCalendarEventInput,
+} from "@fullcalendar/core";
+import dayGridPlugin from "@fullcalendar/daygrid";
+import interactionPlugin, {
+  type DateClickArg,
+} from "@fullcalendar/interaction";
+import FullCalendar from "@fullcalendar/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMemo, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import {
   FiCalendar,
+  FiClock,
   FiEdit,
   FiEye,
+  FiGrid,
+  FiImage,
+  FiList,
   FiLoader,
   FiPlus,
   FiSearch,
@@ -16,8 +29,10 @@ import { z } from "zod";
 
 import {
   CampusDataTable,
+  CampusFileUpload,
   CampusInput,
   CampusTextarea,
+  CampusViewToggle,
   campusToast,
 } from "@/components/campushub";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -51,6 +66,7 @@ const eventSchema = z.object({
   audience: z.string().min(2, "Audience is required."),
   status: z.enum(statuses),
   description: z.string().min(10, "Description is required."),
+  image: z.string().optional(),
 });
 
 type EventInput = z.infer<typeof eventSchema>;
@@ -59,10 +75,12 @@ function AlmanacForm({
   event,
   onSubmit,
   isSubmitting,
+  lockedDate,
 }: {
   event?: AlmanacEvent;
   onSubmit: (values: EventInput) => void;
   isSubmitting: boolean;
+  lockedDate?: string;
 }) {
   const {
     register,
@@ -75,19 +93,25 @@ function AlmanacForm({
     defaultValues: {
       title: event?.title ?? "",
       type: event?.type ?? "Academic Date",
-      date: event?.date ? event.date.slice(0, 10) : "",
+      date: lockedDate ?? (event?.date ? event.date.slice(0, 10) : ""),
       audience: event?.audience ?? "",
       status: event?.status ?? "DRAFT",
       description: event?.description ?? "",
+      image: event?.image ?? "",
     },
   });
+  const image = watch("image");
 
   return (
     <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
       <div className="grid gap-4 md:grid-cols-2">
         <label className="space-y-2 md:col-span-2">
           <span className="text-sm font-medium">Title</span>
-          <CampusInput {...register("title")} invalid={Boolean(errors.title)} />
+          <CampusInput
+            {...register("title")}
+            invalid={Boolean(errors.title)}
+            placeholder="Semester registration deadline"
+          />
         </label>
         <label className="space-y-2">
           <span className="text-sm font-medium">Type</span>
@@ -117,6 +141,8 @@ function AlmanacForm({
             {...register("date")}
             type="date"
             invalid={Boolean(errors.date)}
+            placeholder="Select event date"
+            disabled={Boolean(lockedDate)}
           />
         </label>
         <label className="space-y-2">
@@ -124,6 +150,7 @@ function AlmanacForm({
           <CampusInput
             {...register("audience")}
             invalid={Boolean(errors.audience)}
+            placeholder="All students, CoICT, final year students"
           />
         </label>
         <label className="space-y-2">
@@ -153,14 +180,93 @@ function AlmanacForm({
           <CampusTextarea
             {...register("description")}
             invalid={Boolean(errors.description)}
+            placeholder="Describe the date, deadline, or academic activity."
           />
         </label>
+        <CampusFileUpload
+          className="md:col-span-2"
+          label="Event Image"
+          value={image}
+          error={errors.image?.message}
+          onValueChange={(value) =>
+            setValue("image", value, {
+              shouldDirty: true,
+              shouldValidate: true,
+            })
+          }
+        />
       </div>
-      <Button disabled={isSubmitting} type="submit">
+      <Button className="w-full" disabled={isSubmitting} type="submit">
         {isSubmitting ? <FiLoader className="h-4 w-4 animate-spin" /> : null}
         {event ? "Save Changes" : "Create Event"}
       </Button>
     </form>
+  );
+}
+
+type AlmanacViewMode = "table" | "cards" | "calendar" | "timeline";
+
+const viewOptions = [
+  { value: "table", label: "Table view", icon: FiList },
+  { value: "cards", label: "Card view", icon: FiGrid },
+  { value: "calendar", label: "Calendar view", icon: FiCalendar },
+  { value: "timeline", label: "Timeline view", icon: FiClock },
+] satisfies Array<{
+  value: AlmanacViewMode;
+  label: string;
+  icon: typeof FiList;
+}>;
+
+function sameCalendarDay(a: string, b: string) {
+  return a.slice(0, 10) === b.slice(0, 10);
+}
+
+function AlmanacEventCard({
+  event,
+  onView,
+  onEdit,
+  onDelete,
+}: {
+  event: AlmanacEvent;
+  onView: (event: AlmanacEvent) => void;
+  onEdit: (event: AlmanacEvent) => void;
+  onDelete: (event: AlmanacEvent) => void;
+}) {
+  return (
+    <article className="group flex h-full flex-col rounded-xl border border-border bg-surface p-4 transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          {event.image ? (
+            <FiImage className="h-4 w-4" aria-hidden="true" />
+          ) : (
+            <FiCalendar className="h-4 w-4" aria-hidden="true" />
+          )}
+        </span>
+        <AdminActionMenu
+          items={[
+            { label: "View", icon: FiEye, onSelect: () => onView(event) },
+            { label: "Edit", icon: FiEdit, onSelect: () => onEdit(event) },
+            {
+              label: "Delete",
+              icon: FiTrash2,
+              destructive: true,
+              onSelect: () => onDelete(event),
+            },
+          ]}
+        />
+      </div>
+      <p className="mt-4 text-xs font-semibold uppercase tracking-[0.12em] text-primary">
+        {event.type}
+      </p>
+      <h3 className="mt-2 text-base font-semibold">{event.title}</h3>
+      <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
+        {event.description}
+      </p>
+      <div className="mt-auto pt-5 text-sm text-muted-foreground">
+        <p>{new Date(event.date).toLocaleDateString()}</p>
+        <p>{event.audience}</p>
+      </div>
+    </article>
   );
 }
 
@@ -171,8 +277,9 @@ export function AlmanacManagement({
 }) {
   const [events, setEvents] = useState(initialEvents);
   const [query, setQuery] = useState("");
-  const [viewMode, setViewMode] = useState<"table" | "calendar">("table");
+  const [viewMode, setViewMode] = useState<AlmanacViewMode>("table");
   const [createOpen, setCreateOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [viewing, setViewing] = useState<AlmanacEvent | null>(null);
   const [editing, setEditing] = useState<AlmanacEvent | null>(null);
   const [deleting, setDeleting] = useState<AlmanacEvent | null>(null);
@@ -188,6 +295,48 @@ export function AlmanacManagement({
         .includes(normalized),
     );
   }, [events, query]);
+
+  const calendarEvents = useMemo<FullCalendarEventInput[]>(
+    () =>
+      filtered.map((event) => ({
+        id: event.id,
+        title: event.title,
+        start: event.date.slice(0, 10),
+        allDay: true,
+        extendedProps: {
+          type: event.type,
+          status: event.status,
+          audience: event.audience,
+        },
+        classNames: [
+          event.status === "DRAFT"
+            ? "campushub-calendar-event-draft"
+            : event.type === "Deadline"
+              ? "campushub-calendar-event-deadline"
+              : event.type === "Examination"
+                ? "campushub-calendar-event-exam"
+                : "campushub-calendar-event-default",
+        ],
+      })),
+    [filtered],
+  );
+  const selectedDateEvents = selectedDate
+    ? events.filter((event) => sameCalendarDay(event.date, selectedDate))
+    : [];
+  const timelineEvents = [...filtered].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+  );
+
+  function openCalendarDate(arg: DateClickArg) {
+    setSelectedDate(arg.dateStr);
+  }
+
+  function openCalendarEvent(arg: EventClickArg) {
+    const event = events.find((item) => item.id === arg.event.id);
+    if (event) {
+      setViewing(event);
+    }
+  }
 
   function createEvent(values: EventInput) {
     startTransition(async () => {
@@ -263,17 +412,12 @@ export function AlmanacManagement({
             onChange={(event) => setQuery(event.target.value)}
           />
         </div>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() =>
-              setViewMode(viewMode === "table" ? "calendar" : "table")
-            }
-          >
-            <FiCalendar className="h-4 w-4" />
-            {viewMode === "table" ? "Calendar View" : "Table View"}
-          </Button>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <CampusViewToggle
+            value={viewMode}
+            options={viewOptions}
+            onValueChange={setViewMode}
+          />
           <Button type="button" onClick={() => setCreateOpen(true)}>
             <FiPlus className="h-4 w-4" />
             Create Event
@@ -282,24 +426,85 @@ export function AlmanacManagement({
       </div>
 
       {viewMode === "calendar" ? (
-        <div className="mt-5 grid gap-4 md:grid-cols-3">
-          {filtered.map((event) => (
-            <Button
-              key={event.id}
-              className="h-auto flex-col items-start whitespace-normal rounded-lg border border-border bg-surface p-5 text-left text-foreground transition hover:-translate-y-1 hover:border-primary/50 hover:bg-surface"
-              type="button"
-              variant="secondary"
-              onClick={() => setViewing(event)}
-            >
-              <p className="text-xs font-semibold uppercase text-primary">
-                {event.type}
-              </p>
-              <h3 className="mt-2 font-semibold">{event.title}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {new Date(event.date).toLocaleDateString()} · {event.audience}
-              </p>
-            </Button>
-          ))}
+        <section className="campushub-calendar mt-5 rounded-xl border border-border bg-surface p-4">
+          <FullCalendar
+            plugins={[dayGridPlugin, interactionPlugin]}
+            initialView="dayGridMonth"
+            events={calendarEvents}
+            dateClick={openCalendarDate}
+            eventClick={openCalendarEvent}
+            headerToolbar={{
+              left: "prevYear,prev today next,nextYear",
+              center: "title",
+              right: "",
+            }}
+            buttonText={{
+              today: "Today",
+            }}
+            fixedWeekCount={false}
+            height="auto"
+            dayMaxEventRows={3}
+            moreLinkClick="popover"
+            selectable
+            selectMirror
+            firstDay={1}
+          />
+        </section>
+      ) : viewMode === "timeline" ? (
+        <section className="mt-5 rounded-xl border border-border bg-surface p-5">
+          {timelineEvents.length > 0 ? (
+            <div className="space-y-6">
+              {timelineEvents.map((event) => (
+                <div key={event.id} className="relative flex gap-4">
+                  <div className="flex flex-col items-center">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <FiCalendar className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <span className="mt-2 h-full w-px bg-border" />
+                  </div>
+                  <button
+                    className="flex-1 rounded-lg border border-border bg-background p-4 text-left transition hover:border-primary/40 hover:bg-primary/5"
+                    type="button"
+                    onClick={() => setViewing(event)}
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">
+                      {new Date(event.date).toLocaleDateString()} · {event.type}
+                    </p>
+                    <h3 className="mt-2 font-semibold">{event.title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                      {event.description}
+                    </p>
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title={query ? "No matching events" : "No timeline events"}
+              description="Create academic dates to populate the event timeline."
+              className="mx-auto border-0 bg-transparent"
+            />
+          )}
+        </section>
+      ) : viewMode === "cards" ? (
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {filtered.length > 0 ? (
+            filtered.map((event) => (
+              <AlmanacEventCard
+                key={event.id}
+                event={event}
+                onView={setViewing}
+                onEdit={setEditing}
+                onDelete={setDeleting}
+              />
+            ))
+          ) : (
+            <EmptyState
+              title={query ? "No matching events" : "No almanac events"}
+              description="Create academic dates, deadlines, and calendar events."
+              className="mx-auto border-0 bg-transparent md:col-span-2 xl:col-span-3"
+            />
+          )}
         </div>
       ) : (
         <div className="mt-5">
@@ -325,6 +530,64 @@ export function AlmanacManagement({
       >
         <AlmanacForm onSubmit={createEvent} isSubmitting={isPending} />
       </Modal>
+      <Drawer
+        open={Boolean(selectedDate)}
+        onOpenChange={(open) => !open && setSelectedDate(null)}
+        title={
+          selectedDate
+            ? new Date(selectedDate).toLocaleDateString(undefined, {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              })
+            : "Calendar date"
+        }
+        description="Review scheduled items or add a new almanac event for this date."
+        className="max-w-xl"
+      >
+        {selectedDate ? (
+          <div className="space-y-6">
+            <div className="space-y-3">
+              {selectedDateEvents.length > 0 ? (
+                selectedDateEvents.map((event) => (
+                  <button
+                    key={event.id}
+                    className="w-full rounded-lg border border-border bg-background p-4 text-left transition hover:border-primary/40 hover:bg-primary/5"
+                    type="button"
+                    onClick={() => setViewing(event)}
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">
+                      {event.type}
+                    </p>
+                    <h3 className="mt-2 text-sm font-semibold">
+                      {event.title}
+                    </h3>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {event.audience}
+                    </p>
+                  </button>
+                ))
+              ) : (
+                <EmptyState
+                  title="No events on this date"
+                  description="Use the form below to schedule an academic date or activity."
+                  className="border-0 bg-transparent p-0"
+                />
+              )}
+            </div>
+            <div className="border-t border-border pt-6">
+              <AlmanacForm
+                lockedDate={selectedDate}
+                onSubmit={(values) => {
+                  createEvent(values);
+                  setSelectedDate(null);
+                }}
+                isSubmitting={isPending}
+              />
+            </div>
+          </div>
+        ) : null}
+      </Drawer>
       <Modal
         open={Boolean(editing)}
         onOpenChange={(open) => !open && setEditing(null)}

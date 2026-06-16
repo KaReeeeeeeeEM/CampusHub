@@ -1,3 +1,4 @@
+import { DashboardPageTransition } from "@/components/motion/dashboard-page-transition";
 import { CommitteeSidebar } from "@/features/committee-member/components/committee-sidebar";
 import { CommitteeTopbar } from "@/features/committee-member/components/committee-topbar";
 
@@ -8,7 +9,7 @@ export function CommitteeLayout({ children }: { children: React.ReactNode }) {
         <CommitteeSidebar />
         <div className="min-w-0 flex-1">
           <CommitteeTopbar />
-          {children}
+          <DashboardPageTransition>{children}</DashboardPageTransition>
         </div>
       </div>
     </div>

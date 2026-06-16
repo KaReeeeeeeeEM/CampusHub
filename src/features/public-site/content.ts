@@ -15,6 +15,7 @@ export const publicNavItems = [
   { label: "About", href: "/about" },
   { label: "Features", href: "/features" },
   { label: "Universities", href: "/universities" },
+  { label: "Showcase", href: "/showcase" },
   { label: "Employers", href: "/employers" },
   { label: "Alumni", href: "/alumni" },
   { label: "Pricing", href: "/pricing" },

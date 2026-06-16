@@ -83,11 +83,39 @@ export type Suggestion = {
 export type Poll = {
   id: string;
   title: string;
+  category:
+    | "Academic"
+    | "Technology"
+    | "Sports"
+    | "Student Welfare"
+    | "Entertainment"
+    | "Media"
+    | "General"
+    | "Campus Governance";
+  audience: string;
+  createdBy: string;
+  description: string;
   responses: number;
   endDate: string;
+  createdAt: string;
+  closedDate?: string;
   status: "ACTIVE" | "DRAFT" | "CLOSED";
   question: string;
   options: string[];
+  optionVotes: Record<string, number>;
+  visibility: "Everyone" | "Students" | "Teachers" | "Employers" | "Alumni";
+  resultsVisibility:
+    | "ALWAYS_VISIBLE"
+    | "AFTER_VOTING"
+    | "AFTER_ENDS"
+    | "HIDDEN";
+  allowMultipleVotes: boolean;
+  anonymousVoting: boolean;
+  participationRate: number;
+  votesOverTime: Array<{ day: string; votes: number }>;
+  departmentParticipation: Array<{ name: string; value: number }>;
+  yearParticipation: Array<{ name: string; value: number }>;
+  rules: string[];
 };
 
 export const committeeCategories = [
@@ -381,29 +409,228 @@ export const mockSuggestions: Suggestion[] = [
 export const mockPolls: Poll[] = [
   {
     id: "poll-hackathon-theme",
-    title: "Preferred Hackathon Theme",
+    title: "CoICT Hackathon Semester Poll",
+    category: "Technology",
+    audience: "College of ICT students",
+    createdBy: "Technology Committee",
+    description:
+      "Help the representative team decide whether CoICT should host a practical innovation hackathon this semester.",
     responses: 728,
-    endDate: "2026-04-05",
+    endDate: "2026-06-16",
+    createdAt: "2026-06-08",
     status: "ACTIVE",
-    question: "Which theme should lead the next CoICT hackathon?",
-    options: ["Campus services", "AI for learning", "Fintech", "Health systems"],
+    question: "Should CoICT host a Hackathon this semester?",
+    options: ["Yes, this semester", "Next semester", "Only if sponsored", "No"],
+    optionVotes: {
+      "Yes, this semester": 421,
+      "Next semester": 126,
+      "Only if sponsored": 151,
+      No: 30,
+    },
+    visibility: "Students",
+    resultsVisibility: "AFTER_VOTING",
+    allowMultipleVotes: false,
+    anonymousVoting: true,
+    participationRate: 68,
+    votesOverTime: [
+      { day: "Jun 08", votes: 76 },
+      { day: "Jun 09", votes: 112 },
+      { day: "Jun 10", votes: 147 },
+      { day: "Jun 11", votes: 193 },
+      { day: "Jun 12", votes: 200 },
+    ],
+    departmentParticipation: [
+      { name: "CS", value: 318 },
+      { name: "ETE", value: 186 },
+      { name: "IS", value: 142 },
+      { name: "CE", value: 82 },
+    ],
+    yearParticipation: [
+      { name: "Year 1", value: 145 },
+      { name: "Year 2", value: 238 },
+      { name: "Year 3", value: 203 },
+      { name: "Year 4", value: 142 },
+    ],
+    rules: ["One vote per student", "Results visible after voting"],
   },
   {
     id: "poll-forum-time",
     title: "Best Time for Career Forum",
+    category: "Academic",
+    audience: "Final year students",
+    createdBy: "Academic Affairs Committee",
+    description:
+      "Choose the most convenient time for monthly employer and alumni career sessions.",
     responses: 412,
-    endDate: "2026-03-30",
+    endDate: "2026-06-20",
+    createdAt: "2026-06-06",
     status: "ACTIVE",
     question: "What time works best for the monthly career forum?",
     options: ["Morning", "Afternoon", "Evening"],
+    optionVotes: {
+      Morning: 96,
+      Afternoon: 188,
+      Evening: 128,
+    },
+    visibility: "Students",
+    resultsVisibility: "ALWAYS_VISIBLE",
+    allowMultipleVotes: false,
+    anonymousVoting: false,
+    participationRate: 54,
+    votesOverTime: [
+      { day: "Jun 06", votes: 45 },
+      { day: "Jun 07", votes: 84 },
+      { day: "Jun 08", votes: 102 },
+      { day: "Jun 09", votes: 89 },
+      { day: "Jun 10", votes: 92 },
+    ],
+    departmentParticipation: [
+      { name: "CS", value: 174 },
+      { name: "ETE", value: 98 },
+      { name: "IS", value: 92 },
+      { name: "CE", value: 48 },
+    ],
+    yearParticipation: [
+      { name: "Year 2", value: 88 },
+      { name: "Year 3", value: 146 },
+      { name: "Year 4", value: 178 },
+    ],
+    rules: ["One vote per student", "Results visible to everyone"],
+  },
+  {
+    id: "poll-mobile-app",
+    title: "CampusHub Mobile App Priority",
+    category: "General",
+    audience: "Entire University",
+    createdBy: "Student Representative Office",
+    description:
+      "Collect student interest before the leadership team prioritizes mobile app rollout discussions.",
+    responses: 264,
+    endDate: "2026-06-25",
+    createdAt: "2026-06-12",
+    status: "ACTIVE",
+    question: "Should CampusHub launch a mobile app before next semester?",
+    options: ["Android first", "iOS first", "Both together", "PWA is enough"],
+    optionVotes: {
+      "Android first": 108,
+      "iOS first": 44,
+      "Both together": 86,
+      "PWA is enough": 26,
+    },
+    visibility: "Everyone",
+    resultsVisibility: "AFTER_ENDS",
+    allowMultipleVotes: false,
+    anonymousVoting: true,
+    participationRate: 31,
+    votesOverTime: [
+      { day: "Jun 12", votes: 64 },
+      { day: "Jun 13", votes: 88 },
+      { day: "Jun 14", votes: 112 },
+    ],
+    departmentParticipation: [
+      { name: "CS", value: 121 },
+      { name: "ETE", value: 58 },
+      { name: "IS", value: 60 },
+      { name: "CE", value: 25 },
+    ],
+    yearParticipation: [
+      { name: "Year 1", value: 58 },
+      { name: "Year 2", value: 92 },
+      { name: "Year 3", value: 71 },
+      { name: "Year 4", value: 43 },
+    ],
+    rules: ["One vote per student", "Results visible after poll closes"],
   },
   {
     id: "poll-sports-kit",
     title: "College Sports Kit Preference",
+    category: "Sports",
+    audience: "Sports clubs and college athletes",
+    createdBy: "Sports Committee",
+    description:
+      "Final preference poll used to select the next CoICT sports kit design.",
     responses: 289,
     endDate: "2026-02-28",
+    createdAt: "2026-02-10",
+    closedDate: "2026-02-28",
     status: "CLOSED",
     question: "Which sports kit style should represent CoICT?",
     options: ["Minimal", "Classic", "Modern"],
+    optionVotes: {
+      Minimal: 74,
+      Classic: 83,
+      Modern: 132,
+    },
+    visibility: "Students",
+    resultsVisibility: "ALWAYS_VISIBLE",
+    allowMultipleVotes: false,
+    anonymousVoting: true,
+    participationRate: 73,
+    votesOverTime: [
+      { day: "Feb 20", votes: 32 },
+      { day: "Feb 22", votes: 65 },
+      { day: "Feb 24", votes: 81 },
+      { day: "Feb 26", votes: 59 },
+      { day: "Feb 28", votes: 52 },
+    ],
+    departmentParticipation: [
+      { name: "CS", value: 102 },
+      { name: "ETE", value: 89 },
+      { name: "IS", value: 64 },
+      { name: "CE", value: 34 },
+    ],
+    yearParticipation: [
+      { name: "Year 1", value: 75 },
+      { name: "Year 2", value: 81 },
+      { name: "Year 3", value: 72 },
+      { name: "Year 4", value: 61 },
+    ],
+    rules: ["One vote per athlete", "Final results are visible"],
+  },
+  {
+    id: "poll-welfare-office-hours",
+    title: "Student Welfare Office Hours",
+    category: "Student Welfare",
+    audience: "All CoICT students",
+    createdBy: "Student Welfare Committee",
+    description:
+      "Understand whether confidential welfare office hours should be weekly, biweekly, or monthly.",
+    responses: 198,
+    endDate: "2026-05-22",
+    createdAt: "2026-05-02",
+    closedDate: "2026-05-22",
+    status: "CLOSED",
+    question: "How often should welfare office hours happen?",
+    options: ["Weekly", "Biweekly", "Monthly"],
+    optionVotes: {
+      Weekly: 114,
+      Biweekly: 52,
+      Monthly: 32,
+    },
+    visibility: "Students",
+    resultsVisibility: "HIDDEN",
+    allowMultipleVotes: false,
+    anonymousVoting: true,
+    participationRate: 44,
+    votesOverTime: [
+      { day: "May 03", votes: 26 },
+      { day: "May 07", votes: 39 },
+      { day: "May 12", votes: 44 },
+      { day: "May 18", votes: 51 },
+      { day: "May 22", votes: 38 },
+    ],
+    departmentParticipation: [
+      { name: "CS", value: 82 },
+      { name: "ETE", value: 44 },
+      { name: "IS", value: 50 },
+      { name: "CE", value: 22 },
+    ],
+    yearParticipation: [
+      { name: "Year 1", value: 48 },
+      { name: "Year 2", value: 57 },
+      { name: "Year 3", value: 49 },
+      { name: "Year 4", value: 44 },
+    ],
+    rules: ["Anonymous votes", "Results restricted to representatives"],
   },
 ];

@@ -57,6 +57,7 @@ export type CampusLocation = {
   code: string;
   distance: string;
   openNow: boolean;
+  coordinates: string;
   description: string;
 };
 
@@ -90,6 +91,7 @@ export type StudentNotification = {
     | "Announcement"
     | "Event"
     | "Forum Activity"
+    | "Poll"
     | "Suggestion Update"
     | "System";
   title: string;
@@ -162,6 +164,33 @@ export const mockAnnouncements: StudentAnnouncement[] = [
     date: "2026-06-07",
     pinned: false,
     body: "Football trials start at the main sports complex this Saturday. Bring your student ID and training gear.",
+  },
+  {
+    id: "ann-media",
+    title: "Media team opens photography sign-ups",
+    category: "Media",
+    audience: "Student creators",
+    date: "2026-06-02",
+    pinned: false,
+    body: "Students interested in campus photography, event coverage, and short-form video production can register with the media committee this week.",
+  },
+  {
+    id: "ann-entertainment",
+    title: "Cultural night performance auditions",
+    category: "Entertainment",
+    audience: "Arts and culture groups",
+    date: "2026-05-20",
+    pinned: false,
+    body: "Auditions for music, spoken word, dance, and theatre performances will be held at the student centre auditorium.",
+  },
+  {
+    id: "ann-library",
+    title: "Library quiet-study wing extended hours",
+    category: "Academic",
+    audience: "All students",
+    date: "2026-04-25",
+    pinned: false,
+    body: "The quiet-study wing will remain open until 10:00 PM on weekdays during the assessment preparation period.",
   },
 ];
 
@@ -248,7 +277,9 @@ export const mockCampusLocations: CampusLocation[] = [
     code: "LIB-01",
     distance: "6 min walk",
     openNow: true,
-    description: "Main study space with digital resources and quiet reading areas.",
+    coordinates: "-6.7786, 39.2054",
+    description:
+      "Main study space with digital resources and quiet reading areas.",
   },
   {
     id: "loc-theatre",
@@ -257,7 +288,9 @@ export const mockCampusLocations: CampusLocation[] = [
     code: "COICT-LT2",
     distance: "2 min walk",
     openNow: true,
-    description: "Large lecture theatre used for workshops, seminars, and core courses.",
+    coordinates: "-6.7768, 39.2041",
+    description:
+      "Large lecture theatre used for workshops, seminars, and core courses.",
   },
   {
     id: "loc-medical",
@@ -266,6 +299,7 @@ export const mockCampusLocations: CampusLocation[] = [
     code: "MED-01",
     distance: "11 min walk",
     openNow: true,
+    coordinates: "-6.7802, 39.2063",
     description: "Primary medical service point for students and staff.",
   },
   {
@@ -275,6 +309,7 @@ export const mockCampusLocations: CampusLocation[] = [
     code: "DIN-03",
     distance: "8 min walk",
     openNow: false,
+    coordinates: "-6.7794, 39.2032",
     description: "Dining hall serving lunch, snacks, and evening meals.",
   },
 ];
@@ -376,6 +411,15 @@ export const mockNotifications: StudentNotification[] = [
     type: "Forum Activity",
     title: "New reply in lab hours discussion",
     description: "A representative replied with next steps.",
+    time: "Yesterday",
+    unread: false,
+  },
+  {
+    id: "not-poll",
+    type: "Poll",
+    title: "New Poll Available",
+    description:
+      "Technology Committee has created a new poll: Should CampusHub launch a mobile app?",
     time: "Yesterday",
     unread: false,
   },

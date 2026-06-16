@@ -7,6 +7,8 @@ import {
   FiBookOpen,
   FiEdit,
   FiEye,
+  FiGrid,
+  FiList,
   FiLoader,
   FiPlus,
   FiSearch,
@@ -19,6 +21,7 @@ import {
   CampusFileUpload,
   CampusInput,
   CampusTextarea,
+  CampusViewToggle,
   campusToast,
 } from "@/components/campushub";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -48,6 +51,10 @@ type CollegesManagementProps = {
 const statusOptions = [
   { label: "Active", value: "ACTIVE" },
   { label: "Inactive", value: "INACTIVE" },
+] as const;
+const viewOptions = [
+  { value: "table", label: "Table view", icon: FiList },
+  { value: "cards", label: "Card view", icon: FiGrid },
 ] as const;
 
 function formatDate(value: string | null) {
@@ -129,7 +136,7 @@ function CollegeForm({
             </p>
           ) : null}
         </label>
-        <label className="space-y-2">
+        <label className="space-y-2 md:col-span-2">
           <span className="text-sm font-medium">Status</span>
           <Select
             value={status}
@@ -153,6 +160,7 @@ function CollegeForm({
           </Select>
         </label>
         <CampusFileUpload
+          className="md:col-span-2"
           label="Logo"
           value={logo}
           error={errors.logo?.message}
@@ -177,7 +185,7 @@ function CollegeForm({
           ) : null}
         </label>
       </div>
-      <Button disabled={isSubmitting} type="submit">
+      <Button className="w-full" disabled={isSubmitting} type="submit">
         {isSubmitting ? (
           <FiLoader className="h-4 w-4 animate-spin" aria-hidden="true" />
         ) : null}
@@ -241,6 +249,7 @@ export function CollegesManagement({
 }: CollegesManagementProps) {
   const [colleges, setColleges] = useState(initialColleges);
   const [query, setQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
   const [createOpen, setCreateOpen] = useState(false);
   const [viewing, setViewing] = useState<SerializedCollege | null>(null);
   const [editing, setEditing] = useState<SerializedCollege | null>(null);
@@ -424,18 +433,77 @@ export function CollegesManagement({
             onChange={(event) => setQuery(event.target.value)}
           />
         </div>
-        <Button type="button" onClick={() => setCreateOpen(true)}>
-          <FiPlus className="h-4 w-4" aria-hidden="true" />
-          Create College
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <CampusViewToggle
+            value={viewMode}
+            options={viewOptions}
+            onValueChange={setViewMode}
+          />
+          <Button type="button" onClick={() => setCreateOpen(true)}>
+            <FiPlus className="h-4 w-4" aria-hidden="true" />
+            Create College
+          </Button>
+        </div>
       </div>
 
-      <div className="mt-5">
-        <CampusDataTable
-          columns={columns}
-          data={filteredColleges}
-          getRowId={(college) => college.id}
-          empty={
+      {viewMode === "cards" ? (
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {filteredColleges.length > 0 ? (
+            filteredColleges.map((college) => (
+              <article
+                key={college.id}
+                className="flex h-full flex-col rounded-xl border border-border bg-surface p-4 transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-lg border border-border bg-background text-primary">
+                    {college.logo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={college.logo}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <FiBookOpen className="h-4 w-4" aria-hidden="true" />
+                    )}
+                  </span>
+                  <AdminActionMenu
+                    items={[
+                      {
+                        label: "View",
+                        icon: FiEye,
+                        onSelect: () => setViewing(college),
+                      },
+                      {
+                        label: "Edit",
+                        icon: FiEdit,
+                        onSelect: () => setEditing(college),
+                      },
+                      {
+                        label: "Deactivate",
+                        icon: FiSlash,
+                        disabled: college.status === "INACTIVE",
+                        onSelect: () => setDeactivating(college),
+                      },
+                    ]}
+                  />
+                </div>
+                <h3 className="mt-4 text-base font-semibold">{college.name}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {college.shortName}
+                </p>
+                <p className="mt-3 line-clamp-2 text-sm leading-6 text-muted-foreground">
+                  {college.description}
+                </p>
+                <div className="mt-auto flex items-center justify-between gap-3 pt-5">
+                  <StatusBadge status={college.status} />
+                  <span className="text-xs text-muted-foreground">
+                    {formatDate(college.createdAt)}
+                  </span>
+                </div>
+              </article>
+            ))
+          ) : (
             <EmptyState
               title={query ? "No matching colleges" : "No colleges yet"}
               description={
@@ -443,11 +511,30 @@ export function CollegesManagement({
                   ? "Adjust your search and try again."
                   : "Create the first college before adding departments or representatives."
               }
-              className="mx-auto border-0 bg-transparent"
+              className="mx-auto border-0 bg-transparent md:col-span-2 xl:col-span-3"
             />
-          }
-        />
-      </div>
+          )}
+        </div>
+      ) : (
+        <div className="mt-5">
+          <CampusDataTable
+            columns={columns}
+            data={filteredColleges}
+            getRowId={(college) => college.id}
+            empty={
+              <EmptyState
+                title={query ? "No matching colleges" : "No colleges yet"}
+                description={
+                  query
+                    ? "Adjust your search and try again."
+                    : "Create the first college before adding departments or representatives."
+                }
+                className="mx-auto border-0 bg-transparent"
+              />
+            }
+          />
+        </div>
+      )}
 
       <Modal
         open={createOpen}

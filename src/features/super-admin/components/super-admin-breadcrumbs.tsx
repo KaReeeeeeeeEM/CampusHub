@@ -1,7 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
+
+import { superAdminNavItems } from "@/features/super-admin/components/super-admin-navigation";
 
 function titleize(value: string) {
   return value
@@ -12,34 +13,19 @@ function titleize(value: string) {
 
 export function SuperAdminBreadcrumbs() {
   const pathname = usePathname();
-  const segments = pathname.split("/").filter(Boolean).slice(1);
+  const current =
+    superAdminNavItems.find(
+      (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
+    ) ?? superAdminNavItems[0];
+  const Icon = current.icon;
 
   return (
-    <nav aria-label="Breadcrumb" className="hidden text-sm md:block">
-      <ol className="flex items-center gap-2 text-muted-foreground">
-        <li>
-          <Link className="hover:text-foreground" href="/super-admin/dashboard">
-            Super Admin
-          </Link>
-        </li>
-        {segments.map((segment, index) => {
-          const href = `/super-admin/${segments.slice(0, index + 1).join("/")}`;
-          const isLast = index === segments.length - 1;
-
-          return (
-            <li key={href} className="flex items-center gap-2">
-              <span>/</span>
-              {isLast ? (
-                <span className="text-foreground">{titleize(segment)}</span>
-              ) : (
-                <Link className="hover:text-foreground" href={href}>
-                  {titleize(segment)}
-                </Link>
-              )}
-            </li>
-          );
-        })}
-      </ol>
+    <nav
+      aria-label="Current page"
+      className="hidden h-full items-center gap-2 px-4 text-sm font-semibold md:flex"
+    >
+      <Icon className="h-4 w-4" aria-hidden="true" />
+      <span>{current.label ?? titleize(pathname.split("/").pop() ?? "")}</span>
     </nav>
   );
 }

@@ -4,7 +4,7 @@ import { mockCampusLocations } from "@/features/campus-admin/lib/mock-data";
 
 export default function CampusAdminMapsPage() {
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <main className="w-full max-w-none px-4 py-6 sm:px-6">
       <CampusAdminPageHeader
         eyebrow="Campus navigation"
         title="Campus Map"

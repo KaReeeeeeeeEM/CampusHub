@@ -76,14 +76,14 @@ export function DevelopmentRoleSwitcher() {
         router.refresh();
       }}
     >
-      <SelectTrigger className="mb-4">
+      <SelectTrigger className="mb-4 h-9 text-xs [&>span]:text-xs">
         <SelectValue aria-label={rolePreviewLabels[activeRole]}>
           {rolePreviewLabels[activeRole]}
         </SelectValue>
       </SelectTrigger>
       <SelectContent>
         {rolePreviewKeys.map((role) => (
-          <SelectItem key={role} value={role}>
+          <SelectItem className="text-xs" key={role} value={role}>
             {rolePreviewLabels[role]}
           </SelectItem>
         ))}

@@ -8,7 +8,7 @@ import {
 
 export function StudentDashboardFoundation() {
   return (
-    <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+    <div className="w-full max-w-none space-y-6 px-4 py-6 sm:px-6">
       <section className="rounded-lg border border-border bg-surface p-6 shadow-sm lg:p-8">
         <p className="text-sm font-semibold uppercase tracking-normal text-primary">
           Student portal

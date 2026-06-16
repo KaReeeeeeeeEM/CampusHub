@@ -12,7 +12,7 @@ export default async function SuperAdminCampusAdminsPage() {
   ]);
 
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <main className="w-full max-w-none px-4 py-6 sm:px-6">
       <SuperAdminPageHeader
         eyebrow="Campus admin management"
         title="Invite Campus Administrators"

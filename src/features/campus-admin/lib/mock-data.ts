@@ -38,6 +38,7 @@ export type AlmanacEvent = {
   audience: string;
   status: "UPCOMING" | "PUBLISHED" | "DRAFT";
   description: string;
+  image?: string;
 };
 
 const now = new Date();

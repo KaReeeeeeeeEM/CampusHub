@@ -20,8 +20,8 @@ export const rolePreviewLabels: Record<RolePreviewKey, string> = {
 export const rolePreviewDestinations: Record<RolePreviewKey, string> = {
   SUPER_ADMIN: "/super-admin/dashboard",
   CAMPUS_ADMIN: "/campus-admin/dashboard",
-  REPRESENTATIVE: "/student/leadership/committee",
-  COMMITTEE_MEMBER: "/student/my-committee/tasks",
+  REPRESENTATIVE: "/student/dashboard",
+  COMMITTEE_MEMBER: "/student/dashboard",
   TEACHER: "/portal/teacher",
   STUDENT: "/student/dashboard",
   ALUMNI: "/portal/alumni",

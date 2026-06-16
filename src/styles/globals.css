@@ -6,7 +6,10 @@
   --background: #ffffff;
   --secondary-background: #f8f9fa;
   --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-muted: #f3f4f6;
   --border: #e5e7eb;
+  --border-strong: #d1d5db;
   --foreground: #111827;
   --muted-foreground: #6b7280;
   --primary: #4f46e5;
@@ -23,14 +26,21 @@
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
   --ring: #4f46e5;
+  --chart-primary: #4f46e5;
+  --chart-secondary: #3b82f6;
+  --chart-tertiary: #10b981;
+  --chart-accent: #f59e0b;
   --radius: 0.5rem;
 }
 
 .dark {
   --background: #0a0a0a;
-  --secondary-background: #111111;
-  --surface: #181818;
+  --secondary-background: #101010;
+  --surface: #151515;
+  --surface-raised: #1b1b1b;
+  --surface-muted: #202020;
   --border: #262626;
+  --border-strong: #303030;
   --foreground: #ffffff;
   --muted-foreground: #a1a1aa;
   --primary: #4f46e5;
@@ -47,13 +57,20 @@
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
   --ring: #4f46e5;
+  --chart-primary: #4f46e5;
+  --chart-secondary: #3b82f6;
+  --chart-tertiary: #10b981;
+  --chart-accent: #f59e0b;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-secondary-background: var(--secondary-background);
   --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-muted: var(--surface-muted);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-foreground: var(--foreground);
   --color-muted-foreground: var(--muted-foreground);
   --color-primary: var(--primary);
@@ -90,11 +107,419 @@ html.dark {
 
 body {
   min-height: 100vh;
-  background: var(--background);
+  background:
+    radial-gradient(
+      circle at 10% 0%,
+      color-mix(in srgb, var(--primary) 8%, transparent),
+      transparent 26rem
+    ),
+    var(--background);
   color: var(--foreground);
+  font-family:
+    var(--font-sans),
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
   font-feature-settings:
     "rlig" 1,
     "calt" 1;
+}
+
+.dashboard-shell {
+  background: var(--secondary-background);
+}
+
+.dashboard-app-frame {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--background);
+}
+
+@media (min-width: 1024px) {
+  .dashboard-app-frame {
+    height: calc(100vh - 1rem);
+    min-height: calc(100vh - 1rem);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+  }
+}
+
+.dashboard-sidebar {
+  border-color: var(--border);
+  background: var(--secondary-background);
+}
+
+.dashboard-topbar {
+  flex: 0 0 auto;
+  border-color: var(--border);
+  background: var(--background);
+}
+
+.dashboard-panel {
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.dashboard-panel-muted {
+  background: var(--surface-muted);
+}
+
+.dashboard-card {
+  position: relative;
+  overflow: hidden;
+  border-color: var(--border);
+  background: var(--surface);
+  box-shadow: none;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.dashboard-card:hover {
+  transform: none;
+  border-color: color-mix(in srgb, var(--primary) 30%, var(--border));
+  box-shadow: none;
+}
+
+.dashboard-nav-item {
+  border-radius: 0.375rem;
+  color: var(--muted-foreground);
+}
+
+.dashboard-nav-item:hover {
+  background: var(--surface-muted);
+  color: var(--foreground);
+}
+
+.dashboard-nav-item-active {
+  background: var(--surface-muted);
+  color: var(--foreground);
+}
+
+.dashboard-icon-tile {
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--primary) 15%, transparent);
+  color: var(--primary);
+}
+
+.dashboard-pill {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--muted-foreground);
+}
+
+.dashboard-table {
+  border-radius: var(--radius-lg);
+  border-color: var(--border);
+  background: var(--surface);
+}
+
+.leaflet-container {
+  background: var(--surface-muted);
+  color: var(--foreground);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+.leaflet-control,
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip,
+.leaflet-tooltip {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: 0 12px 32px color-mix(in srgb, #000 18%, transparent);
+}
+
+.leaflet-control-attribution {
+  font-size: 10px;
+}
+
+.campushub-map-marker {
+  position: relative;
+  display: block;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 2px solid var(--background);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: 0 12px 28px color-mix(in srgb, #000 28%, transparent);
+}
+
+.campushub-map-marker::before {
+  content: "";
+  position: absolute;
+  inset: 0.55rem;
+  border-radius: 999px;
+  background: var(--primary);
+}
+
+.campushub-map-marker::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -0.45rem;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-right: 2px solid var(--background);
+  border-bottom: 2px solid var(--background);
+  background: var(--surface);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.campushub-map-marker-active {
+  border-color: var(--primary);
+  background: var(--primary);
+  transform: scale(1.08);
+}
+
+.campushub-map-marker-active::before {
+  background: var(--primary-foreground);
+}
+
+.campushub-map-marker-active::after {
+  border-color: var(--primary);
+  background: var(--primary);
+}
+
+.campushub-map-marker-destination {
+  box-shadow:
+    0 0 0 6px color-mix(in srgb, var(--success) 16%, transparent),
+    0 12px 28px color-mix(in srgb, #000 28%, transparent);
+}
+
+.loader {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  position: relative;
+  display: inline-block;
+  animation: rotate 1s linear infinite;
+}
+
+.loader::before,
+.loader::after {
+  content: "";
+  box-sizing: border-box;
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 5px solid var(--foreground);
+  animation: prixClipFix 2s linear infinite;
+}
+
+.loader::after {
+  inset: 8px;
+  transform: rotate3d(90, 90, 0, 180deg);
+  border-color: var(--primary);
+}
+
+@keyframes rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes prixClipFix {
+  0% {
+    clip-path: polygon(50% 50%, 0 0, 0 0, 0 0, 0 0, 0 0);
+  }
+
+  50% {
+    clip-path: polygon(50% 50%, 0 0, 100% 0, 100% 0, 100% 0, 100% 0);
+  }
+
+  75%,
+  100% {
+    clip-path: polygon(50% 50%, 0 0, 100% 0, 100% 100%, 100% 100%, 100% 100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loader,
+  .loader::before,
+  .loader::after {
+    animation-duration: 3s;
+  }
+}
+
+.dashboard-table thead {
+  background: transparent;
+  color: var(--muted-foreground);
+}
+
+.dashboard-table tbody tr {
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.dashboard-table tbody tr:hover {
+  background: var(--surface-muted);
+}
+
+.campushub-calendar {
+  --fc-border-color: var(--border);
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: var(--surface-muted);
+  --fc-list-event-hover-bg-color: var(--surface-muted);
+  --fc-today-bg-color: color-mix(in srgb, var(--primary) 8%, transparent);
+  --fc-button-bg-color: var(--surface-muted);
+  --fc-button-border-color: var(--border);
+  --fc-button-text-color: var(--foreground);
+  --fc-button-hover-bg-color: color-mix(
+    in srgb,
+    var(--primary) 12%,
+    transparent
+  );
+  --fc-button-hover-border-color: color-mix(
+    in srgb,
+    var(--primary) 35%,
+    var(--border)
+  );
+  --fc-button-active-bg-color: color-mix(
+    in srgb,
+    var(--primary) 18%,
+    transparent
+  );
+  --fc-button-active-border-color: var(--primary);
+  --fc-event-bg-color: color-mix(in srgb, var(--primary) 14%, transparent);
+  --fc-event-border-color: color-mix(in srgb, var(--primary) 28%, transparent);
+  --fc-event-text-color: var(--primary);
+}
+
+.campushub-calendar .fc {
+  color: var(--foreground);
+  font-family: inherit;
+}
+
+.campushub-calendar .fc-toolbar {
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.campushub-calendar .fc-toolbar-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.campushub-calendar .fc-button {
+  border-radius: 999px;
+  box-shadow: none;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.45rem 0.75rem;
+  text-transform: none;
+}
+
+.campushub-calendar .fc-button:focus {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
+.campushub-calendar .fc-col-header-cell {
+  background: transparent;
+  padding: 0.5rem 0;
+}
+
+.campushub-calendar .fc-col-header-cell-cushion {
+  color: var(--muted-foreground);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.campushub-calendar .fc-daygrid-day {
+  background: transparent;
+  transition: background-color 160ms ease;
+}
+
+.campushub-calendar .fc-daygrid-day:hover {
+  background: color-mix(in srgb, var(--primary) 5%, transparent);
+  cursor: pointer;
+}
+
+.campushub-calendar .fc-daygrid-day-number {
+  color: var(--foreground);
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.5rem;
+  text-decoration: none;
+}
+
+.campushub-calendar .fc-day-other .fc-daygrid-day-number {
+  color: color-mix(in srgb, var(--muted-foreground) 55%, transparent);
+}
+
+.campushub-calendar .fc-event {
+  border-radius: 0.45rem;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.1rem 0.35rem;
+}
+
+.campushub-calendar .campushub-calendar-event-deadline {
+  --fc-event-bg-color: color-mix(in srgb, var(--warning) 16%, transparent);
+  --fc-event-border-color: color-mix(in srgb, var(--warning) 35%, transparent);
+  --fc-event-text-color: var(--warning);
+}
+
+.campushub-calendar .campushub-calendar-event-exam {
+  --fc-event-bg-color: color-mix(in srgb, var(--destructive) 13%, transparent);
+  --fc-event-border-color: color-mix(
+    in srgb,
+    var(--destructive) 30%,
+    transparent
+  );
+  --fc-event-text-color: var(--destructive);
+}
+
+.campushub-calendar .campushub-calendar-event-draft {
+  --fc-event-bg-color: var(--surface-muted);
+  --fc-event-border-color: var(--border);
+  --fc-event-text-color: var(--muted-foreground);
+}
+
+.campushub-calendar .fc-popover {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--foreground);
+}
+
+.campushub-calendar .fc-popover-header {
+  background: var(--surface-muted);
+}
+
+[data-vaul-drawer][data-state="open"] {
+  animation: drawer-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+[data-vaul-drawer][data-state="closed"] {
+  animation: drawer-exit 180ms ease both;
+}
+
+[data-vaul-overlay][data-state="open"] {
+  animation: overlay-enter 180ms ease both;
+}
+
+[data-vaul-overlay][data-state="closed"] {
+  animation: overlay-exit 160ms ease both;
 }
 
 button,
@@ -102,6 +527,11 @@ input,
 textarea,
 select {
   font: inherit;
+}
+
+form label > span:first-child,
+form .space-y-2 > span:first-child {
+  display: block;
 }
 
 ::selection {
@@ -330,6 +760,46 @@ html {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes overlay-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes overlay-exit {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes drawer-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(16px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes drawer-exit {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(12px, 0, 0);
   }
 }
 

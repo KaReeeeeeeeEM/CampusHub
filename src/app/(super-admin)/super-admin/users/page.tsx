@@ -1,11 +1,15 @@
-import { SuperAdminPlaceholderPage } from "@/features/super-admin/components/super-admin-placeholder-page";
+import { SuperAdminPageHeader } from "@/features/super-admin/components/super-admin-page-header";
+import { SuperAdminUsersManagement } from "@/features/super-admin/components/users/super-admin-users-management";
 
 export default function SuperAdminUsersPage() {
   return (
-    <SuperAdminPlaceholderPage
-      eyebrow="Identity"
-      title="Users"
-      description="Central user oversight for future tenant-wide governance, role assignment, and account lifecycle operations."
-    />
+    <main className="mx-auto w-full max-w-none px-4 py-6 sm:px-6">
+      <SuperAdminPageHeader
+        eyebrow="Identity"
+        title="Users"
+        description="Global user management across students, teachers, administrators, alumni, employers, and student leadership positions."
+      />
+      <SuperAdminUsersManagement />
+    </main>
   );
 }

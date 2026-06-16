@@ -9,6 +9,11 @@ import {
 } from "react-icons/fi";
 
 import { Button } from "@/components/ui/button";
+import {
+  SquareBarChartPanel,
+  SquareDonutChartPanel,
+  SquareGoalsPanel,
+} from "@/components/dashboard/square-dashboard-widgets";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CampusAdminPageHeader } from "@/features/campus-admin/components/campus-admin-page-header";
 import {
@@ -30,6 +35,44 @@ const statCards = [
   { key: "teachersCount", label: "Teachers", icon: FiUsers },
   { key: "studentsCount", label: "Students", icon: FiUsers },
 ] as const;
+
+const campusAdminActivity = [
+  { label: "05", primary: 3, secondary: 5 },
+  { label: "06", primary: 4, secondary: 2 },
+  { label: "07", primary: 2, secondary: 7 },
+  { label: "08", primary: 6, secondary: 4 },
+  { label: "09", primary: 5, secondary: 3 },
+  { label: "10", primary: 7, secondary: 6 },
+  { label: "11", primary: 4, secondary: 8 },
+];
+
+const campusAdminDistribution = [
+  { name: "Colleges", value: 5, color: "#60DDA0" },
+  { name: "Departments", value: 12, color: "#3478F6" },
+  { name: "Teachers", value: 86, color: "#7C3AED" },
+  { name: "Representatives", value: 18, color: "#F59E0B" },
+];
+
+const campusAdminGoals = [
+  {
+    label: "Department Readiness",
+    value: 78,
+    detail: "12 of 15 departments configured",
+    color: "#3478F6",
+  },
+  {
+    label: "Teacher Coverage",
+    value: 64,
+    detail: "Invitations sent this week",
+    color: "#10B981",
+  },
+  {
+    label: "Representative Activation",
+    value: 86,
+    detail: "College leadership coverage",
+    color: "#F97316",
+  },
+];
 
 export default async function CampusAdminDashboardPage() {
   const dashboard = {
@@ -66,7 +109,7 @@ export default async function CampusAdminDashboardPage() {
   };
 
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <main className="mx-auto w-full max-w-none px-4 py-6 sm:px-6">
       <CampusAdminPageHeader
         eyebrow="University operations"
         title="Campus Admin Dashboard"
@@ -96,26 +139,53 @@ export default async function CampusAdminDashboardPage() {
         </Card>
       ) : null}
 
-      <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {statCards.map((stat) => {
           const Icon = stat.icon;
 
           return (
-            <Card key={stat.key}>
-              <CardContent className="flex items-center justify-between p-6">
-                <div>
-                  <p className="text-sm text-muted-foreground">{stat.label}</p>
-                  <p className="mt-2 text-3xl font-semibold">
+            <Card key={stat.key} className="dashboard-card min-h-[104px]">
+              <CardContent className="flex h-full flex-col justify-between p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <span className="dashboard-icon-tile flex h-9 w-9 items-center justify-center">
+                    <Icon className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <span className="rounded-full bg-success/10 px-2 py-1 text-xs font-semibold text-success">
+                    live
+                  </span>
+                </div>
+                <div className="mt-5">
+                  <p className="text-xl font-semibold">
                     {dashboard.stats[stat.key]}
                   </p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {stat.label}
+                  </p>
                 </div>
-                <span className="flex h-11 w-11 items-center justify-center rounded-md bg-primary/10 text-primary">
-                  <Icon className="h-5 w-5" aria-hidden="true" />
-                </span>
               </CardContent>
             </Card>
           );
         })}
+      </section>
+
+      <section className="mt-6 grid gap-4 xl:grid-cols-[1.15fr_1fr_0.9fr]">
+        <SquareBarChartPanel
+          data={campusAdminActivity}
+          primaryLabel="Created"
+          secondaryLabel="Updated"
+          subtitle="Colleges, departments, and invitation activity over 7 days"
+          title="University Activity"
+        />
+        <SquareDonutChartPanel
+          data={campusAdminDistribution}
+          subtitle="Operational coverage across university entities"
+          title="Structure Distribution"
+        />
+        <SquareGoalsPanel
+          goals={campusAdminGoals}
+          subtitle="Track operational readiness"
+          title="Weekly Goals"
+        />
       </section>
 
       <Card className="mt-8">

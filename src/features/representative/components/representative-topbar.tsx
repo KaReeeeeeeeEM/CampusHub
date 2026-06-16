@@ -1,3 +1,5 @@
+import { AppearanceDrawer } from "@/components/navigation/appearance-drawer";
+import { DashboardThemeToggle } from "@/components/navigation/theme-toggle";
 import { NotificationMenu } from "@/components/navigation/notification-menu";
 import { Search } from "@/components/navigation/search";
 import { UserMenu } from "@/components/navigation/user-menu";
@@ -14,11 +16,10 @@ export function RepresentativeTopbar({ user }: RepresentativeTopbarProps) {
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-background/92 px-4 backdrop-blur-xl sm:px-6">
       <RepresentativeMobileMenu />
       <RepresentativeBreadcrumbs />
-      <Search
-        className="ml-0 max-w-md md:ml-4"
-        placeholder="Search college"
-      />
+      <Search className="ml-0 max-w-md md:ml-4" placeholder="Search college" />
       <div className="ml-auto flex items-center gap-1">
+        <AppearanceDrawer />
+        <DashboardThemeToggle />
         <NotificationMenu />
         <UserMenu name={user.name} email={user.email} />
       </div>

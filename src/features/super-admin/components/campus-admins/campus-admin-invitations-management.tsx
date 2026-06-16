@@ -212,7 +212,7 @@ function InvitationForm({
         </label>
       </div>
 
-      <Button disabled={isSubmitting} type="submit">
+      <Button className="w-full" disabled={isSubmitting} type="submit">
         {isSubmitting ? (
           <FiLoader className="h-4 w-4 animate-spin" aria-hidden="true" />
         ) : (

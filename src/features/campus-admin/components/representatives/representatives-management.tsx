@@ -7,6 +7,8 @@ import {
   FiCopy,
   FiEdit,
   FiEye,
+  FiGrid,
+  FiList,
   FiLoader,
   FiMail,
   FiPlus,
@@ -19,6 +21,7 @@ import type { z } from "zod";
 import {
   CampusDataTable,
   CampusInput,
+  CampusViewToggle,
   campusToast,
 } from "@/components/campushub";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -53,6 +56,10 @@ type RepresentativesManagementProps = {
     }
   >;
 };
+const viewOptions = [
+  { value: "table", label: "Table view", icon: FiList },
+  { value: "cards", label: "Card view", icon: FiGrid },
+] as const;
 
 function StatusBadge({
   status,
@@ -178,7 +185,7 @@ function RepresentativeInvitationForm({
           <CampusInput {...register("phone")} placeholder="+255 000 000 000" />
         </label>
       </div>
-      <Button disabled={isSubmitting} type="submit">
+      <Button className="w-full" disabled={isSubmitting} type="submit">
         {isSubmitting ? (
           <FiLoader className="h-4 w-4 animate-spin" aria-hidden="true" />
         ) : (
@@ -234,6 +241,7 @@ export function RepresentativesManagement({
 }: RepresentativesManagementProps) {
   const [invitations, setInvitations] = useState(initialInvitations);
   const [query, setQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
   const [createOpen, setCreateOpen] = useState(false);
   const [viewing, setViewing] =
     useState<SerializedRepresentativeInvitation | null>(null);
@@ -455,22 +463,88 @@ export function RepresentativesManagement({
             onChange={(event) => setQuery(event.target.value)}
           />
         </div>
-        <Button
-          disabled={colleges.length === 0}
-          type="button"
-          onClick={() => setCreateOpen(true)}
-        >
-          <FiPlus className="h-4 w-4" aria-hidden="true" />
-          Create Representative
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <CampusViewToggle
+            value={viewMode}
+            options={viewOptions}
+            onValueChange={setViewMode}
+          />
+          <Button
+            disabled={colleges.length === 0}
+            type="button"
+            onClick={() => setCreateOpen(true)}
+          >
+            <FiPlus className="h-4 w-4" aria-hidden="true" />
+            Create Representative
+          </Button>
+        </div>
       </div>
 
-      <div className="mt-5">
-        <CampusDataTable
-          columns={columns}
-          data={filteredInvitations}
-          getRowId={(invitation) => invitation.id}
-          empty={
+      {viewMode === "cards" ? (
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {filteredInvitations.length > 0 ? (
+            filteredInvitations.map((invitation) => (
+              <article
+                key={invitation.id}
+                className="flex h-full flex-col rounded-xl border border-border bg-surface p-4 transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                    {invitation.firstName.charAt(0)}
+                    {invitation.lastName.charAt(0)}
+                  </span>
+                  <AdminActionMenu
+                    items={[
+                      {
+                        label: "View",
+                        icon: FiEye,
+                        onSelect: () => setViewing(invitation),
+                      },
+                      {
+                        label: "Edit",
+                        icon: FiEdit,
+                        onSelect: () => setEditing(invitation),
+                      },
+                      {
+                        label: "Copy Link",
+                        icon: FiCopy,
+                        onSelect: () => void copyInvitationUrl(invitation),
+                      },
+                      {
+                        label: "Resend Invitation",
+                        icon: FiRefreshCw,
+                        onSelect: () => patchInvitation(invitation, "resend"),
+                      },
+                      {
+                        label: "Deactivate",
+                        icon: FiSlash,
+                        destructive: true,
+                        disabled: invitation.status === "DISABLED",
+                        onSelect: () => setDeactivating(invitation),
+                      },
+                    ]}
+                  />
+                </div>
+                <h3 className="mt-4 text-base font-semibold">
+                  {invitation.firstName} {invitation.lastName}
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {"position" in invitation
+                    ? String(invitation.position)
+                    : "Representative"}
+                </p>
+                <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">
+                  {invitation.collegeName}
+                </p>
+                <div className="mt-auto flex items-center justify-between gap-3 pt-5">
+                  <StatusBadge status={invitation.status} />
+                  <span className="text-xs text-muted-foreground">
+                    {invitation.email}
+                  </span>
+                </div>
+              </article>
+            ))
+          ) : (
             <EmptyState
               title={
                 colleges.length === 0
@@ -486,11 +560,38 @@ export function RepresentativesManagement({
                     ? "Adjust your search and try again."
                     : "Invite the first college representative."
               }
-              className="mx-auto border-0 bg-transparent"
+              className="mx-auto border-0 bg-transparent md:col-span-2 xl:col-span-3"
             />
-          }
-        />
-      </div>
+          )}
+        </div>
+      ) : (
+        <div className="mt-5">
+          <CampusDataTable
+            columns={columns}
+            data={filteredInvitations}
+            getRowId={(invitation) => invitation.id}
+            empty={
+              <EmptyState
+                title={
+                  colleges.length === 0
+                    ? "Create a college first"
+                    : query
+                      ? "No matching representatives"
+                      : "No representatives yet"
+                }
+                description={
+                  colleges.length === 0
+                    ? "Representatives must be invited into a college."
+                    : query
+                      ? "Adjust your search and try again."
+                      : "Invite the first college representative."
+                }
+                className="mx-auto border-0 bg-transparent"
+              />
+            }
+          />
+        </div>
+      )}
 
       <Modal
         open={createOpen}

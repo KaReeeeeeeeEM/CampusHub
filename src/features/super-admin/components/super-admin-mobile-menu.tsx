@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useState } from "react";
-import { FiMenu } from "react-icons/fi";
+import { FiSidebar } from "react-icons/fi";
 
 import { DevelopmentRoleSwitcher } from "@/components/navigation/development-role-switcher";
 import { Drawer } from "@/components/shared/drawer";
@@ -30,7 +30,7 @@ export function SuperAdminMobileMenu() {
         variant="ghost"
         onClick={() => setOpen(true)}
       >
-        <FiMenu className="h-5 w-5" aria-hidden="true" />
+        <FiSidebar className="h-5 w-5" aria-hidden="true" />
       </Button>
       <Drawer
         open={open}

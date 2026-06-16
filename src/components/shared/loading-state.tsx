@@ -1,4 +1,4 @@
-import { FiLoader } from "react-icons/fi";
+import { SpinnerLoader } from "@/components/shared/spinner-loader";
 
 import { cn } from "@/lib/utils";
 
@@ -14,14 +14,11 @@ export function LoadingState({
   return (
     <div
       className={cn(
-        "flex items-center justify-center gap-3 p-6 text-sm text-muted-foreground",
+        "flex flex-col items-center justify-center gap-4 p-6 text-center text-sm text-muted-foreground",
         className,
       )}
     >
-      <FiLoader
-        className="h-4 w-4 animate-spin text-primary"
-        aria-hidden="true"
-      />
+      <SpinnerLoader label={label} />
       <span>{label}</span>
     </div>
   );

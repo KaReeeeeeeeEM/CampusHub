@@ -1,11 +1,15 @@
-import { SuperAdminPlaceholderPage } from "@/features/super-admin/components/super-admin-placeholder-page";
+import { SuperAdminAuditLogs } from "@/features/super-admin/components/audit-logs/super-admin-audit-logs";
+import { SuperAdminPageHeader } from "@/features/super-admin/components/super-admin-page-header";
 
 export default function SuperAdminAuditLogsPage() {
   return (
-    <SuperAdminPlaceholderPage
-      eyebrow="Governance"
-      title="Audit Logs"
-      description="Audit log foundation for future tracking of admin actions, invitations, account changes, and tenant operations."
-    />
+    <main className="mx-auto w-full max-w-none px-4 py-6 sm:px-6">
+      <SuperAdminPageHeader
+        eyebrow="Governance"
+        title="Audit Logs"
+        description="Enterprise platform activity monitoring with heatmaps, trends, distribution analytics, and detailed recent log inspection."
+      />
+      <SuperAdminAuditLogs />
+    </main>
   );
 }

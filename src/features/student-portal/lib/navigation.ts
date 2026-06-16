@@ -1,14 +1,15 @@
 import {
+  FiArchive,
   FiBell,
   FiBookOpen,
   FiCalendar,
-  FiClipboard,
   FiHome,
   FiMap,
   FiMessageSquare,
   FiPieChart,
-  FiSend,
   FiShield,
+  FiShoppingBag,
+  FiStar,
   FiUser,
   FiUsers,
   FiZap,
@@ -22,7 +23,11 @@ export type StudentNavKey =
   | "almanac"
   | "map"
   | "forum"
+  | "polls"
   | "suggestions"
+  | "lost-found"
+  | "market"
+  | "showcase"
   | "profile"
   | "notifications";
 
@@ -88,11 +93,39 @@ export const studentNavigationItems: StudentNavItem[] = [
     icon: FiMessageSquare,
   },
   {
+    key: "polls",
+    label: "Polls",
+    href: "/student/polls",
+    description: "Vote on active polls and review student feedback results.",
+    icon: FiPieChart,
+  },
+  {
     key: "suggestions",
     label: "Suggestions",
     href: "/student/suggestions",
     description: "Submit and track feedback for representatives.",
     icon: FiZap,
+  },
+  {
+    key: "lost-found",
+    label: "Lost & Found",
+    href: "/student/lost-found",
+    description: "Report, search, and recover lost campus items.",
+    icon: FiArchive,
+  },
+  {
+    key: "market",
+    label: "Market",
+    href: "/student/market",
+    description: "Buy, sell, and discover campus products and student shops.",
+    icon: FiShoppingBag,
+  },
+  {
+    key: "showcase",
+    label: "Showcase",
+    href: "/student/showcase",
+    description: "Publish projects, achievements, research, and portfolios.",
+    icon: FiStar,
   },
   {
     key: "profile",
@@ -115,99 +148,19 @@ export const futureStudentNavigationItems: StudentNavItem[] = [];
 export const studentLeadershipNavigationItems: StudentLeadershipNavItem[] = [
   {
     key: "representative-committee",
-    label: "Committee Management",
-    href: "/student/leadership/committee",
-    description: "College coordination and student leadership workflows.",
+    label: "Leadership",
+    href: "/student/leadership",
+    description: "Create committees and coordinate student leadership workflows.",
     section: "Leadership",
     requiredPosition: "REPRESENTATIVE",
     icon: FiUsers,
   },
   {
-    key: "representative-invitations",
-    label: "Student Invitations",
-    href: "/student/leadership/invitations",
-    description: "Invitation links and student enrollment tracking.",
-    section: "Leadership",
-    requiredPosition: "REPRESENTATIVE",
-    icon: FiSend,
-  },
-  {
-    key: "representative-announcements",
-    label: "College Announcements",
-    href: "/student/leadership/announcements",
-    description: "College-level announcements and communication.",
-    section: "Leadership",
-    requiredPosition: "REPRESENTATIVE",
-    icon: FiBell,
-  },
-  {
-    key: "representative-events",
-    label: "College Events",
-    href: "/student/leadership/events",
-    description: "College events, workshops, and community activities.",
-    section: "Leadership",
-    requiredPosition: "REPRESENTATIVE",
-    icon: FiCalendar,
-  },
-  {
-    key: "representative-forums",
-    label: "Forums Management",
-    href: "/student/leadership/forums",
-    description: "Moderate college community discussions.",
-    section: "Leadership",
-    requiredPosition: "REPRESENTATIVE",
-    icon: FiMessageSquare,
-  },
-  {
-    key: "representative-suggestions",
-    label: "Suggestions Management",
-    href: "/student/leadership/suggestions",
-    description: "Review and track student feedback.",
-    section: "Leadership",
-    requiredPosition: "REPRESENTATIVE",
-    icon: FiZap,
-  },
-  {
-    key: "representative-polls",
-    label: "Polls Management",
-    href: "/student/leadership/polls",
-    description: "Structured polls for student-informed decisions.",
-    section: "Leadership",
-    requiredPosition: "REPRESENTATIVE",
-    icon: FiPieChart,
-  },
-  {
-    key: "committee-tasks",
-    label: "Tasks",
-    href: "/student/my-committee/tasks",
-    description: "Assigned committee tasks and progress.",
-    section: "My Committee",
-    requiredPosition: "COMMITTEE_MEMBER",
-    icon: FiClipboard,
-  },
-  {
-    key: "committee-announcements",
-    label: "Category Announcements",
-    href: "/student/my-committee/announcements",
-    description: "Category-specific announcements.",
-    section: "My Committee",
-    requiredPosition: "COMMITTEE_MEMBER",
-    icon: FiBell,
-  },
-  {
-    key: "committee-events",
-    label: "Category Events",
-    href: "/student/my-committee/events",
-    description: "Category-specific events and calendar work.",
-    section: "My Committee",
-    requiredPosition: "COMMITTEE_MEMBER",
-    icon: FiCalendar,
-  },
-  {
-    key: "committee-discussions",
-    label: "Category Discussions",
-    href: "/student/my-committee/discussions",
-    description: "Category-specific committee operations.",
+    key: "my-committee",
+    label: "My Committee",
+    href: "/student/my-committee",
+    description:
+      "Committee tasks, category announcements, and events.",
     section: "My Committee",
     requiredPosition: "COMMITTEE_MEMBER",
     icon: FiShield,

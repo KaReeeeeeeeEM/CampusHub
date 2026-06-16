@@ -1,3 +1,5 @@
+import { AppearanceDrawer } from "@/components/navigation/appearance-drawer";
+import { DashboardThemeToggle } from "@/components/navigation/theme-toggle";
 import { NotificationMenu } from "@/components/navigation/notification-menu";
 import { Search } from "@/components/navigation/search";
 import { UserMenu } from "@/components/navigation/user-menu";
@@ -15,6 +17,8 @@ export function CommitteeTopbar() {
         placeholder="Search technology work"
       />
       <div className="ml-auto flex items-center gap-1">
+        <AppearanceDrawer />
+        <DashboardThemeToggle />
         <NotificationMenu />
         <UserMenu name={committeeProfile.name} email={committeeProfile.email} />
       </div>

@@ -9,7 +9,7 @@ export default function CampusAdminError({
   reset: () => void;
 }) {
   return (
-    <main className="mx-auto flex w-full max-w-7xl items-center justify-center px-4 py-8 sm:px-6 lg:px-8">
+    <main className="flex w-full max-w-none items-center justify-center px-4 py-6 sm:px-6">
       <ErrorState
         title="Unable to load Campus Admin"
         description="CampusHub could not load this university workspace."

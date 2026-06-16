@@ -209,6 +209,7 @@ function UniversityForm({
           <CampusInput {...register("phone")} placeholder="+255 000 000 000" />
         </label>
         <CampusFileUpload
+          className="md:col-span-2"
           label="Logo Upload"
           value={logo}
           error={errors.logo?.message}
@@ -246,7 +247,7 @@ function UniversityForm({
           ) : null}
         </label>
       </div>
-      <Button disabled={isSubmitting} type="submit">
+      <Button className="w-full" disabled={isSubmitting} type="submit">
         {isSubmitting ? (
           <FiLoader className="h-4 w-4 animate-spin" aria-hidden="true" />
         ) : null}

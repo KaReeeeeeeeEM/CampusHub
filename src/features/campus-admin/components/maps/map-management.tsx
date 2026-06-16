@@ -6,10 +6,14 @@ import { useForm } from "react-hook-form";
 import {
   FiEdit,
   FiEye,
+  FiGrid,
+  FiList,
   FiLoader,
   FiMapPin,
+  FiNavigation,
   FiPlus,
   FiSearch,
+  FiTarget,
   FiTrash2,
 } from "react-icons/fi";
 import { z } from "zod";
@@ -18,8 +22,10 @@ import {
   CampusDataTable,
   CampusInput,
   CampusTextarea,
+  CampusViewToggle,
   campusToast,
 } from "@/components/campushub";
+import { OpenStreetMap } from "@/components/maps/open-street-map";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Drawer } from "@/components/shared/drawer";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -35,6 +41,7 @@ import {
 import { AdminActionMenu } from "@/features/administration/components/admin-action-menu";
 import type { CampusLocation } from "@/features/campus-admin/lib/mock-data";
 import type { DataTableColumn } from "@/components/shared/data-table";
+import { cn } from "@/lib/utils";
 
 const categories = [
   "Library",
@@ -43,6 +50,17 @@ const categories = [
   "Administration",
   "Sports",
   "Medical Services",
+] as const;
+const viewOptions = [
+  { value: "table", label: "Table view", icon: FiList },
+  { value: "cards", label: "Card view", icon: FiGrid },
+] as const;
+
+const startingPointOptions = [
+  "Current location",
+  "Main Gate",
+  "Student Center",
+  "CoICT Entrance",
 ] as const;
 
 const locationSchema = z.object({
@@ -86,7 +104,11 @@ function LocationForm({
       <div className="grid gap-4 md:grid-cols-2">
         <label className="space-y-2">
           <span className="text-sm font-medium">Location Name</span>
-          <CampusInput {...register("name")} invalid={Boolean(errors.name)} />
+          <CampusInput
+            {...register("name")}
+            invalid={Boolean(errors.name)}
+            placeholder="Main Library"
+          />
         </label>
         <label className="space-y-2">
           <span className="text-sm font-medium">Category</span>
@@ -113,13 +135,18 @@ function LocationForm({
         </label>
         <label className="space-y-2">
           <span className="text-sm font-medium">Code</span>
-          <CampusInput {...register("code")} invalid={Boolean(errors.code)} />
+          <CampusInput
+            {...register("code")}
+            invalid={Boolean(errors.code)}
+            placeholder="LIB-01"
+          />
         </label>
         <label className="space-y-2">
           <span className="text-sm font-medium">Coordinates</span>
           <CampusInput
             {...register("coordinates")}
             invalid={Boolean(errors.coordinates)}
+            placeholder="-6.7801, 39.2051"
           />
         </label>
         <label className="space-y-2 md:col-span-2">
@@ -127,10 +154,11 @@ function LocationForm({
           <CampusTextarea
             {...register("description")}
             invalid={Boolean(errors.description)}
+            placeholder="Add access notes, nearby landmarks, or opening hours."
           />
         </label>
       </div>
-      <Button disabled={isSubmitting} type="submit">
+      <Button className="w-full" disabled={isSubmitting} type="submit">
         {isSubmitting ? <FiLoader className="h-4 w-4 animate-spin" /> : null}
         {location ? "Save Changes" : "Add Location"}
       </Button>
@@ -145,10 +173,19 @@ export function MapManagement({
 }) {
   const [locations, setLocations] = useState(initialLocations);
   const [query, setQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
   const [createOpen, setCreateOpen] = useState(false);
   const [viewing, setViewing] = useState<CampusLocation | null>(null);
   const [editing, setEditing] = useState<CampusLocation | null>(null);
   const [deleting, setDeleting] = useState<CampusLocation | null>(null);
+  const [selectedLocationId, setSelectedLocationId] = useState(
+    initialLocations[0]?.id ?? "",
+  );
+  const [startingPoint, setStartingPoint] =
+    useState<string>("Current location");
+  const [routeDestinationId, setRouteDestinationId] = useState(
+    initialLocations[0]?.id ?? "",
+  );
   const [isPending, startTransition] = useTransition();
 
   const filtered = useMemo(() => {
@@ -162,12 +199,23 @@ export function MapManagement({
     );
   }, [locations, query]);
 
+  const selectedLocation =
+    locations.find((location) => location.id === selectedLocationId) ??
+    locations[0] ??
+    null;
+  const routeDestination =
+    locations.find((location) => location.id === routeDestinationId) ??
+    selectedLocation;
+
   function createLocation(values: LocationInput) {
     startTransition(async () => {
+      const id = `location-${Date.now()}`;
       setLocations((current) => [
-        { id: `location-${Date.now()}`, status: "ACTIVE", ...values },
+        { id, status: "ACTIVE", ...values },
         ...current,
       ]);
+      setSelectedLocationId(id);
+      setRouteDestinationId(id);
       setCreateOpen(false);
       campusToast.success({
         title: "Map Point Added",
@@ -228,32 +276,207 @@ export function MapManagement({
 
   return (
     <>
-      <section className="mt-8 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-        <div className="relative min-h-96 overflow-hidden rounded-lg border border-border bg-surface p-5">
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:48px_48px] opacity-40" />
-          <div className="relative z-10">
-            <p className="text-sm font-semibold">Map Preview</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              University of Dar es Salaam campus locations preview.
-            </p>
-          </div>
-          {locations.map((location, index) => (
-            <span
-              key={location.id}
-              className="absolute flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg"
-              style={{
-                left: `${24 + index * 18}%`,
-                top: `${35 + (index % 2) * 22}%`,
-              }}
-              title={location.name}
-            >
-              <FiMapPin className="h-4 w-4" />
+      <section className="mt-8 grid gap-5 xl:grid-cols-[0.85fr_1.15fr]">
+        <div className="rounded-xl border border-border bg-surface p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold">Campus Locations</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Select a location from the list or map pins.
+              </p>
+            </div>
+            <span className="rounded-full bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
+              {filtered.length} points
             </span>
-          ))}
+          </div>
+          <div className="mt-4 space-y-2">
+            {filtered.map((location) => {
+              const active = selectedLocation?.id === location.id;
+
+              return (
+                <Button
+                  key={location.id}
+                  className={cn(
+                    "h-auto w-full justify-start rounded-lg border p-3 text-left",
+                    active
+                      ? "border-primary/60 bg-primary/10 text-foreground"
+                      : "border-border bg-background/60 hover:border-primary/35 hover:bg-surface-muted",
+                  )}
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setSelectedLocationId(location.id);
+                    setRouteDestinationId(location.id);
+                  }}
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                    <FiMapPin className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold">
+                      {location.name}
+                    </span>
+                    <span className="mt-1 block truncate text-xs text-muted-foreground">
+                      {location.category} · {location.code}
+                    </span>
+                  </span>
+                </Button>
+              );
+            })}
+          </div>
+          {selectedLocation ? (
+            <div className="mt-4 rounded-lg border border-border bg-background/60 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                    Selected
+                  </p>
+                  <h3 className="mt-2 text-base font-semibold">
+                    {selectedLocation.name}
+                  </h3>
+                </div>
+                <Button
+                  size="sm"
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setViewing(selectedLocation)}
+                >
+                  <FiEye className="h-4 w-4" aria-hidden="true" />
+                  View
+                </Button>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                {selectedLocation.description}
+              </p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-md border border-border p-3">
+                  <p className="text-xs uppercase text-muted-foreground">
+                    Coordinates
+                  </p>
+                  <p className="mt-1 text-sm font-medium">
+                    {selectedLocation.coordinates}
+                  </p>
+                </div>
+                <div className="rounded-md border border-border p-3">
+                  <p className="text-xs uppercase text-muted-foreground">
+                    Status
+                  </p>
+                  <p className="mt-1 text-sm font-medium">
+                    {selectedLocation.status}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="overflow-hidden rounded-xl border border-border bg-surface">
+            <div className="grid gap-0 lg:grid-cols-[1fr_18rem]">
+              <div className="relative min-h-[32rem] overflow-hidden">
+                <OpenStreetMap
+                  className="absolute inset-0 z-0"
+                  locations={locations}
+                  routeDestinationId={routeDestinationId}
+                  selectedLocationId={selectedLocationId}
+                  onSelectLocation={(locationId) => {
+                    setSelectedLocationId(locationId);
+                    setRouteDestinationId(locationId);
+                  }}
+                />
+              </div>
+              <aside className="border-t border-border bg-background/55 p-4 lg:border-l lg:border-t-0">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
+                    <FiNavigation className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold">Navigate</p>
+                    <p className="text-xs text-muted-foreground">
+                      Plan a route to any campus point.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 space-y-4">
+                  <label className="space-y-2">
+                    <span className="text-xs font-semibold uppercase text-muted-foreground">
+                      Starting point
+                    </span>
+                    <Select
+                      value={startingPoint}
+                      onValueChange={setStartingPoint}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {startingPointOptions.map((point) => (
+                          <SelectItem key={point} value={point}>
+                            {point}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </label>
+                  <label className="space-y-2">
+                    <span className="text-xs font-semibold uppercase text-muted-foreground">
+                      Destination
+                    </span>
+                    <Select
+                      value={routeDestinationId}
+                      onValueChange={(value) => {
+                        setRouteDestinationId(value);
+                        setSelectedLocationId(value);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose destination" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {locations.map((location) => (
+                          <SelectItem key={location.id} value={location.id}>
+                            {location.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </label>
+                  <div className="rounded-lg border border-border bg-surface p-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold">
+                      <FiTarget className="h-4 w-4 text-primary" />
+                      Route preview
+                    </div>
+                    <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                      {startingPoint} to{" "}
+                      <span className="font-medium text-foreground">
+                        {routeDestination?.name ?? "destination"}
+                      </span>
+                    </p>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Estimated 6-12 min walk. Turn-by-turn routing will connect
+                      to live map services later.
+                    </p>
+                  </div>
+                  <Button
+                    className="w-full"
+                    type="button"
+                    onClick={() =>
+                      campusToast.info({
+                        title: "Navigation Preview",
+                        description: `Route from ${startingPoint} to ${
+                          routeDestination?.name ?? "selected destination"
+                        } is ready for map integration.`,
+                      })
+                    }
+                  >
+                    <FiNavigation className="h-4 w-4" />
+                    Navigate
+                  </Button>
+                </div>
+              </aside>
+            </div>
+          </div>
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="relative w-full sm:max-w-sm">
               <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <CampusInput
@@ -264,25 +487,89 @@ export function MapManagement({
                 onChange={(event) => setQuery(event.target.value)}
               />
             </div>
-            <Button onClick={() => setCreateOpen(true)}>
-              <FiPlus className="h-4 w-4" />
-              Create Location
-            </Button>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <CampusViewToggle
+                value={viewMode}
+                options={viewOptions}
+                onValueChange={setViewMode}
+              />
+              <Button onClick={() => setCreateOpen(true)}>
+                <FiPlus className="h-4 w-4" />
+                Create Location
+              </Button>
+            </div>
           </div>
-          <div className="mt-5">
-            <CampusDataTable
-              columns={columns}
-              data={filtered}
-              getRowId={(location) => location.id}
-              empty={
+          {viewMode === "cards" ? (
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              {filtered.length > 0 ? (
+                filtered.map((location) => (
+                  <article
+                    key={location.id}
+                    className="flex h-full flex-col rounded-xl border border-border bg-surface p-4 transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <FiMapPin className="h-4 w-4" aria-hidden="true" />
+                      </span>
+                      <AdminActionMenu
+                        items={[
+                          {
+                            label: "View",
+                            icon: FiEye,
+                            onSelect: () => setViewing(location),
+                          },
+                          {
+                            label: "Edit",
+                            icon: FiEdit,
+                            onSelect: () => setEditing(location),
+                          },
+                          {
+                            label: "Delete",
+                            icon: FiTrash2,
+                            destructive: true,
+                            onSelect: () => setDeleting(location),
+                          },
+                        ]}
+                      />
+                    </div>
+                    <h3 className="mt-4 text-base font-semibold">
+                      {location.name}
+                    </h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {location.category} · {location.code}
+                    </p>
+                    <p className="mt-3 line-clamp-2 text-sm leading-6 text-muted-foreground">
+                      {location.description}
+                    </p>
+                    <p className="mt-auto pt-5 text-xs text-muted-foreground">
+                      {location.coordinates}
+                    </p>
+                  </article>
+                ))
+              ) : (
                 <EmptyState
                   title={query ? "No matching locations" : "No map locations"}
                   description="Add campus locations to populate the map management table."
-                  className="mx-auto border-0 bg-transparent"
+                  className="mx-auto border-0 bg-transparent md:col-span-2"
                 />
-              }
-            />
-          </div>
+              )}
+            </div>
+          ) : (
+            <div className="mt-5">
+              <CampusDataTable
+                columns={columns}
+                data={filtered}
+                getRowId={(location) => location.id}
+                empty={
+                  <EmptyState
+                    title={query ? "No matching locations" : "No map locations"}
+                    description="Add campus locations to populate the map management table."
+                    className="mx-auto border-0 bg-transparent"
+                  />
+                }
+              />
+            </div>
+          )}
         </div>
       </section>
 

@@ -13,7 +13,12 @@ export function NotificationMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button aria-label="Open notifications" size="icon" variant="ghost">
+        <Button
+          aria-label="Open notifications"
+          className="bg-surface-muted"
+          size="icon"
+          variant="secondary"
+        >
           <FiBell className="h-4 w-4" aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>

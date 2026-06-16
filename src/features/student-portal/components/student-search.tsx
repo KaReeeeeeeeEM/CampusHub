@@ -1,19 +1,11 @@
 "use client";
 
-import { CampusSearch } from "@/components/campushub";
+import { Search } from "@/components/navigation/search";
 
 type StudentSearchProps = {
   className?: string;
 };
 
 export function StudentSearch({ className }: StudentSearchProps) {
-  return (
-    <CampusSearch
-      aria-label="Search student portal"
-      className="bg-transparent"
-      placeholder="Search student portal"
-      type="search"
-      wrapperClassName={className}
-    />
-  );
+  return <Search className={className} placeholder="Search student portal" />;
 }

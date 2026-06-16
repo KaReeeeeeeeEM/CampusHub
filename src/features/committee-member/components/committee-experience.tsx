@@ -1,27 +1,39 @@
 "use client";
 
+import type {
+  EventClickArg,
+  EventInput as FullCalendarEventInput,
+} from "@fullcalendar/core";
+import dayGridPlugin from "@fullcalendar/daygrid";
+import FullCalendar from "@fullcalendar/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import {
   FiBell,
   FiCalendar,
   FiCheckCircle,
   FiCheckSquare,
+  FiCornerUpLeft,
   FiCpu,
-  FiEdit,
   FiEye,
   FiLoader,
   FiMessageSquare,
+  FiMoreVertical,
   FiPlus,
   FiSearch,
+  FiSend,
+  FiThumbsDown,
+  FiThumbsUp,
   FiTrendingUp,
+  FiTrash2,
 } from "react-icons/fi";
 import type { IconType } from "react-icons";
 import { z } from "zod";
 
 import {
+  CampusCheckbox,
   CampusDataTable,
   CampusInput,
   CampusTextarea,
@@ -33,6 +45,12 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Modal } from "@/components/shared/modal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -55,6 +73,7 @@ import {
   type CommitteeTopic,
 } from "@/features/committee-member/lib/mock-data";
 import type { DataTableColumn } from "@/components/shared/data-table";
+import { cn } from "@/lib/utils";
 
 const dashboardStats: {
   label: string;
@@ -84,7 +103,7 @@ const quickActions: {
   },
   {
     label: "Start Topic",
-    href: "/student/my-committee/discussions",
+    href: "/student/forum",
     icon: FiMessageSquare,
   },
   {
@@ -93,6 +112,26 @@ const quickActions: {
     icon: FiCheckSquare,
   },
 ];
+
+const committeeWorkspaceTabs = [
+  {
+    value: "tasks",
+    label: "Tasks",
+    icon: FiCheckSquare,
+  },
+  {
+    value: "announcements",
+    label: "Announcements",
+    icon: FiBell,
+  },
+  {
+    value: "events",
+    label: "Events",
+    icon: FiCalendar,
+  },
+] as const;
+
+type CommitteeWorkspaceTab = (typeof committeeWorkspaceTabs)[number]["value"];
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat(undefined, {
@@ -110,11 +149,17 @@ function StatusPill({ children }: { children: React.ReactNode }) {
   );
 }
 
-function CommitteeShell({ children }: { children: React.ReactNode }) {
+function CommitteeShell({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className={cn("w-full max-w-none px-4 py-6 sm:px-6", className)}>
       {children}
-    </main>
+    </div>
   );
 }
 
@@ -156,7 +201,7 @@ function SelectField<T extends string>({
   onValueChange: (value: T) => void;
 }) {
   return (
-    <label className="space-y-2">
+    <label className="block space-y-3">
       <span className="text-sm font-medium">{label}</span>
       <Select value={value} onValueChange={(next) => onValueChange(next as T)}>
         <SelectTrigger>
@@ -171,6 +216,62 @@ function SelectField<T extends string>({
         </SelectContent>
       </Select>
     </label>
+  );
+}
+
+export function StudentCommitteeWorkspace() {
+  const [activeTab, setActiveTab] = useState<CommitteeWorkspaceTab>("tasks");
+
+  const activeContent = (() => {
+    switch (activeTab) {
+      case "tasks":
+        return <CommitteeTasksView />;
+      case "announcements":
+        return <CommitteeAnnouncementsView />;
+      case "events":
+        return <CommitteeEventsView />;
+      default:
+        return null;
+    }
+  })();
+
+  return (
+    <CommitteeShell>
+      <CommitteePageHeader
+        eyebrow={committeeCategory}
+        title="My Committee"
+        description="Manage the responsibilities attached to your assigned committee category from one workspace."
+      />
+
+      <section className="mt-6 rounded-xl border border-border bg-surface p-2">
+        <div className="flex flex-wrap gap-2">
+          {committeeWorkspaceTabs.map((tab) => {
+            const Icon = tab.icon;
+            const selected = tab.value === activeTab;
+
+            return (
+              <Button
+                key={tab.value}
+                className={cn(
+                  "h-9 gap-2 rounded-lg px-3 text-xs font-semibold transition-colors",
+                  selected
+                    ? "bg-primary text-primary-foreground hover:bg-primary"
+                    : "bg-transparent text-muted-foreground hover:bg-surface-muted hover:text-foreground",
+                )}
+                type="button"
+                variant="ghost"
+                onClick={() => setActiveTab(tab.value)}
+              >
+                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>{tab.label}</span>
+              </Button>
+            );
+          })}
+        </div>
+      </section>
+
+      <div className="mt-6 [&>div]:px-0 [&>div]:py-0">{activeContent}</div>
+    </CommitteeShell>
   );
 }
 
@@ -285,7 +386,10 @@ export function CommitteeDashboardView() {
           </CardHeader>
           <CardContent className="space-y-3">
             {mockCommitteeAnnouncements.slice(0, 3).map((item) => (
-              <div key={item.id} className="rounded-md border border-border p-3">
+              <div
+                key={item.id}
+                className="rounded-md border border-border p-3"
+              >
                 <p className="text-sm font-medium">{item.title}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {item.status} · {formatDate(item.date)}
@@ -300,7 +404,10 @@ export function CommitteeDashboardView() {
           </CardHeader>
           <CardContent className="space-y-3">
             {upcomingEvents.map((event) => (
-              <div key={event.id} className="rounded-md border border-border p-3">
+              <div
+                key={event.id}
+                className="rounded-md border border-border p-3"
+              >
                 <p className="text-sm font-medium">{event.title}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {formatDate(event.date)} · {event.venue}
@@ -315,7 +422,10 @@ export function CommitteeDashboardView() {
           </CardHeader>
           <CardContent className="space-y-3">
             {mockCommitteeTopics.slice(0, 3).map((topic) => (
-              <div key={topic.id} className="rounded-md border border-border p-3">
+              <div
+                key={topic.id}
+                className="rounded-md border border-border p-3"
+              >
                 <p className="text-sm font-medium">{topic.title}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {topic.replies} replies · {topic.views} views
@@ -362,19 +472,21 @@ function AnnouncementForm({
   });
 
   return (
-    <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
-      <label className="space-y-2">
+    <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
+      <label className="block space-y-3">
         <span className="text-sm font-medium">Title</span>
         <CampusInput
           {...register("title")}
           invalid={Boolean(formState.errors.title)}
+          placeholder="Weekly technology committee update"
         />
       </label>
-      <label className="space-y-2">
+      <label className="block space-y-3">
         <span className="text-sm font-medium">Audience</span>
         <CampusInput
           {...register("audience")}
           invalid={Boolean(formState.errors.audience)}
+          placeholder="Technology clubs, all CoICT students"
         />
       </label>
       <SelectField
@@ -383,14 +495,15 @@ function AnnouncementForm({
         options={["Draft", "Published", "Archived"] as const}
         onValueChange={(value) => setValue("status", value)}
       />
-      <label className="space-y-2">
+      <label className="block space-y-3">
         <span className="text-sm font-medium">Body</span>
         <CampusTextarea
           {...register("body")}
           invalid={Boolean(formState.errors.body)}
+          placeholder="Write the announcement details and next steps."
         />
       </label>
-      <Button disabled={isSubmitting} type="submit">
+      <Button className="w-full" disabled={isSubmitting} type="submit">
         {isSubmitting ? <FiLoader className="h-4 w-4 animate-spin" /> : null}
         {announcement ? "Save Announcement" : "Create Announcement"}
       </Button>
@@ -399,7 +512,9 @@ function AnnouncementForm({
 }
 
 export function CommitteeAnnouncementsView() {
-  const [announcements, setAnnouncements] = useState(mockCommitteeAnnouncements);
+  const [announcements, setAnnouncements] = useState(
+    mockCommitteeAnnouncements,
+  );
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("All");
   const [viewing, setViewing] = useState<CommitteeAnnouncement | null>(null);
@@ -407,16 +522,43 @@ export function CommitteeAnnouncementsView() {
   const [createOpen, setCreateOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const filtered = announcements.filter((item) => {
-    const queryMatch =
-      !query ||
-      [item.title, item.audience, item.body]
-        .join(" ")
-        .toLowerCase()
-        .includes(query.toLowerCase());
-    const statusMatch = status === "All" || item.status === status;
-    return queryMatch && statusMatch;
-  });
+  const filtered = useMemo(
+    () =>
+      announcements.filter((item) => {
+        const normalizedQuery = query.trim().toLowerCase();
+        const queryMatch =
+          !normalizedQuery ||
+          [item.title, item.audience, item.body]
+            .join(" ")
+            .toLowerCase()
+            .includes(normalizedQuery);
+        const statusMatch =
+          status === "All" ||
+          item.status.toLowerCase() === status.toLowerCase();
+        return queryMatch && statusMatch;
+      }),
+    [announcements, query, status],
+  );
+  const calendarEvents = useMemo<FullCalendarEventInput[]>(
+    () =>
+      filtered.map((announcement) => ({
+        id: announcement.id,
+        title: announcement.title,
+        date: announcement.date,
+        extendedProps: {
+          status: announcement.status,
+          audience: announcement.audience,
+        },
+      })),
+    [filtered],
+  );
+
+  function openCalendarAnnouncement(arg: EventClickArg) {
+    const announcement = announcements.find((item) => item.id === arg.event.id);
+    if (announcement) {
+      setViewing(announcement);
+    }
+  }
 
   function createAnnouncement(values: AnnouncementInput) {
     startTransition(() => {
@@ -483,88 +625,82 @@ export function CommitteeAnnouncementsView() {
         </div>
       </div>
       <section className="mt-6 grid gap-5 lg:grid-cols-[1fr_420px]">
-        <div className="grid gap-4 md:grid-cols-2">
-          {filtered.map((announcement) => (
-            <Card
-              key={announcement.id}
-              className="transition-transform hover:-translate-y-1 hover:border-primary/40"
-            >
-              <CardContent className="p-5">
-                <div className="flex items-center justify-between gap-3">
-                  <StatusPill>{announcement.status}</StatusPill>
-                  <StatusPill>{committeeCategory}</StatusPill>
-                </div>
-                <h2 className="mt-4 text-lg font-semibold">
-                  {announcement.title}
-                </h2>
-                <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted-foreground">
-                  {announcement.body}
-                </p>
-                <div className="mt-5 flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">
-                    {formatDate(announcement.date)}
-                  </span>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={() => setViewing(announcement)}
-                    >
-                      View
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={() => setEditing(announcement)}
-                    >
-                      Edit
-                    </Button>
+        <div className="grid auto-rows-fr gap-4 md:grid-cols-2">
+          {filtered.length > 0 ? (
+            filtered.map((announcement) => (
+              <Card
+                key={announcement.id}
+                className="h-full transition-transform hover:-translate-y-1 hover:border-primary/40"
+              >
+                <CardContent className="flex h-full flex-col p-5 pb-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <StatusPill>{announcement.status}</StatusPill>
+                    <StatusPill>{committeeCategory}</StatusPill>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  <h2 className="mt-4 text-lg font-semibold">
+                    {announcement.title}
+                  </h2>
+                  <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted-foreground">
+                    {announcement.body}
+                  </p>
+                  <div className="mt-auto flex items-center justify-between gap-3 pt-5">
+                    <span className="text-xs text-muted-foreground">
+                      {formatDate(announcement.date)}
+                    </span>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setViewing(announcement)}
+                      >
+                        View
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setEditing(announcement)}
+                      >
+                        Edit
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <EmptyState
+              className="md:col-span-2"
+              title="No announcements found"
+              description={`No data for the filter "${query.trim() || status}". Try another search or status.`}
+            />
+          )}
         </div>
         <Card className="h-fit">
           <CardHeader>
-            <CardTitle>Announcement Table</CardTitle>
+            <CardTitle>Announcement Calendar</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Click a calendar item to view announcement details.
+            </p>
           </CardHeader>
-          <CardContent>
-            <CampusDataTable
-              columns={[
-                { key: "title", header: "Title" },
-                { key: "status", header: "Status" },
-                {
-                  key: "actions",
-                  header: "Actions",
-                  className: "w-16 text-right",
-                  cell: (announcement) => (
-                    <AdminActionMenu
-                      items={[
-                        {
-                          label: "View",
-                          icon: FiEye,
-                          onSelect: () => setViewing(announcement),
-                        },
-                        {
-                          label: "Edit",
-                          icon: FiEdit,
-                          onSelect: () => setEditing(announcement),
-                        },
-                      ]}
-                    />
-                  ),
-                },
-              ]}
-              data={filtered}
-              getRowId={(announcement) => announcement.id}
-              empty={
-                <EmptyState
-                  title="No announcements"
-                  description="Create your first technology announcement."
-                  className="mx-auto border-0 bg-transparent"
-                />
-              }
+          <CardContent className="campushub-calendar">
+            <FullCalendar
+              plugins={[dayGridPlugin]}
+              initialView="dayGridMonth"
+              events={calendarEvents}
+              eventClick={openCalendarAnnouncement}
+              headerToolbar={{
+                left: "prevYear,prev today next,nextYear",
+                center: "title",
+                right: "",
+              }}
+              buttonText={{
+                today: "Today",
+              }}
+              fixedWeekCount={false}
+              height="auto"
+              dayMaxEventRows={3}
+              moreLinkClick="popover"
+              firstDay={1}
             />
           </CardContent>
         </Card>
@@ -661,6 +797,7 @@ function EventForm({
           <CampusInput
             {...register("title")}
             invalid={Boolean(formState.errors.title)}
+            placeholder="Student developer workshop"
           />
         </label>
         <label className="space-y-2">
@@ -668,6 +805,7 @@ function EventForm({
           <CampusInput
             {...register("venue")}
             invalid={Boolean(formState.errors.venue)}
+            placeholder="Innovation Hub"
           />
         </label>
         <label className="space-y-2">
@@ -676,6 +814,7 @@ function EventForm({
             {...register("date")}
             type="date"
             invalid={Boolean(formState.errors.date)}
+            placeholder="Select event date"
           />
         </label>
         <label className="space-y-2">
@@ -683,6 +822,7 @@ function EventForm({
           <CampusInput
             {...register("time")}
             invalid={Boolean(formState.errors.time)}
+            placeholder="10:00 AM"
           />
         </label>
         <label className="space-y-2">
@@ -691,6 +831,7 @@ function EventForm({
             {...register("attendees")}
             type="number"
             invalid={Boolean(formState.errors.attendees)}
+            placeholder="120"
           />
         </label>
         <SelectField
@@ -704,10 +845,11 @@ function EventForm({
           <CampusTextarea
             {...register("description")}
             invalid={Boolean(formState.errors.description)}
+            placeholder="Describe the event purpose, audience, and logistics."
           />
         </label>
       </div>
-      <Button disabled={isSubmitting} type="submit">
+      <Button className="w-full" disabled={isSubmitting} type="submit">
         {isSubmitting ? <FiLoader className="h-4 w-4 animate-spin" /> : null}
         {event ? "Save Event" : "Create Event"}
       </Button>
@@ -877,6 +1019,161 @@ const topicSchema = z.object({
 
 type TopicInput = z.infer<typeof topicSchema>;
 
+type CommitteeForumReaction = {
+  likes: number;
+  dislikes: number;
+  userReaction: "like" | "dislike" | null;
+};
+
+type CommitteeForumComment = {
+  id: string;
+  author: string;
+  role: string;
+  time: string;
+  body: string;
+  replyTo?: {
+    author: string;
+    excerpt: string;
+  };
+};
+
+type CommitteeForumMember = {
+  name: string;
+  role: string;
+  initials: string;
+  interactions: number;
+};
+
+const initialCommitteeForumComments: Record<string, CommitteeForumComment[]> = {
+  "topic-lab-hours": [
+    {
+      id: "committee-comment-labs-1",
+      author: committeeProfile.name,
+      role: committeeProfile.role,
+      time: "10:18 AM",
+      body: "I will compile the request and confirm which labs can safely remain open after normal hours.",
+    },
+    {
+      id: "committee-comment-labs-2",
+      author: "Neema Sanga",
+      role: "Class Representative",
+      time: "10:44 AM",
+      body: "Final-year teams can submit their preferred access windows so the committee has clear demand data.",
+    },
+  ],
+  "topic-open-source": [
+    {
+      id: "committee-comment-open-source-1",
+      author: committeeProfile.name,
+      role: committeeProfile.role,
+      time: "9:10 AM",
+      body: "We can start with beginner-friendly issues every Wednesday evening and pair new contributors with mentors.",
+    },
+    {
+      id: "committee-comment-open-source-2",
+      author: "Faith Joseph",
+      role: "Computer Science · Year 2",
+      time: "Now",
+      body: "Could we include a short Git workflow session before assigning issues?",
+    },
+  ],
+  "topic-wifi": [
+    {
+      id: "committee-comment-wifi-1",
+      author: "Daniel Rweikiza",
+      role: "Final Year Student",
+      time: "2:30 PM",
+      body: "The corridor near Lab 4 drops frequently during afternoon practical sessions.",
+    },
+  ],
+};
+
+function getCommitteeForumInitials(name: string) {
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function createCommitteeForumMember(
+  name: string,
+  role: string,
+  interactions = 1,
+): CommitteeForumMember {
+  return {
+    name,
+    role,
+    initials: getCommitteeForumInitials(name),
+    interactions,
+  };
+}
+
+function getCommitteeForumMemberProfile(name: string, role: string) {
+  return createCommitteeForumMember(name, role || "Committee participant");
+}
+
+function mergeCommitteeForumMember(
+  members: Map<string, CommitteeForumMember>,
+  name: string,
+  role: string,
+) {
+  const existing = members.get(name);
+  if (existing) {
+    members.set(name, {
+      ...existing,
+      role: existing.role || role,
+      interactions: existing.interactions + 1,
+    });
+    return;
+  }
+
+  members.set(name, createCommitteeForumMember(name, role));
+}
+
+function getInitialCommitteeForumReactions() {
+  return Object.fromEntries(
+    mockCommitteeTopics.map((topic) => [
+      topic.id,
+      {
+        likes: Math.max(6, Math.round(topic.views / 14)),
+        dislikes: Math.max(1, Math.round(topic.views / 120)),
+        userReaction: null,
+      },
+    ]),
+  ) as Record<string, CommitteeForumReaction>;
+}
+
+function CommitteeForumMemberButton({
+  member,
+  onOpenProfile,
+  className,
+}: {
+  member: CommitteeForumMember;
+  onOpenProfile: (member: CommitteeForumMember) => void;
+  className?: string;
+}) {
+  return (
+    <Button
+      className={cn("h-auto w-full justify-start gap-3 p-2", className)}
+      type="button"
+      variant="ghost"
+      onClick={() => onOpenProfile(member)}
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+        {member.initials}
+      </span>
+      <span className="min-w-0 text-left">
+        <span className="block truncate text-sm font-medium">{member.name}</span>
+        <span className="block truncate text-xs text-muted-foreground">
+          {member.role}
+        </span>
+      </span>
+    </Button>
+  );
+}
+
 function TopicForm({
   onSubmit,
   isSubmitting,
@@ -900,6 +1197,7 @@ function TopicForm({
         <CampusInput
           {...register("title")}
           invalid={Boolean(formState.errors.title)}
+          placeholder="Best tools for final-year projects"
         />
       </label>
       <label className="space-y-2">
@@ -907,9 +1205,10 @@ function TopicForm({
         <CampusTextarea
           {...register("summary")}
           invalid={Boolean(formState.errors.summary)}
+          placeholder="Summarize the discussion topic and expected contribution."
         />
       </label>
-      <Button disabled={isSubmitting} type="submit">
+      <Button className="w-full" disabled={isSubmitting} type="submit">
         {isSubmitting ? <FiLoader className="h-4 w-4 animate-spin" /> : null}
         Create Topic
       </Button>
@@ -921,21 +1220,83 @@ export function CommitteeForumView() {
   const [topics, setTopics] = useState(mockCommitteeTopics);
   const [query, setQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
-  const [viewing, setViewing] = useState<CommitteeTopic | null>(null);
+  const [selectedTopicId, setSelectedTopicId] = useState(
+    mockCommitteeTopics[0]?.id ?? "",
+  );
+  const [reactions, setReactions] = useState(
+    getInitialCommitteeForumReactions,
+  );
+  const [comments, setComments] = useState<
+    Record<string, CommitteeForumComment[]>
+  >(initialCommitteeForumComments);
+  const [commentDraft, setCommentDraft] = useState("");
+  const [replyingTo, setReplyingTo] =
+    useState<CommitteeForumComment | null>(null);
+  const [membersOpen, setMembersOpen] = useState(false);
+  const [selectedProfile, setSelectedProfile] =
+    useState<CommitteeForumMember | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [notificationMember, setNotificationMember] =
+    useState<CommitteeForumMember | null>(null);
+  const [notificationOpen, setNotificationOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const filtered = topics.filter((topic) =>
-    [topic.title, topic.summary]
-      .join(" ")
-      .toLowerCase()
-      .includes(query.toLowerCase()),
-  );
+  const filtered = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return topics;
+
+    return topics.filter((topic) =>
+      [topic.title, topic.summary, committeeCategory]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalized),
+    );
+  }, [query, topics]);
+
+  const selectedTopic =
+    topics.find((topic) => topic.id === selectedTopicId) ?? filtered[0] ?? null;
+  const selectedComments = selectedTopic ? comments[selectedTopic.id] ?? [] : [];
+  const selectedReaction = selectedTopic
+    ? reactions[selectedTopic.id] ?? {
+        likes: 0,
+        dislikes: 0,
+        userReaction: null,
+      }
+    : null;
+  const engagedMembers = useMemo(() => {
+    if (!selectedTopic) return [];
+
+    const members = new Map<string, CommitteeForumMember>();
+    mergeCommitteeForumMember(
+      members,
+      committeeProfile.name,
+      committeeProfile.role,
+    );
+    selectedComments.forEach((comment) => {
+      mergeCommitteeForumMember(members, comment.author, comment.role);
+    });
+
+    return Array.from(members.values());
+  }, [selectedComments, selectedTopic]);
+  const visibleEngagedMembers = engagedMembers.slice(0, 5);
+  const hiddenEngagedMembersCount = Math.max(0, engagedMembers.length - 5);
+
+  function openProfile(member: CommitteeForumMember) {
+    setSelectedProfile(member);
+    setProfileOpen(true);
+  }
+
+  function openNotifications(member: CommitteeForumMember) {
+    setNotificationMember(member);
+    setNotificationOpen(true);
+  }
 
   function createTopic(values: TopicInput) {
     startTransition(() => {
+      const id = `topic-${Date.now()}`;
       setTopics((current) => [
         {
-          id: `topic-${Date.now()}`,
+          id,
           replies: 0,
           views: 0,
           pinned: false,
@@ -945,11 +1306,106 @@ export function CommitteeForumView() {
         },
         ...current,
       ]);
+      setSelectedTopicId(id);
+      setComments((current) => ({ ...current, [id]: [] }));
+      setReactions((current) => ({
+        ...current,
+        [id]: { likes: 0, dislikes: 0, userReaction: null },
+      }));
       setCreateOpen(false);
       campusToast.success({
         title: "Forum Topic Created",
         description: "Technology discussion topic was created.",
       });
+    });
+  }
+
+  function reactToTopic(topic: CommitteeTopic, reaction: "like" | "dislike") {
+    setReactions((current) => {
+      const existing = current[topic.id] ?? {
+        likes: 0,
+        dislikes: 0,
+        userReaction: null,
+      };
+      const next = { ...existing };
+
+      if (existing.userReaction === reaction) {
+        next[reaction === "like" ? "likes" : "dislikes"] = Math.max(
+          0,
+          next[reaction === "like" ? "likes" : "dislikes"] - 1,
+        );
+        next.userReaction = null;
+      } else {
+        if (existing.userReaction) {
+          next[existing.userReaction === "like" ? "likes" : "dislikes"] =
+            Math.max(
+              0,
+              next[existing.userReaction === "like" ? "likes" : "dislikes"] - 1,
+            );
+        }
+        next[reaction === "like" ? "likes" : "dislikes"] += 1;
+        next.userReaction = reaction;
+      }
+
+      return { ...current, [topic.id]: next };
+    });
+  }
+
+  function postComment() {
+    if (!selectedTopic || !commentDraft.trim()) return;
+
+    const nextComment: CommitteeForumComment = {
+      id: `committee-comment-${Date.now()}`,
+      author: committeeProfile.name,
+      role: committeeProfile.role,
+      time: "Now",
+      body: commentDraft.trim(),
+      replyTo: replyingTo
+        ? {
+            author: replyingTo.author,
+            excerpt: replyingTo.body.slice(0, 120),
+          }
+        : undefined,
+    };
+
+    setComments((current) => ({
+      ...current,
+      [selectedTopic.id]: [...(current[selectedTopic.id] ?? []), nextComment],
+    }));
+    setTopics((current) =>
+      current.map((topic) =>
+        topic.id === selectedTopic.id
+          ? { ...topic, replies: topic.replies + 1 }
+          : topic,
+      ),
+    );
+    setCommentDraft("");
+    setReplyingTo(null);
+    campusToast.success({
+      title: "Comment Posted",
+      description: "Your committee reply has been added to the discussion.",
+    });
+  }
+
+  function unsendComment(comment: CommitteeForumComment) {
+    if (!selectedTopic || comment.author !== committeeProfile.name) return;
+
+    setComments((current) => ({
+      ...current,
+      [selectedTopic.id]: (current[selectedTopic.id] ?? []).filter(
+        (item) => item.id !== comment.id,
+      ),
+    }));
+    setTopics((current) =>
+      current.map((topic) =>
+        topic.id === selectedTopic.id
+          ? { ...topic, replies: Math.max(0, topic.replies - 1) }
+          : topic,
+      ),
+    );
+    campusToast.warning({
+      title: "Message Unsent",
+      description: "Your forum message has been removed from this discussion.",
     });
   }
 
@@ -967,86 +1423,514 @@ export function CommitteeForumView() {
         }
       />
       <div className="mt-8">
-        <SearchBar query={query} setQuery={setQuery} placeholder="Search topics" />
+        <SearchBar
+          query={query}
+          setQuery={setQuery}
+          placeholder="Search topics"
+        />
       </div>
-      <section className="mt-6 grid gap-6 lg:grid-cols-[1fr_340px]">
-        <div className="space-y-4">
-          {filtered.map((topic) => (
-            <Card key={topic.id}>
-              <CardContent className="p-5">
-                <div className="flex flex-wrap gap-2">
-                  {topic.pinned ? <StatusPill>Pinned</StatusPill> : null}
-                  {topic.trending ? <StatusPill>Trending</StatusPill> : null}
+      <section className="mt-6 grid h-[calc(100dvh-18rem)] min-h-[34rem] overflow-hidden rounded-xl border border-border bg-surface lg:grid-cols-[300px_minmax(0,1fr)_340px]">
+        <aside className="min-h-0 overflow-y-auto border-b border-border bg-surface-muted/40 p-4 lg:border-b-0 lg:border-r">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold">Topics</p>
+              <p className="text-xs text-muted-foreground">
+                {filtered.length} discussions
+              </p>
+            </div>
+            <StatusPill>
+              {topics.filter((topic) => topic.trending).length} trending
+            </StatusPill>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {["Pinned", "Trending", "Technology", "Support"].map((label) => (
+              <Button
+                key={label}
+                className="h-8 rounded-full"
+                size="sm"
+                type="button"
+                variant="secondary"
+                onClick={() => setQuery(label)}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+          <div className="mt-5 space-y-2">
+            {filtered.slice(0, 8).map((topic) => (
+              <Button
+                key={topic.id}
+                className={cn(
+                  "h-auto w-full justify-start rounded-lg border border-transparent p-3 text-left",
+                  selectedTopic?.id === topic.id
+                    ? "border-primary/40 bg-primary/10 text-primary"
+                    : "bg-background text-foreground hover:border-primary/30",
+                )}
+                type="button"
+                variant="ghost"
+                onClick={() => setSelectedTopicId(topic.id)}
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-semibold">
+                    {topic.title}
+                  </span>
+                  <span className="mt-1 block truncate text-xs text-muted-foreground">
+                    {topic.replies} replies · {committeeCategory}
+                  </span>
+                </span>
+              </Button>
+            ))}
+          </div>
+        </aside>
+
+        <div className="min-h-0 overflow-hidden border-b border-border lg:border-b-0 lg:border-r">
+          {filtered.length > 0 && selectedTopic ? (
+            <div className="flex h-full min-h-0 flex-col">
+              <div className="border-b border-border p-5">
+                <div className="flex flex-wrap items-center gap-2">
+                  {selectedTopic.pinned ? <StatusPill>Pinned</StatusPill> : null}
+                  {selectedTopic.trending ? (
+                    <StatusPill>Trending</StatusPill>
+                  ) : null}
                   <StatusPill>{committeeCategory}</StatusPill>
                 </div>
-                <h2 className="mt-4 text-lg font-semibold">{topic.title}</h2>
+                <h2 className="mt-4 text-xl font-semibold">
+                  {selectedTopic.title}
+                </h2>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {topic.summary}
+                  {selectedTopic.summary}
                 </p>
-                <div className="mt-5 flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">
-                    {topic.replies} replies · {topic.views} views
-                  </span>
+                <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                  <span>{committeeProfile.name}</span>
+                  <span>{formatDate(selectedTopic.createdAt)}</span>
+                  <span>{selectedTopic.views} views</span>
+                </div>
+              </div>
+              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
+                <div className="flex items-start gap-3">
                   <Button
+                    aria-label={`View ${committeeProfile.name}'s profile`}
+                    className="h-10 w-10 shrink-0 rounded-full bg-primary/15 p-0 text-sm font-semibold text-primary hover:bg-primary/20"
                     type="button"
-                    variant="secondary"
-                    onClick={() => setViewing(topic)}
+                    variant="ghost"
+                    onClick={() =>
+                      openProfile(
+                        getCommitteeForumMemberProfile(
+                          committeeProfile.name,
+                          committeeProfile.role,
+                        ),
+                      )
+                    }
                   >
-                    View
+                    {getCommitteeForumInitials(committeeProfile.name)}
+                  </Button>
+                  <div className="max-w-2xl rounded-2xl bg-surface-muted p-4">
+                    <Button
+                      className="h-auto p-0 text-sm font-semibold hover:text-primary"
+                      type="button"
+                      variant="ghost"
+                      onClick={() =>
+                        openProfile(
+                          getCommitteeForumMemberProfile(
+                            committeeProfile.name,
+                            committeeProfile.role,
+                          ),
+                        )
+                      }
+                    >
+                      {committeeProfile.name}
+                    </Button>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                      {selectedTopic.summary}
+                    </p>
+                  </div>
+                </div>
+                {selectedComments.map((comment) => (
+                  <div key={comment.id} className="flex items-start gap-3">
+                    <Button
+                      aria-label={`View ${comment.author}'s profile`}
+                      className="h-10 w-10 shrink-0 rounded-full bg-background p-0 text-sm font-semibold"
+                      type="button"
+                      variant="ghost"
+                      onClick={() =>
+                        openProfile(
+                          getCommitteeForumMemberProfile(
+                            comment.author,
+                            comment.role,
+                          ),
+                        )
+                      }
+                    >
+                      {getCommitteeForumInitials(comment.author)}
+                    </Button>
+                    <div className="group relative max-w-2xl rounded-2xl border border-border bg-background p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            className="h-auto p-0 text-sm font-semibold hover:text-primary"
+                            type="button"
+                            variant="ghost"
+                            onClick={() =>
+                              openProfile(
+                                getCommitteeForumMemberProfile(
+                                  comment.author,
+                                  comment.role,
+                                ),
+                              )
+                            }
+                          >
+                            {comment.author}
+                          </Button>
+                          <span className="text-xs text-muted-foreground">
+                            {comment.role} · {comment.time}
+                          </span>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              aria-label="Message actions"
+                              className="h-8 w-8"
+                              size="icon"
+                              type="button"
+                              variant="ghost"
+                            >
+                              <FiMoreVertical
+                                className="h-4 w-4"
+                                aria-hidden="true"
+                              />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setReplyingTo(comment);
+                                setCommentDraft(`@${comment.author} `);
+                              }}
+                            >
+                              <FiCornerUpLeft
+                                className="h-4 w-4"
+                                aria-hidden="true"
+                              />
+                              Reply
+                            </DropdownMenuItem>
+                            {comment.author === committeeProfile.name ? (
+                              <DropdownMenuItem
+                                destructive
+                                onClick={() => unsendComment(comment)}
+                              >
+                                <FiTrash2
+                                  className="h-4 w-4"
+                                  aria-hidden="true"
+                                />
+                                Unsend
+                              </DropdownMenuItem>
+                            ) : null}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                      {comment.replyTo ? (
+                        <div className="mt-3 rounded-lg border border-border bg-surface-muted p-3 text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">
+                            Replying to {comment.replyTo.author}
+                          </span>
+                          <p className="mt-1 line-clamp-2">
+                            {comment.replyTo.excerpt}
+                          </p>
+                        </div>
+                      ) : null}
+                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                        {comment.body}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-border p-4">
+                {replyingTo ? (
+                  <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-border bg-surface-muted px-3 py-2 text-xs text-muted-foreground">
+                    <span className="truncate">
+                      Replying to{" "}
+                      <span className="font-medium text-foreground">
+                        {replyingTo.author}
+                      </span>
+                    </span>
+                    <Button
+                      className="h-7 px-2"
+                      size="sm"
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        setReplyingTo(null);
+                        setCommentDraft("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                ) : null}
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <CampusTextarea
+                    className="min-h-11 flex-1"
+                    placeholder="Write a committee reply..."
+                    value={commentDraft}
+                    onChange={(event) => setCommentDraft(event.target.value)}
+                  />
+                  <Button
+                    className="sm:self-end"
+                    disabled={!commentDraft.trim()}
+                    type="button"
+                    onClick={postComment}
+                  >
+                    <FiSend className="h-4 w-4" aria-hidden="true" />
+                    Send
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+              </div>
+            </div>
+          ) : (
+            <div className="flex h-full items-center justify-center p-6 text-center text-sm text-muted-foreground">
+              No committee discussions match this search.
+            </div>
+          )}
         </div>
-        <Card className="h-fit">
-          <CardHeader>
-            <CardTitle>Trending Topics</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {topics
-              .filter((topic) => topic.trending)
-              .map((topic) => (
-                <Button
-                  key={topic.id}
-                  className="h-auto w-full justify-start border border-border bg-background p-3 text-left"
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setViewing(topic)}
-                >
-                  {topic.title}
-                </Button>
-              ))}
-          </CardContent>
-        </Card>
+
+        <aside className="min-h-0 space-y-4 overflow-y-auto bg-surface-muted/30 p-5">
+          {selectedTopic && selectedReaction ? (
+            <>
+              <div>
+                <p className="text-sm font-semibold">Discussion Detail</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {committeeCategory}
+                </p>
+              </div>
+              <div className="rounded-xl border border-border bg-background p-4">
+                <p className="text-sm font-semibold">Description</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  {selectedTopic.summary}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-border bg-background p-4">
+                  <p className="text-xs text-muted-foreground">Replies</p>
+                  <p className="mt-1 text-lg font-semibold">
+                    {selectedTopic.replies}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border bg-background p-4">
+                  <p className="text-xs text-muted-foreground">Views</p>
+                  <p className="mt-1 text-lg font-semibold">
+                    {selectedTopic.views}
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-xl border border-border bg-background p-4">
+                <p className="text-sm font-semibold">React</p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant={
+                      selectedReaction.userReaction === "like"
+                        ? "default"
+                        : "secondary"
+                    }
+                    onClick={() => reactToTopic(selectedTopic, "like")}
+                  >
+                    <FiThumbsUp className="h-4 w-4" aria-hidden="true" />
+                    {selectedReaction.likes}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={
+                      selectedReaction.userReaction === "dislike"
+                        ? "default"
+                        : "secondary"
+                    }
+                    onClick={() => reactToTopic(selectedTopic, "dislike")}
+                  >
+                    <FiThumbsDown className="h-4 w-4" aria-hidden="true" />
+                    {selectedReaction.dislikes}
+                  </Button>
+                </div>
+              </div>
+              <div className="rounded-xl border border-border bg-background p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold">Members Engaged</p>
+                  {hiddenEngagedMembersCount > 0 ? (
+                    <Button
+                      className="h-8 px-2 text-xs"
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setMembersOpen(true)}
+                    >
+                      View all
+                    </Button>
+                  ) : null}
+                </div>
+                <div className="mt-3 space-y-3">
+                  {visibleEngagedMembers.map((member) => (
+                    <CommitteeForumMemberButton
+                      key={member.name}
+                      member={member}
+                      onOpenProfile={openProfile}
+                    />
+                  ))}
+                  {hiddenEngagedMembersCount > 0 ? (
+                    <Button
+                      className="h-9 w-full justify-start text-xs text-muted-foreground"
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setMembersOpen(true)}
+                    >
+                      +{hiddenEngagedMembersCount} more
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            </>
+          ) : null}
+        </aside>
       </section>
       <Modal
         open={createOpen}
         onOpenChange={setCreateOpen}
         title="Create Topic"
         description="Create a technology forum discussion."
+        className="max-w-5xl"
       >
         <TopicForm onSubmit={createTopic} isSubmitting={isPending} />
       </Modal>
       <Drawer
-        open={Boolean(viewing)}
-        onOpenChange={(open) => !open && setViewing(null)}
-        title={viewing?.title ?? "Forum topic"}
-        description={committeeCategory}
-        className="max-w-xl"
+        open={membersOpen}
+        onOpenChange={setMembersOpen}
+        title="Members Engaged"
+        description="Students and leaders who interacted with this committee discussion."
       >
-        {viewing ? (
+        <div className="space-y-2">
+          {engagedMembers.map((member) => (
+            <div
+              key={member.name}
+              className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background p-2"
+            >
+              <CommitteeForumMemberButton
+                member={member}
+                onOpenProfile={(nextMember) => {
+                  setMembersOpen(false);
+                  openProfile(nextMember);
+                }}
+              />
+              <span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+                {member.interactions}
+              </span>
+            </div>
+          ))}
+        </div>
+      </Drawer>
+      <Drawer
+        open={profileOpen}
+        onOpenChange={setProfileOpen}
+        title={selectedProfile?.name ?? "Profile"}
+        description={selectedProfile?.role}
+      >
+        {selectedProfile ? (
           <div className="space-y-5">
-            <p className="text-sm leading-6 text-muted-foreground">
-              {viewing.summary}
-            </p>
-            <div className="flex gap-2">
-              <StatusPill>{viewing.replies} replies</StatusPill>
-              <StatusPill>{viewing.views} views</StatusPill>
+            <div className="rounded-xl border border-border bg-background p-5">
+              <div className="flex items-start gap-4">
+                <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary/10 text-lg font-semibold text-primary">
+                  {selectedProfile.initials}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-lg font-semibold">
+                    {selectedProfile.name}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {selectedProfile.role}
+                  </p>
+                  <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                    Active CampusHub member contributing to committee
+                    discussions, technical support, and college collaboration.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <Button
+                  type="button"
+                  onClick={() =>
+                    campusToast.success({
+                      title: "Following",
+                      description: `You are now following ${selectedProfile.name}.`,
+                    })
+                  }
+                >
+                  Follow
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => openNotifications(selectedProfile)}
+                >
+                  <FiBell className="h-4 w-4" aria-hidden="true" />
+                  Notify
+                </Button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl border border-border bg-background p-4">
+                <p className="text-xs text-muted-foreground">Interactions</p>
+                <p className="mt-1 text-lg font-semibold">
+                  {selectedProfile.interactions}
+                </p>
+              </div>
+              <div className="rounded-xl border border-border bg-background p-4">
+                <p className="text-xs text-muted-foreground">Status</p>
+                <p className="mt-1 text-lg font-semibold">Active</p>
+              </div>
             </div>
           </div>
         ) : null}
       </Drawer>
+      <Modal
+        open={notificationOpen}
+        onOpenChange={setNotificationOpen}
+        title="Notification Preferences"
+        description={
+          notificationMember
+            ? `Choose what to receive from ${notificationMember.name}.`
+            : undefined
+        }
+        footer={
+          <Button
+            type="button"
+            onClick={() => {
+              setNotificationOpen(false);
+              campusToast.info({
+                title: "Preferences Saved",
+                description: notificationMember
+                  ? `Notification preferences for ${notificationMember.name} were updated.`
+                  : "Notification preferences were updated.",
+              });
+            }}
+          >
+            Save Preferences
+          </Button>
+        }
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          {[
+            "New forum posts",
+            "Replies to discussions",
+            "Committee updates",
+            "Event activity",
+          ].map((option) => (
+            <div
+              key={option}
+              className="flex items-center gap-3 rounded-xl border border-border bg-background p-4"
+            >
+              <CampusCheckbox defaultChecked />
+              <span className="text-sm font-medium">{option}</span>
+            </div>
+          ))}
+        </div>
+      </Modal>
     </CommitteeShell>
   );
 }

@@ -1,8 +1,5 @@
-import { CommitteeForumView } from "@/features/committee-member/components/committee-experience";
-import { requireStudentLeadershipPosition } from "@/lib/auth/route-guards";
+import { redirect } from "next/navigation";
 
-export default async function StudentCommitteeDiscussionsPage() {
-  await requireStudentLeadershipPosition("COMMITTEE_MEMBER");
-
-  return <CommitteeForumView />;
+export default function StudentCommitteeDiscussionsPage() {
+  redirect("/student/forum");
 }

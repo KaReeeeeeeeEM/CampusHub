@@ -2,23 +2,40 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMemo, useState, useTransition } from "react";
-import { useForm } from "react-hook-form";
+import { useFieldArray, useForm } from "react-hook-form";
 import {
   FiArchive,
+  FiBarChart2,
+  FiCheckCircle,
+  FiCopy,
   FiEdit,
   FiEye,
   FiLoader,
   FiLock,
   FiPauseCircle,
+  FiPieChart,
   FiPlus,
   FiSearch,
   FiSlash,
+  FiTrash2,
   FiUsers,
 } from "react-icons/fi";
+import {
+  Bar,
+  BarChart,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { z } from "zod";
 
 import {
   CampusDataTable,
+  CampusCheckbox,
   CampusInput,
   CampusTextarea,
   campusToast,
@@ -55,6 +72,21 @@ const departments = [
   "Computer Science",
   "Electronics and Telecommunications",
   "Information Systems",
+] as const;
+
+const pollTargetColleges = [
+  "College of ICT",
+  "College of Engineering and Technology",
+  "College of Natural and Applied Sciences",
+  "College of Social Sciences",
+] as const;
+
+const pollTargetDepartments = [
+  "Computer Science",
+  "Electronics and Telecommunications",
+  "Information Systems",
+  "Civil Engineering",
+  "Software Engineering",
 ] as const;
 
 const audienceOptions = [
@@ -209,22 +241,25 @@ function CommitteeForm({
   onSubmit: (values: CommitteeInput) => void;
   isSubmitting: boolean;
 }) {
-  const { register, handleSubmit, watch, setValue, formState } =
-    useForm<z.input<typeof committeeSchema>, unknown, CommitteeInput>({
-      resolver: zodResolver(committeeSchema),
-      defaultValues: {
-        name: member?.name ?? "",
-        category:
-          (member?.category as CommitteeInput["category"] | undefined) ??
-          "Academic Affairs",
-        position: member?.position ?? "",
-        email: member?.email ?? "",
-        phone: member?.phone ?? "",
-        status:
-          (member?.status as CommitteeInput["status"] | undefined) ?? "ACTIVE",
-        notes: member?.notes ?? "",
-      },
-    });
+  const { register, handleSubmit, watch, setValue, formState } = useForm<
+    z.input<typeof committeeSchema>,
+    unknown,
+    CommitteeInput
+  >({
+    resolver: zodResolver(committeeSchema),
+    defaultValues: {
+      name: member?.name ?? "",
+      category:
+        (member?.category as CommitteeInput["category"] | undefined) ??
+        "Academic Affairs",
+      position: member?.position ?? "",
+      email: member?.email ?? "",
+      phone: member?.phone ?? "",
+      status:
+        (member?.status as CommitteeInput["status"] | undefined) ?? "ACTIVE",
+      notes: member?.notes ?? "",
+    },
+  });
 
   return (
     <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
@@ -234,6 +269,7 @@ function CommitteeForm({
           <CampusInput
             {...register("name")}
             invalid={Boolean(formState.errors.name)}
+            placeholder="Neema Salum"
           />
         </label>
         <SelectField
@@ -247,6 +283,7 @@ function CommitteeForm({
           <CampusInput
             {...register("position")}
             invalid={Boolean(formState.errors.position)}
+            placeholder="Technology Committee Lead"
           />
         </label>
         <label className="space-y-2">
@@ -254,6 +291,7 @@ function CommitteeForm({
           <CampusInput
             {...register("email")}
             invalid={Boolean(formState.errors.email)}
+            placeholder="leader@university.edu"
           />
         </label>
         <label className="space-y-2">
@@ -261,6 +299,7 @@ function CommitteeForm({
           <CampusInput
             {...register("phone")}
             invalid={Boolean(formState.errors.phone)}
+            placeholder="+255 000 000 000"
           />
         </label>
         <SelectField
@@ -274,10 +313,11 @@ function CommitteeForm({
           <CampusTextarea
             {...register("notes")}
             invalid={Boolean(formState.errors.notes)}
+            placeholder="Add responsibilities, committee coverage, or handover notes."
           />
         </label>
       </div>
-      <Button disabled={isSubmitting} type="submit">
+      <Button className="w-full" disabled={isSubmitting} type="submit">
         {isSubmitting ? <FiLoader className="h-4 w-4 animate-spin" /> : null}
         {member ? "Save Changes" : "Create Committee Member"}
       </Button>
@@ -304,7 +344,13 @@ export function CommitteeManagement({
     const normalized = query.toLowerCase().trim();
     if (!normalized) return members;
     return members.filter((member) =>
-      [member.name, member.category, member.position, member.email, member.status]
+      [
+        member.name,
+        member.category,
+        member.position,
+        member.email,
+        member.status,
+      ]
         .join(" ")
         .toLowerCase()
         .includes(normalized),
@@ -369,7 +415,9 @@ export function CommitteeManagement({
       key: "photo",
       header: "Photo",
       className: "w-20",
-      cell: (member) => <AvatarCell src={member.photo} fallback={member.name} />,
+      cell: (member) => (
+        <AvatarCell src={member.photo} fallback={member.name} />
+      ),
     },
     { key: "name", header: "Name" },
     { key: "category", header: "Category" },
@@ -479,7 +527,10 @@ export function CommitteeManagement({
                 ["Category", viewing.category],
                 ["Email", viewing.email],
                 ["Phone", viewing.phone],
-                ["Status", <StatusBadge key="status" status={viewing.status} />],
+                [
+                  "Status",
+                  <StatusBadge key="status" status={viewing.status} />,
+                ],
                 ["Joined", formatDate(viewing.joinedAt)],
               ]}
             />
@@ -513,7 +564,13 @@ export function StudentsManagement({
     const normalized = query.toLowerCase().trim();
     if (!normalized) return students;
     return students.filter((student) =>
-      [student.name, student.department, student.year, student.email, student.status]
+      [
+        student.name,
+        student.department,
+        student.year,
+        student.email,
+        student.status,
+      ]
         .join(" ")
         .toLowerCase()
         .includes(normalized),
@@ -619,7 +676,10 @@ export function StudentsManagement({
                 ["Department", viewing.department],
                 ["Year", viewing.year],
                 ["Email", viewing.email],
-                ["Status", <StatusBadge key="status" status={viewing.status} />],
+                [
+                  "Status",
+                  <StatusBadge key="status" status={viewing.status} />,
+                ],
                 ["Joined", formatDate(viewing.joinedAt)],
               ]}
             />
@@ -658,19 +718,22 @@ function InvitationForm({
   onSubmit: (values: InvitationInput) => void;
   isSubmitting: boolean;
 }) {
-  const { register, handleSubmit, watch, setValue, formState } =
-    useForm<z.input<typeof invitationSchema>, unknown, InvitationInput>({
-      resolver: zodResolver(invitationSchema),
-      defaultValues: {
-        name: invitation?.name ?? "",
-        department:
-          (invitation?.department as InvitationInput["department"] | undefined) ??
-          "All Departments",
-        maxUsage: invitation?.maxUsage ?? 250,
-        expiresAt: invitation?.expiresAt ?? "",
-        description: invitation?.description ?? "",
-      },
-    });
+  const { register, handleSubmit, watch, setValue, formState } = useForm<
+    z.input<typeof invitationSchema>,
+    unknown,
+    InvitationInput
+  >({
+    resolver: zodResolver(invitationSchema),
+    defaultValues: {
+      name: invitation?.name ?? "",
+      department:
+        (invitation?.department as InvitationInput["department"] | undefined) ??
+        "All Departments",
+      maxUsage: invitation?.maxUsage ?? 250,
+      expiresAt: invitation?.expiresAt ?? "",
+      description: invitation?.description ?? "",
+    },
+  });
 
   return (
     <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
@@ -680,6 +743,7 @@ function InvitationForm({
           <CampusInput
             {...register("name")}
             invalid={Boolean(formState.errors.name)}
+            placeholder="CoICT 2026 Intake"
           />
         </label>
         <SelectField
@@ -694,6 +758,7 @@ function InvitationForm({
             {...register("maxUsage")}
             type="number"
             invalid={Boolean(formState.errors.maxUsage)}
+            placeholder="250"
           />
         </label>
         <label className="space-y-2">
@@ -702,6 +767,7 @@ function InvitationForm({
             {...register("expiresAt")}
             type="date"
             invalid={Boolean(formState.errors.expiresAt)}
+            placeholder="Select expiry date"
           />
         </label>
         <label className="space-y-2 md:col-span-2">
@@ -709,10 +775,11 @@ function InvitationForm({
           <CampusTextarea
             {...register("description")}
             invalid={Boolean(formState.errors.description)}
+            placeholder="Describe who should use this invitation link."
           />
         </label>
       </div>
-      <Button disabled={isSubmitting} type="submit">
+      <Button className="w-full" disabled={isSubmitting} type="submit">
         {isSubmitting ? <FiLoader className="h-4 w-4 animate-spin" /> : null}
         {invitation ? "Save Link" : "Generate Link"}
       </Button>
@@ -830,12 +897,18 @@ export function InvitationsManagement({
     <>
       <section className="mt-8 grid gap-4 md:grid-cols-3">
         {[
-          ["Active Links", invitations.filter((item) => item.status === "ACTIVE").length],
+          [
+            "Active Links",
+            invitations.filter((item) => item.status === "ACTIVE").length,
+          ],
           [
             "Students Joined",
             invitations.reduce((sum, item) => sum + item.usageCount, 0),
           ],
-          ["Departments Covered", new Set(invitations.map((item) => item.department)).size],
+          [
+            "Departments Covered",
+            new Set(invitations.map((item) => item.department)).size,
+          ],
         ].map(([label, value]) => (
           <div
             key={label}
@@ -904,7 +977,10 @@ export function InvitationsManagement({
               rows={[
                 ["Department", viewing.department],
                 ["Usage", `${viewing.usageCount} / ${viewing.maxUsage}`],
-                ["Status", <StatusBadge key="status" status={viewing.status} />],
+                [
+                  "Status",
+                  <StatusBadge key="status" status={viewing.status} />,
+                ],
                 ["Created", formatDate(viewing.createdAt)],
                 ["Expires", formatDate(viewing.expiresAt)],
               ]}
@@ -944,25 +1020,26 @@ function AnnouncementForm({
   onSubmit: (values: AnnouncementInput) => void;
   isSubmitting: boolean;
 }) {
-  const { register, handleSubmit, watch, setValue, formState } =
-    useForm<z.input<typeof announcementSchema>, unknown, AnnouncementInput>({
-      resolver: zodResolver(announcementSchema),
-      defaultValues: {
-        title: announcement?.title ?? "",
-        category:
-          (announcement?.category as
-            | AnnouncementInput["category"]
-            | undefined) ?? "Academic",
-        audience:
-          (announcement?.audience as
-            | AnnouncementInput["audience"]
-            | undefined) ?? "All CoICT Students",
-        status:
-          (announcement?.status as AnnouncementInput["status"] | undefined) ??
-          "DRAFT",
-        body: announcement?.body ?? "",
-      },
-    });
+  const { register, handleSubmit, watch, setValue, formState } = useForm<
+    z.input<typeof announcementSchema>,
+    unknown,
+    AnnouncementInput
+  >({
+    resolver: zodResolver(announcementSchema),
+    defaultValues: {
+      title: announcement?.title ?? "",
+      category:
+        (announcement?.category as AnnouncementInput["category"] | undefined) ??
+        "Academic",
+      audience:
+        (announcement?.audience as AnnouncementInput["audience"] | undefined) ??
+        "All CoICT Students",
+      status:
+        (announcement?.status as AnnouncementInput["status"] | undefined) ??
+        "DRAFT",
+      body: announcement?.body ?? "",
+    },
+  });
 
   return (
     <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
@@ -972,6 +1049,7 @@ function AnnouncementForm({
           <CampusInput
             {...register("title")}
             invalid={Boolean(formState.errors.title)}
+            placeholder="Mid-semester assessment schedule"
           />
         </label>
         <SelectField
@@ -997,10 +1075,11 @@ function AnnouncementForm({
           <CampusTextarea
             {...register("body")}
             invalid={Boolean(formState.errors.body)}
+            placeholder="Write the announcement body for the selected audience."
           />
         </label>
       </div>
-      <Button disabled={isSubmitting} type="submit">
+      <Button className="w-full" disabled={isSubmitting} type="submit">
         {isSubmitting ? <FiLoader className="h-4 w-4 animate-spin" /> : null}
         {announcement ? "Save Announcement" : "Create Announcement"}
       </Button>
@@ -1025,7 +1104,12 @@ export function AnnouncementsManagement({
     const normalized = query.toLowerCase().trim();
     if (!normalized) return announcements;
     return announcements.filter((announcement) =>
-      [announcement.title, announcement.category, announcement.audience, announcement.status]
+      [
+        announcement.title,
+        announcement.category,
+        announcement.audience,
+        announcement.status,
+      ]
         .join(" ")
         .toLowerCase()
         .includes(normalized),
@@ -1196,7 +1280,10 @@ export function AnnouncementsManagement({
               rows={[
                 ["Category", viewing.category],
                 ["Audience", viewing.audience],
-                ["Status", <StatusBadge key="status" status={viewing.status} />],
+                [
+                  "Status",
+                  <StatusBadge key="status" status={viewing.status} />,
+                ],
                 ["Created", formatDate(viewing.createdAt)],
               ]}
             />
@@ -1236,22 +1323,23 @@ function EventForm({
   onSubmit: (values: EventInput) => void;
   isSubmitting: boolean;
 }) {
-  const { register, handleSubmit, watch, setValue, formState } =
-    useForm<z.input<typeof eventSchema>, unknown, EventInput>({
-      resolver: zodResolver(eventSchema),
-      defaultValues: {
-        name: event?.name ?? "",
-        category:
-          (event?.category as EventInput["category"] | undefined) ??
-          "Workshop",
-        venue: event?.venue ?? "",
-        date: event?.date ?? "",
-        attendees: event?.attendees ?? 0,
-        status:
-          (event?.status as EventInput["status"] | undefined) ?? "UPCOMING",
-        description: event?.description ?? "",
-      },
-    });
+  const { register, handleSubmit, watch, setValue, formState } = useForm<
+    z.input<typeof eventSchema>,
+    unknown,
+    EventInput
+  >({
+    resolver: zodResolver(eventSchema),
+    defaultValues: {
+      name: event?.name ?? "",
+      category:
+        (event?.category as EventInput["category"] | undefined) ?? "Workshop",
+      venue: event?.venue ?? "",
+      date: event?.date ?? "",
+      attendees: event?.attendees ?? 0,
+      status: (event?.status as EventInput["status"] | undefined) ?? "UPCOMING",
+      description: event?.description ?? "",
+    },
+  });
 
   return (
     <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
@@ -1261,6 +1349,7 @@ function EventForm({
           <CampusInput
             {...register("name")}
             invalid={Boolean(formState.errors.name)}
+            placeholder="Career readiness workshop"
           />
         </label>
         <SelectField
@@ -1274,6 +1363,7 @@ function EventForm({
           <CampusInput
             {...register("venue")}
             invalid={Boolean(formState.errors.venue)}
+            placeholder="CoICT Lecture Theatre"
           />
         </label>
         <label className="space-y-2">
@@ -1282,6 +1372,7 @@ function EventForm({
             {...register("date")}
             type="date"
             invalid={Boolean(formState.errors.date)}
+            placeholder="Select event date"
           />
         </label>
         <label className="space-y-2">
@@ -1290,6 +1381,7 @@ function EventForm({
             {...register("attendees")}
             type="number"
             invalid={Boolean(formState.errors.attendees)}
+            placeholder="180"
           />
         </label>
         <SelectField
@@ -1303,10 +1395,11 @@ function EventForm({
           <CampusTextarea
             {...register("description")}
             invalid={Boolean(formState.errors.description)}
+            placeholder="Describe the event, expected audience, and logistics."
           />
         </label>
       </div>
-      <Button disabled={isSubmitting} type="submit">
+      <Button className="w-full" disabled={isSubmitting} type="submit">
         {isSubmitting ? <FiLoader className="h-4 w-4 animate-spin" /> : null}
         {event ? "Save Event" : "Create Event"}
       </Button>
@@ -1490,7 +1583,10 @@ export function EventsManagement({
                 ["Venue", viewing.venue],
                 ["Date", formatDate(viewing.date)],
                 ["Attendees", viewing.attendees.toLocaleString()],
-                ["Status", <StatusBadge key="status" status={viewing.status} />],
+                [
+                  "Status",
+                  <StatusBadge key="status" status={viewing.status} />,
+                ],
               ]}
             />
           </div>
@@ -1528,19 +1624,22 @@ function ForumForm({
   onSubmit: (values: ForumInput) => void;
   isSubmitting: boolean;
 }) {
-  const { register, handleSubmit, watch, setValue, formState } =
-    useForm<z.input<typeof forumSchema>, unknown, ForumInput>({
-      resolver: zodResolver(forumSchema),
-      defaultValues: {
-        topic: topic?.topic ?? "",
-        category:
-          (topic?.category as ForumInput["category"] | undefined) ??
-          "Academic Affairs",
-        createdBy: topic?.createdBy ?? "Representative Team",
-        status: (topic?.status as ForumInput["status"] | undefined) ?? "OPEN",
-        summary: topic?.summary ?? "",
-      },
-    });
+  const { register, handleSubmit, watch, setValue, formState } = useForm<
+    z.input<typeof forumSchema>,
+    unknown,
+    ForumInput
+  >({
+    resolver: zodResolver(forumSchema),
+    defaultValues: {
+      topic: topic?.topic ?? "",
+      category:
+        (topic?.category as ForumInput["category"] | undefined) ??
+        "Academic Affairs",
+      createdBy: topic?.createdBy ?? "Representative Team",
+      status: (topic?.status as ForumInput["status"] | undefined) ?? "OPEN",
+      summary: topic?.summary ?? "",
+    },
+  });
 
   return (
     <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
@@ -1550,6 +1649,7 @@ function ForumForm({
           <CampusInput
             {...register("topic")}
             invalid={Boolean(formState.errors.topic)}
+            placeholder="How can we improve lab access?"
           />
         </label>
         <SelectField
@@ -1569,6 +1669,7 @@ function ForumForm({
           <CampusInput
             {...register("createdBy")}
             invalid={Boolean(formState.errors.createdBy)}
+            placeholder="Representative Team"
           />
         </label>
         <label className="space-y-2 md:col-span-2">
@@ -1576,10 +1677,11 @@ function ForumForm({
           <CampusTextarea
             {...register("summary")}
             invalid={Boolean(formState.errors.summary)}
+            placeholder="Summarize the forum topic and moderation context."
           />
         </label>
       </div>
-      <Button disabled={isSubmitting} type="submit">
+      <Button className="w-full" disabled={isSubmitting} type="submit">
         {isSubmitting ? <FiLoader className="h-4 w-4 animate-spin" /> : null}
         {topic ? "Save Topic" : "Create Topic"}
       </Button>
@@ -1761,7 +1863,10 @@ export function ForumsManagement({
                 ["Replies", viewing.replies],
                 ["Views", viewing.views],
                 ["Created By", viewing.createdBy],
-                ["Status", <StatusBadge key="status" status={viewing.status} />],
+                [
+                  "Status",
+                  <StatusBadge key="status" status={viewing.status} />,
+                ],
               ]}
             />
           </div>
@@ -1820,7 +1925,9 @@ function SuggestionStatusForm({
         options={suggestionStatusOptions}
         onValueChange={(value) => setValue("status", value)}
       />
-      <Button type="submit">Update Status</Button>
+      <Button className="w-full" type="submit">
+        Update Status
+      </Button>
     </form>
   );
 }
@@ -1940,7 +2047,10 @@ export function SuggestionsManagement({
               rows={[
                 ["Anonymous", viewing.anonymous ? "Yes" : "No"],
                 ["Category", viewing.category],
-                ["Status", <StatusBadge key="status" status={viewing.status} />],
+                [
+                  "Status",
+                  <StatusBadge key="status" status={viewing.status} />,
+                ],
                 ["Submitted", formatDate(viewing.submittedAt)],
               ]}
             />
@@ -1965,13 +2075,143 @@ export function SuggestionsManagement({
   );
 }
 
-const pollSchema = z.object({
-  title: z.string().min(2, "Title is required."),
-  question: z.string().min(5, "Question is required."),
-  endDate: z.string().min(1, "End date is required."),
-  status: z.enum(["ACTIVE", "DRAFT", "CLOSED"]),
-  optionsText: z.string().min(5, "Add poll options."),
-});
+const pollCategories = [
+  "Academic",
+  "Technology",
+  "Sports",
+  "Student Welfare",
+  "Entertainment",
+  "Media",
+  "General",
+  "Campus Governance",
+] as const;
+
+const pollAudienceOptions = [
+  "Entire University",
+  "Specific College",
+  "Specific Department",
+  "Students",
+  "Teachers",
+  "Employers",
+  "Alumni",
+  "Custom Audience",
+] as const;
+
+const pollResultVisibilityOptions = [
+  "ALWAYS_VISIBLE",
+  "AFTER_VOTING",
+  "AFTER_ENDS",
+  "HIDDEN",
+] as const;
+
+const pollVisibilityLabels: Record<Poll["resultsVisibility"], string> = {
+  ALWAYS_VISIBLE: "Always Visible",
+  AFTER_VOTING: "Visible After Voting",
+  AFTER_ENDS: "Visible After Poll Ends",
+  HIDDEN: "Never Visible",
+};
+
+function formatPollVisibility(value: Poll["resultsVisibility"]) {
+  return pollVisibilityLabels[value];
+}
+
+function pollVotesTotal(poll: Poll) {
+  return Object.values(poll.optionVotes).reduce((total, value) => total + value, 0);
+}
+
+function pollOptionPercent(poll: Poll, option: string) {
+  const total = pollVotesTotal(poll) || poll.responses || 1;
+  return Math.round(((poll.optionVotes[option] ?? 0) / total) * 100);
+}
+
+function pollWinningOption(poll: Poll) {
+  return poll.options.reduce((winner, option) => {
+    const winnerVotes = poll.optionVotes[winner] ?? 0;
+    const optionVotes = poll.optionVotes[option] ?? 0;
+    return optionVotes > winnerVotes ? option : winner;
+  }, poll.options[0] ?? "");
+}
+
+function getPollAudienceScope(
+  audience?: string,
+): (typeof pollAudienceOptions)[number] {
+  if (audience?.includes("College")) return "Specific College";
+  if (audience?.includes("Department")) return "Specific Department";
+  if (pollAudienceOptions.includes(audience as PollInput["audience"])) {
+    return audience as PollInput["audience"];
+  }
+  return "Entire University";
+}
+
+function getPollTargetCollege(audience?: string) {
+  return pollTargetColleges.find((college) => audience?.includes(college)) ?? "";
+}
+
+function getPollTargetDepartment(audience?: string) {
+  return (
+    pollTargetDepartments.find((department) => audience?.includes(department)) ??
+    ""
+  );
+}
+
+function resolvePollAudience(values: {
+  audience: (typeof pollAudienceOptions)[number];
+  targetCollege?: string;
+  targetDepartment?: string;
+}) {
+  if (values.audience === "Specific College") {
+    return `${values.targetCollege} students`;
+  }
+
+  if (values.audience === "Specific Department") {
+    return `${values.targetDepartment} Department`;
+  }
+
+  return values.audience;
+}
+
+const pollSchema = z
+  .object({
+    title: z.string().min(2, "Title is required."),
+    question: z.string().min(5, "Question is required."),
+    description: z.string().min(10, "Description is required."),
+    category: z.enum(pollCategories),
+    audience: z.enum(pollAudienceOptions),
+    targetCollege: z.string().optional(),
+    targetDepartment: z.string().optional(),
+    endDate: z.string().min(1, "End date is required."),
+    status: z.enum(["ACTIVE", "DRAFT", "CLOSED"]),
+    resultsVisibility: z.enum(pollResultVisibilityOptions),
+    allowMultipleVotes: z.boolean(),
+    anonymousVoting: z.boolean(),
+    options: z
+      .array(
+        z.object({
+          value: z.string().min(1, "Option cannot be empty."),
+        }),
+      )
+      .min(2, "Add at least two poll options."),
+  })
+  .superRefine((values, context) => {
+    if (values.audience === "Specific College" && !values.targetCollege) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Select a college for this audience.",
+        path: ["targetCollege"],
+      });
+    }
+
+    if (
+      values.audience === "Specific Department" &&
+      !values.targetDepartment
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Select a department for this audience.",
+        path: ["targetDepartment"],
+      });
+    }
+  });
 
 type PollInput = z.infer<typeof pollSchema>;
 
@@ -1984,17 +2224,35 @@ function PollForm({
   onSubmit: (values: PollInput) => void;
   isSubmitting: boolean;
 }) {
-  const { register, handleSubmit, watch, setValue, formState } =
-    useForm<z.input<typeof pollSchema>, unknown, PollInput>({
-      resolver: zodResolver(pollSchema),
-      defaultValues: {
-        title: poll?.title ?? "",
-        question: poll?.question ?? "",
-        endDate: poll?.endDate ?? "",
-        status: (poll?.status as PollInput["status"] | undefined) ?? "DRAFT",
-        optionsText: poll?.options.join("\n") ?? "",
-      },
-    });
+  const { register, control, handleSubmit, watch, setValue, formState } = useForm<
+    z.input<typeof pollSchema>,
+    unknown,
+    PollInput
+  >({
+    resolver: zodResolver(pollSchema),
+    defaultValues: {
+      title: poll?.title ?? "",
+      question: poll?.question ?? "",
+      description: poll?.description ?? "",
+      category: poll?.category ?? "General",
+      audience: getPollAudienceScope(poll?.audience),
+      targetCollege: getPollTargetCollege(poll?.audience),
+      targetDepartment: getPollTargetDepartment(poll?.audience),
+      endDate: poll?.endDate ?? "",
+      status: (poll?.status as PollInput["status"] | undefined) ?? "DRAFT",
+      resultsVisibility: poll?.resultsVisibility ?? "AFTER_VOTING",
+      allowMultipleVotes: poll?.allowMultipleVotes ?? false,
+      anonymousVoting: poll?.anonymousVoting ?? true,
+      options:
+        poll?.options.map((option) => ({ value: option })) ??
+        [{ value: "" }, { value: "" }],
+    },
+  });
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "options",
+  });
+  const selectedAudience = watch("audience");
 
   return (
     <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
@@ -2004,6 +2262,7 @@ function PollForm({
           <CampusInput
             {...register("title")}
             invalid={Boolean(formState.errors.title)}
+            placeholder="Preferred event day"
           />
         </label>
         <label className="space-y-2">
@@ -2012,31 +2271,148 @@ function PollForm({
             {...register("endDate")}
             type="date"
             invalid={Boolean(formState.errors.endDate)}
+            placeholder="Select closing date"
           />
         </label>
+        <SelectField
+          label="Category"
+          value={watch("category")}
+          options={pollCategories}
+          onValueChange={(value) => setValue("category", value)}
+        />
+        <SelectField
+          label="Audience"
+          value={selectedAudience}
+          options={pollAudienceOptions}
+          onValueChange={(value) => {
+            setValue("audience", value);
+            if (value === "Specific College") {
+              setValue("targetCollege", pollTargetColleges[0]);
+            } else {
+              setValue("targetCollege", "");
+            }
+            if (value === "Specific Department") {
+              setValue("targetDepartment", pollTargetDepartments[0]);
+            } else {
+              setValue("targetDepartment", "");
+            }
+          }}
+        />
+        {selectedAudience === "Specific College" ? (
+          <div className="md:col-span-2">
+            <SelectField
+              label="College"
+              value={watch("targetCollege") || pollTargetColleges[0]}
+              options={pollTargetColleges}
+              onValueChange={(value) => setValue("targetCollege", value)}
+            />
+          </div>
+        ) : null}
+        {selectedAudience === "Specific Department" ? (
+          <div className="md:col-span-2">
+            <SelectField
+              label="Department"
+              value={watch("targetDepartment") || pollTargetDepartments[0]}
+              options={pollTargetDepartments}
+              onValueChange={(value) => setValue("targetDepartment", value)}
+            />
+          </div>
+        ) : null}
         <SelectField
           label="Status"
           value={watch("status")}
           options={["ACTIVE", "DRAFT", "CLOSED"] as const}
           onValueChange={(value) => setValue("status", value)}
         />
+        <SelectField
+          label="Results Visibility"
+          value={watch("resultsVisibility")}
+          options={pollResultVisibilityOptions}
+          onValueChange={(value) => setValue("resultsVisibility", value)}
+        />
         <label className="space-y-2 md:col-span-2">
           <span className="text-sm font-medium">Question</span>
           <CampusTextarea
             {...register("question")}
             invalid={Boolean(formState.errors.question)}
+            placeholder="What day works best for college-wide events?"
           />
         </label>
         <label className="space-y-2 md:col-span-2">
-          <span className="text-sm font-medium">Options</span>
+          <span className="text-sm font-medium">Description</span>
           <CampusTextarea
-            {...register("optionsText")}
-            placeholder="One option per line"
-            invalid={Boolean(formState.errors.optionsText)}
+            {...register("description")}
+            invalid={Boolean(formState.errors.description)}
+            placeholder="Explain the purpose of the poll and how results will be used."
           />
         </label>
+        <div className="space-y-3 md:col-span-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <span className="text-sm font-medium">Options</span>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Add each poll option as a separate choice.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => append({ value: "" })}
+            >
+              <FiPlus className="h-4 w-4" aria-hidden="true" />
+              Add Option
+            </Button>
+          </div>
+          <div className="grid gap-3">
+            {fields.map((field, index) => (
+              <div key={field.id} className="flex items-center gap-3">
+                <CampusInput
+                  {...register(`options.${index}.value`)}
+                  invalid={Boolean(formState.errors.options?.[index]?.value)}
+                  placeholder={`Option ${index + 1}`}
+                />
+                <Button
+                  aria-label={`Remove option ${index + 1}`}
+                  className="shrink-0"
+                  disabled={fields.length <= 2}
+                  size="icon"
+                  type="button"
+                  variant="secondary"
+                  onClick={() => remove(index)}
+                >
+                  <FiTrash2 className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          {formState.errors.options?.message ? (
+            <p className="text-xs font-medium text-destructive">
+              {formState.errors.options.message}
+            </p>
+          ) : null}
+        </div>
+        <div className="grid gap-3 md:col-span-2 md:grid-cols-2">
+          <label className="flex items-center gap-3 rounded-xl border border-border bg-background p-4">
+            <CampusCheckbox
+              checked={watch("allowMultipleVotes")}
+              onChange={(event) =>
+                setValue("allowMultipleVotes", event.target.checked)
+              }
+            />
+            <span className="text-sm font-medium">Allow multiple votes</span>
+          </label>
+          <label className="flex items-center gap-3 rounded-xl border border-border bg-background p-4">
+            <CampusCheckbox
+              checked={watch("anonymousVoting")}
+              onChange={(event) =>
+                setValue("anonymousVoting", event.target.checked)
+              }
+            />
+            <span className="text-sm font-medium">Anonymous voting</span>
+          </label>
+        </div>
       </div>
-      <Button disabled={isSubmitting} type="submit">
+      <Button className="w-full" disabled={isSubmitting} type="submit">
         {isSubmitting ? <FiLoader className="h-4 w-4 animate-spin" /> : null}
         {poll ? "Save Poll" : "Create Poll"}
       </Button>
@@ -2051,29 +2427,80 @@ export function PollsManagement({ initialPolls }: { initialPolls: Poll[] }) {
   const [viewing, setViewing] = useState<Poll | null>(null);
   const [editing, setEditing] = useState<Poll | null>(null);
   const [closing, setClosing] = useState<Poll | null>(null);
+  const [deleting, setDeleting] = useState<Poll | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const filtered = useMemo(() => {
     const normalized = query.toLowerCase().trim();
     if (!normalized) return polls;
     return polls.filter((poll) =>
-      [poll.title, poll.question, poll.status]
+      [poll.title, poll.question, poll.status, poll.category, poll.audience]
         .join(" ")
         .toLowerCase()
         .includes(normalized),
     );
   }, [polls, query]);
 
-  function normalizePoll(values: PollInput) {
+  const totalResponses = polls.reduce((total, poll) => total + poll.responses, 0);
+  const activePolls = polls.filter((poll) => poll.status === "ACTIVE");
+  const closedPolls = polls.filter((poll) => poll.status === "CLOSED");
+  const averageParticipation =
+    polls.length > 0
+      ? Math.round(
+          polls.reduce((total, poll) => total + poll.participationRate, 0) /
+            polls.length,
+        )
+      : 0;
+  const categoryBreakdown = pollCategories
+    .map((category) => ({
+      name: category,
+      value: polls.filter((poll) => poll.category === category).length,
+    }))
+    .filter((item) => item.value > 0);
+  const votesOverTime = polls[0]?.votesOverTime ?? [];
+  const topPolls = [...polls].sort((a, b) => b.responses - a.responses).slice(0, 3);
+
+  function normalizePoll(values: PollInput, existing?: Poll): Omit<Poll, "id"> {
+    const options = values.options
+      .map((option) => option.value.trim())
+      .filter(Boolean);
+    const optionVotes = options.reduce<Record<string, number>>((acc, option) => {
+      acc[option] = existing?.optionVotes[option] ?? 0;
+      return acc;
+    }, {});
+
     return {
       title: values.title,
       question: values.question,
+      description: values.description,
+      category: values.category,
+      audience: resolvePollAudience(values),
+      createdBy: existing?.createdBy ?? "Student Representative Office",
       endDate: values.endDate,
+      createdAt: existing?.createdAt ?? "2026-06-13",
+      closedDate:
+        values.status === "CLOSED"
+          ? existing?.closedDate ?? values.endDate
+          : undefined,
       status: values.status,
-      options: values.optionsText
-        .split("\n")
-        .map((option) => option.trim())
-        .filter(Boolean),
+      responses: existing?.responses ?? 0,
+      options,
+      optionVotes,
+      visibility: values.audience === "Entire University" ? "Everyone" : "Students",
+      resultsVisibility: values.resultsVisibility,
+      allowMultipleVotes: values.allowMultipleVotes,
+      anonymousVoting: values.anonymousVoting,
+      participationRate: existing?.participationRate ?? 0,
+      votesOverTime: existing?.votesOverTime ?? [],
+      departmentParticipation: existing?.departmentParticipation ?? [],
+      yearParticipation: existing?.yearParticipation ?? [],
+      rules: [
+        values.allowMultipleVotes
+          ? "Students may choose multiple options"
+          : "One vote per student",
+        values.anonymousVoting ? "Votes are anonymous" : "Votes are attributed",
+        formatPollVisibility(values.resultsVisibility),
+      ],
     };
   }
 
@@ -2082,7 +2509,6 @@ export function PollsManagement({ initialPolls }: { initialPolls: Poll[] }) {
       setPolls((current) => [
         {
           id: `poll-${Date.now()}`,
-          responses: 0,
           ...normalizePoll(values),
         },
         ...current,
@@ -2099,7 +2525,9 @@ export function PollsManagement({ initialPolls }: { initialPolls: Poll[] }) {
     if (!editing) return;
     setPolls((current) =>
       current.map((poll) =>
-        poll.id === editing.id ? { ...poll, ...normalizePoll(values) } : poll,
+        poll.id === editing.id
+          ? { id: poll.id, ...normalizePoll(values, poll) }
+          : poll,
       ),
     );
     setEditing(null);
@@ -2113,7 +2541,13 @@ export function PollsManagement({ initialPolls }: { initialPolls: Poll[] }) {
     if (!closing) return;
     setPolls((current) =>
       current.map((poll) =>
-        poll.id === closing.id ? { ...poll, status: "CLOSED" } : poll,
+        poll.id === closing.id
+          ? {
+              ...poll,
+              status: "CLOSED",
+              closedDate: poll.closedDate ?? "2026-06-13",
+            }
+          : poll,
       ),
     );
     setClosing(null);
@@ -2123,8 +2557,53 @@ export function PollsManagement({ initialPolls }: { initialPolls: Poll[] }) {
     });
   }
 
+  function duplicatePoll(poll: Poll) {
+    setPolls((current) => [
+      {
+        ...poll,
+        id: `poll-copy-${Date.now()}`,
+        title: `Copy of ${poll.title}`,
+        status: "DRAFT",
+        responses: 0,
+        optionVotes: Object.fromEntries(poll.options.map((option) => [option, 0])),
+        participationRate: 0,
+        votesOverTime: [],
+        departmentParticipation: [],
+        yearParticipation: [],
+      },
+      ...current,
+    ]);
+    campusToast.info({
+      title: "Poll Duplicated",
+      description: "A draft copy was created for editing.",
+    });
+  }
+
+  function deletePoll() {
+    if (!deleting) return;
+    setPolls((current) => current.filter((poll) => poll.id !== deleting.id));
+    setDeleting(null);
+    campusToast.warning({
+      title: "Poll Deleted",
+      description: "The poll was removed from the management list.",
+    });
+  }
+
   const columns: DataTableColumn<Poll>[] = [
-    { key: "title", header: "Title" },
+    {
+      key: "title",
+      header: "Title",
+      cell: (poll) => (
+        <div>
+          <p className="font-semibold">{poll.title}</p>
+          <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
+            {poll.question}
+          </p>
+        </div>
+      ),
+    },
+    { key: "category", header: "Category" },
+    { key: "audience", header: "Audience" },
     {
       key: "responses",
       header: "Responses",
@@ -2150,10 +2629,20 @@ export function PollsManagement({ initialPolls }: { initialPolls: Poll[] }) {
             { label: "View", icon: FiEye, onSelect: () => setViewing(poll) },
             { label: "Edit", icon: FiEdit, onSelect: () => setEditing(poll) },
             {
+              label: "Duplicate",
+              icon: FiCopy,
+              onSelect: () => duplicatePoll(poll),
+            },
+            {
               label: "Close",
               icon: FiSlash,
               disabled: poll.status === "CLOSED",
               onSelect: () => setClosing(poll),
+            },
+            {
+              label: "Delete",
+              icon: FiTrash2,
+              onSelect: () => setDeleting(poll),
             },
           ]}
         />
@@ -2163,6 +2652,145 @@ export function PollsManagement({ initialPolls }: { initialPolls: Poll[] }) {
 
   return (
     <>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {[
+          {
+            label: "Total Responses",
+            value: totalResponses.toLocaleString(),
+            icon: FiUsers,
+          },
+          {
+            label: "Participation Rate",
+            value: `${averageParticipation}%`,
+            icon: FiBarChart2,
+          },
+          {
+            label: "Active Polls",
+            value: activePolls.length.toString(),
+            icon: FiPieChart,
+          },
+          {
+            label: "Closed Polls",
+            value: closedPolls.length.toString(),
+            icon: FiCheckCircle,
+          },
+        ].map(({ label, value, icon: Icon }) => (
+          <div
+            key={label}
+            className="rounded-xl border border-border bg-surface p-4"
+          >
+            <span className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <Icon className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <p className="mt-5 text-2xl font-semibold">{value}</p>
+            <p className="text-sm text-muted-foreground">{label}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-5 grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+        <div className="rounded-xl border border-border bg-surface p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="font-semibold">Votes Over Time</p>
+              <p className="text-sm text-muted-foreground">
+                Response velocity from the leading active poll.
+              </p>
+            </div>
+            <FiBarChart2 className="h-5 w-5 text-primary" aria-hidden="true" />
+          </div>
+          <div className="mt-5 h-56">
+            <ResponsiveContainer height="100%" width="100%">
+              <BarChart data={votesOverTime}>
+                <XAxis
+                  axisLine={false}
+                  dataKey="day"
+                  tickLine={false}
+                  tick={{ fill: "currentColor", fontSize: 12 }}
+                />
+                <YAxis hide />
+                <Tooltip
+                  cursor={{ fill: "rgba(79, 70, 229, 0.08)" }}
+                  contentStyle={{
+                    border: "1px solid var(--border)",
+                    borderRadius: 8,
+                    background: "var(--surface)",
+                    color: "var(--foreground)",
+                  }}
+                />
+                <Bar
+                  dataKey="votes"
+                  fill="var(--primary)"
+                  radius={[8, 8, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        <div className="rounded-xl border border-border bg-surface p-5">
+          <p className="font-semibold">Response Breakdown</p>
+          <p className="text-sm text-muted-foreground">
+            Poll volume by category.
+          </p>
+          <div className="mt-5 h-44">
+            <ResponsiveContainer height="100%" width="100%">
+              <PieChart>
+                <Pie
+                  data={categoryBreakdown}
+                  dataKey="value"
+                  innerRadius={45}
+                  outerRadius={72}
+                >
+                  {categoryBreakdown.map((entry, index) => (
+                    <Cell
+                      key={entry.name}
+                      fill={[
+                        "var(--primary)",
+                        "var(--chart-secondary)",
+                        "var(--chart-tertiary)",
+                        "var(--chart-accent)",
+                      ][index % 4]}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    border: "1px solid var(--border)",
+                    borderRadius: 8,
+                    background: "var(--surface)",
+                    color: "var(--foreground)",
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+      <div className="mt-5 rounded-xl border border-border bg-surface p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="font-semibold">Poll Leaderboard</p>
+            <p className="text-sm text-muted-foreground">
+              Most participated, highest engagement, and recent decision polls.
+            </p>
+          </div>
+          <FiPieChart className="h-5 w-5 text-primary" aria-hidden="true" />
+        </div>
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          {topPolls.map((poll) => (
+            <div
+              key={poll.id}
+              className="rounded-lg border border-border bg-background p-4"
+            >
+              <StatusBadge status={poll.category} />
+              <p className="mt-3 font-semibold">{poll.title}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {poll.responses.toLocaleString()} responses ·{" "}
+                {poll.participationRate}% participation
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
       <Toolbar
         query={query}
         onQueryChange={setQuery}
@@ -2193,7 +2821,7 @@ export function PollsManagement({ initialPolls }: { initialPolls: Poll[] }) {
         onOpenChange={setCreateOpen}
         title="Create Poll"
         description="Create a structured poll for student input."
-        className="max-h-[90vh] max-w-3xl overflow-y-auto"
+        className="max-h-[90vh] max-w-5xl overflow-y-auto"
       >
         <PollForm onSubmit={createPoll} isSubmitting={isPending} />
       </Modal>
@@ -2202,7 +2830,7 @@ export function PollsManagement({ initialPolls }: { initialPolls: Poll[] }) {
         onOpenChange={(open) => !open && setEditing(null)}
         title="Edit Poll"
         description="Update poll question, options, and status."
-        className="max-h-[90vh] max-w-3xl overflow-y-auto"
+        className="max-h-[90vh] max-w-5xl overflow-y-auto"
       >
         {editing ? (
           <PollForm
@@ -2217,31 +2845,72 @@ export function PollsManagement({ initialPolls }: { initialPolls: Poll[] }) {
         open={Boolean(viewing)}
         onOpenChange={(open) => !open && setViewing(null)}
         title={viewing?.title ?? "Poll"}
-        description="Poll participation and options."
-        className="max-w-xl"
+        description={viewing?.question ?? "Poll participation and options."}
+        className="max-w-2xl"
       >
         {viewing ? (
           <div className="space-y-5">
             <p className="text-sm leading-6 text-muted-foreground">
-              {viewing.question}
+              {viewing.description}
             </p>
-            <div className="space-y-2">
-              {viewing.options.map((option) => (
-                <div
-                  key={option}
-                  className="rounded-md border border-border bg-background p-3 text-sm"
-                >
-                  {option}
-                </div>
-              ))}
-            </div>
             <DetailsGrid
               rows={[
+                ["Category", viewing.category],
+                ["Audience", viewing.audience],
+                ["Created By", viewing.createdBy],
                 ["Responses", viewing.responses.toLocaleString()],
+                ["Participation", `${viewing.participationRate}%`],
+                ["Winning Option", pollWinningOption(viewing)],
                 ["End Date", formatDate(viewing.endDate)],
-                ["Status", <StatusBadge key="status" status={viewing.status} />],
+                ["Results", formatPollVisibility(viewing.resultsVisibility)],
+                [
+                  "Status",
+                  <StatusBadge key="status" status={viewing.status} />,
+                ],
               ]}
             />
+            <div className="rounded-xl border border-border bg-background p-4">
+              <p className="text-sm font-semibold">Response Breakdown</p>
+              <div className="mt-4 space-y-3">
+                {viewing.options.map((option) => {
+                  const percent = pollOptionPercent(viewing, option);
+
+                  return (
+                    <div key={option}>
+                      <div className="mb-1.5 flex items-center justify-between text-sm">
+                        <span>{option}</span>
+                        <span className="text-muted-foreground">
+                          {viewing.optionVotes[option] ?? 0} · {percent}%
+                        </span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-surface-muted">
+                        <div
+                          className="h-full rounded-full bg-primary"
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="rounded-xl border border-border bg-background p-4">
+              <p className="text-sm font-semibold">Rules</p>
+              <div className="mt-3 space-y-2">
+                {viewing.rules.map((rule) => (
+                  <p
+                    key={rule}
+                    className="flex items-center gap-2 text-sm text-muted-foreground"
+                  >
+                    <FiCheckCircle
+                      className="h-4 w-4 text-primary"
+                      aria-hidden="true"
+                    />
+                    {rule}
+                  </p>
+                ))}
+              </div>
+            </div>
           </div>
         ) : null}
       </Drawer>
@@ -2252,6 +2921,14 @@ export function PollsManagement({ initialPolls }: { initialPolls: Poll[] }) {
         description={`Close ${closing?.title ?? "this poll"}?`}
         confirmLabel="Close Poll"
         onConfirm={closePoll}
+      />
+      <ConfirmDialog
+        open={Boolean(deleting)}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        title="Delete Poll"
+        description={`Delete ${deleting?.title ?? "this poll"}? This mock action removes it from the table.`}
+        confirmLabel="Delete Poll"
+        onConfirm={deletePoll}
       />
     </>
   );

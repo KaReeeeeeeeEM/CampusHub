@@ -9,6 +9,11 @@ import {
   FiUsers,
 } from "react-icons/fi";
 
+import {
+  SquareBarChartPanel,
+  SquareDonutChartPanel,
+  SquareGoalsPanel,
+} from "@/components/dashboard/square-dashboard-widgets";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SuperAdminPageHeader } from "@/features/super-admin/components/super-admin-page-header";
@@ -42,11 +47,49 @@ const statCards = [
   },
 ] as const;
 
+const platformActivity = [
+  { label: "05", primary: 1, secondary: 2 },
+  { label: "06", primary: 2, secondary: 1 },
+  { label: "07", primary: 1, secondary: 4 },
+  { label: "08", primary: 3, secondary: 2 },
+  { label: "09", primary: 2, secondary: 3 },
+  { label: "10", primary: 4, secondary: 2 },
+  { label: "11", primary: 3, secondary: 5 },
+];
+
+const platformDistribution = [
+  { name: "Universities", value: 4, color: "#60DDA0" },
+  { name: "Admins", value: 8, color: "#3478F6" },
+  { name: "Students", value: 24, color: "#7C3AED" },
+  { name: "Employers", value: 6, color: "#F59E0B" },
+];
+
+const platformGoals = [
+  {
+    label: "University Setup",
+    value: 80,
+    detail: "First tenant workflow coverage",
+    color: "#3478F6",
+  },
+  {
+    label: "Admin Invitations",
+    value: 65,
+    detail: "Campus admins invited",
+    color: "#10B981",
+  },
+  {
+    label: "Employer Review",
+    value: 45,
+    detail: "Applications pending review",
+    color: "#F97316",
+  },
+];
+
 export default async function SuperAdminDashboardPage() {
   const dashboard = await getSuperAdminDashboard();
 
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <main className="mx-auto w-full max-w-none px-4 py-6 sm:px-6">
       <SuperAdminPageHeader
         eyebrow="Platform operations"
         title="Super Admin Dashboard"
@@ -75,26 +118,53 @@ export default async function SuperAdminDashboardPage() {
         </Card>
       ) : null}
 
-      <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {statCards.map((stat) => {
           const Icon = stat.icon;
 
           return (
-            <Card key={stat.key}>
-              <CardContent className="flex items-center justify-between p-6">
-                <div>
-                  <p className="text-sm text-muted-foreground">{stat.label}</p>
-                  <p className="mt-2 text-3xl font-semibold">
+            <Card key={stat.key} className="dashboard-card min-h-[104px]">
+              <CardContent className="flex h-full flex-col justify-between p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <span className="dashboard-icon-tile flex h-9 w-9 items-center justify-center">
+                    <Icon className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <span className="rounded-full bg-success/10 px-2 py-1 text-xs font-semibold text-success">
+                    active
+                  </span>
+                </div>
+                <div className="mt-5">
+                  <p className="text-xl font-semibold">
                     {dashboard.stats[stat.key]}
                   </p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {stat.label}
+                  </p>
                 </div>
-                <span className="flex h-11 w-11 items-center justify-center rounded-md bg-primary/10 text-primary">
-                  <Icon className="h-5 w-5" aria-hidden="true" />
-                </span>
               </CardContent>
             </Card>
           );
         })}
+      </section>
+
+      <section className="mt-6 grid gap-4 xl:grid-cols-[1.15fr_1fr_0.9fr]">
+        <SquareBarChartPanel
+          data={platformActivity}
+          primaryLabel="Universities"
+          secondaryLabel="Invitations"
+          subtitle="Tenant setup and invitation activity over 7 days"
+          title="Platform Activity"
+        />
+        <SquareDonutChartPanel
+          data={platformDistribution}
+          subtitle="Operational distribution across the platform"
+          title="Platform Mix"
+        />
+        <SquareGoalsPanel
+          goals={platformGoals}
+          subtitle="Track launch readiness"
+          title="Weekly Goals"
+        />
       </section>
 
       <Card className="mt-8">

@@ -9,11 +9,7 @@ import {
   FiSliders,
 } from "react-icons/fi";
 
-import {
-  CampusInput,
-  CampusTextarea,
-  campusToast,
-} from "@/components/campushub";
+import { campusToast } from "@/components/campushub";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -25,6 +21,32 @@ const tabs = [
   { key: "preferences", label: "User Preferences", icon: FiShield },
   { key: "security", label: "Security", icon: FiLock },
 ] as const;
+
+function SettingValue({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-lg border border-border bg-background p-4",
+        className,
+      )}
+    >
+      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-2 text-sm font-medium leading-6 text-foreground">
+        {value}
+      </p>
+    </div>
+  );
+}
 
 export function CampusAdminSettings() {
   const [activeTab, setActiveTab] =
@@ -74,20 +96,21 @@ export function CampusAdminSettings() {
         <CardContent className="space-y-5">
           {activeTab === "university" ? (
             <>
-              <label className="space-y-2">
-                <span className="text-sm font-medium">University Name</span>
-                <CampusInput defaultValue="University of Dar es Salaam" />
-              </label>
-              <label className="space-y-2">
-                <span className="text-sm font-medium">
-                  Administrative Email
-                </span>
-                <CampusInput defaultValue="admin@udsm.ac.tz" type="email" />
-              </label>
-              <label className="space-y-2">
-                <span className="text-sm font-medium">Overview</span>
-                <CampusTextarea defaultValue="A leading public university coordinating colleges, departments, representatives, and academic operations through CampusHub." />
-              </label>
+              <div className="grid gap-4 md:grid-cols-2">
+                <SettingValue
+                  label="University Name"
+                  value="University of Dar es Salaam"
+                />
+                <SettingValue
+                  label="Administrative Email"
+                  value="admin@udsm.ac.tz"
+                />
+                <SettingValue
+                  className="md:col-span-2"
+                  label="Overview"
+                  value="A leading public university coordinating colleges, departments, representatives, and academic operations through CampusHub."
+                />
+              </div>
               <Button onClick={() => saveSettings("University Settings Saved")}>
                 Save Changes
               </Button>
@@ -96,14 +119,13 @@ export function CampusAdminSettings() {
 
           {activeTab === "branding" ? (
             <>
-              <label className="space-y-2">
-                <span className="text-sm font-medium">Primary Brand Color</span>
-                <CampusInput defaultValue="#4F46E5" />
-              </label>
-              <label className="space-y-2">
-                <span className="text-sm font-medium">Campus Motto</span>
-                <CampusInput defaultValue="Advancing knowledge, service, and innovation." />
-              </label>
+              <div className="grid gap-4 md:grid-cols-2">
+                <SettingValue label="Primary Brand Color" value="#4F46E5" />
+                <SettingValue
+                  label="Campus Motto"
+                  value="Advancing knowledge, service, and innovation."
+                />
+              </div>
               <Button onClick={() => saveSettings("Branding Saved")}>
                 Save Branding
               </Button>
@@ -135,16 +157,10 @@ export function CampusAdminSettings() {
 
           {activeTab === "preferences" ? (
             <>
-              <label className="space-y-2">
-                <span className="text-sm font-medium">
-                  Default Landing Area
-                </span>
-                <CampusInput defaultValue="Dashboard" />
-              </label>
-              <label className="space-y-2">
-                <span className="text-sm font-medium">Table Density</span>
-                <CampusInput defaultValue="Comfortable" />
-              </label>
+              <div className="grid gap-4 md:grid-cols-2">
+                <SettingValue label="Default Landing Area" value="Dashboard" />
+                <SettingValue label="Table Density" value="Comfortable" />
+              </div>
               <Button onClick={() => saveSettings("Preferences Saved")}>
                 Save Preferences
               </Button>

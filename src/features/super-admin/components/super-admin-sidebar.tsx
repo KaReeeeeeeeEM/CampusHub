@@ -6,45 +6,64 @@ import { usePathname } from "next/navigation";
 import { Suspense } from "react";
 
 import { DevelopmentRoleSwitcher } from "@/components/navigation/development-role-switcher";
+import { SidebarNavTooltip } from "@/components/navigation/sidebar-nav-tooltip";
+import { SidebarFooterCard } from "@/components/navigation/sidebar-footer-card";
 import {
   superAdminNavItems,
   superAdminWorkspace,
 } from "@/features/super-admin/components/super-admin-navigation";
 import { cn } from "@/lib/utils";
+import { useNavigationStore } from "@/store/navigation-store";
 
 export function SuperAdminSidebar() {
   const pathname = usePathname();
   const WorkspaceIcon = superAdminWorkspace.icon;
+  const collapsed = useNavigationStore((state) => state.sidebarCollapsed);
 
   return (
-    <aside className="hidden h-screen w-72 shrink-0 border-r border-border bg-surface p-4 lg:sticky lg:top-0 lg:flex lg:flex-col">
+    <aside
+      className={cn(
+        "dashboard-sidebar hidden h-screen w-64 shrink-0 border-r border-border p-3 transition-[width] duration-200 lg:sticky lg:top-0 lg:flex lg:flex-col",
+        collapsed && "w-16",
+      )}
+    >
       <Link
-        className="mb-4 flex items-center gap-3 rounded-lg px-2 py-2"
+        className={cn(
+          "mb-4 flex items-center gap-2.5 rounded-lg px-1 py-2",
+          collapsed && "justify-center",
+        )}
         href="/super-admin/dashboard"
       >
-        <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-md">
+        <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-md">
           <Image
             src="/logo.png"
             alt=""
             fill
             className="object-contain"
-            sizes="40px"
+            sizes="32px"
             priority
           />
         </span>
-        <span className="min-w-0 text-sm font-semibold leading-5">
+        <span
+          className={cn(
+            "min-w-0 text-sm font-semibold leading-5",
+            collapsed && "hidden",
+          )}
+        >
           CampusHub
-          <span className="block text-xs font-normal text-muted-foreground">
+          <span className="block text-[11px] font-normal leading-tight text-muted-foreground">
             Super Admin
           </span>
         </span>
       </Link>
 
-      <Suspense fallback={null}>
-        <DevelopmentRoleSwitcher />
-      </Suspense>
+      <div className={cn(collapsed && "hidden")}>
+        <Suspense fallback={null}>
+          <DevelopmentRoleSwitcher />
+        </Suspense>
+      </div>
 
-      <div className="mb-4 rounded-lg border border-border bg-background p-3">
+      <div className={cn("dashboard-panel mb-4 p-3", collapsed && "hidden")}>
         <div className="flex items-center gap-3">
           <span className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
             <WorkspaceIcon className="h-4 w-4" aria-hidden="true" />
@@ -57,28 +76,50 @@ export function SuperAdminSidebar() {
       </div>
 
       <nav className="space-y-1">
+        <p
+          className={cn(
+            "px-2 pb-2 pt-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground",
+            collapsed && "hidden",
+          )}
+        >
+          Workspace
+        </p>
         {superAdminNavItems.map((item) => {
           const Icon = item.icon;
           const active =
             pathname === item.href || pathname.startsWith(`${item.href}/`);
 
           return (
-            <Link
+            <SidebarNavTooltip
               key={item.href}
+              label={item.label}
+              enabled={collapsed}
+            >
+            <Link
+              aria-label={item.label}
               className={cn(
-                "flex h-10 items-center gap-3 rounded-md px-3 text-sm transition-colors",
-                active
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-background hover:text-foreground",
+                "dashboard-nav-item flex h-9 items-center gap-2 px-2 text-sm transition-colors",
+                collapsed && "justify-center",
+                active ? "dashboard-nav-item-active" : "text-muted-foreground",
               )}
               href={item.href}
             >
               <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span className="truncate">{item.label}</span>
+              <span className={cn("truncate", collapsed && "hidden")}>
+                {item.label}
+              </span>
             </Link>
+            </SidebarNavTooltip>
           );
         })}
       </nav>
+      <SidebarFooterCard
+        className={cn("mt-auto", collapsed && "hidden")}
+        email="admin@campushub.com"
+        name="CampusHub Admin"
+        profileHref="/super-admin/settings"
+        streakLabel="Setup Streak"
+      />
     </aside>
   );
 }

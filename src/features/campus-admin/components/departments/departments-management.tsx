@@ -6,7 +6,9 @@ import { useForm } from "react-hook-form";
 import {
   FiEdit,
   FiEye,
+  FiGrid,
   FiLayers,
+  FiList,
   FiLoader,
   FiPlus,
   FiSearch,
@@ -18,6 +20,7 @@ import {
   CampusDataTable,
   CampusInput,
   CampusTextarea,
+  CampusViewToggle,
   campusToast,
 } from "@/components/campushub";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -51,6 +54,10 @@ type DepartmentsManagementProps = {
 const statusOptions = [
   { label: "Active", value: "ACTIVE" },
   { label: "Inactive", value: "INACTIVE" },
+] as const;
+const viewOptions = [
+  { value: "table", label: "Table view", icon: FiList },
+  { value: "cards", label: "Card view", icon: FiGrid },
 ] as const;
 
 function StatusBadge({ status }: { status: SerializedDepartment["status"] }) {
@@ -185,7 +192,7 @@ function DepartmentForm({
           ) : null}
         </label>
       </div>
-      <Button disabled={isSubmitting} type="submit">
+      <Button className="w-full" disabled={isSubmitting} type="submit">
         {isSubmitting ? (
           <FiLoader className="h-4 w-4 animate-spin" aria-hidden="true" />
         ) : null}
@@ -241,6 +248,7 @@ export function DepartmentsManagement({
 }: DepartmentsManagementProps) {
   const [departments, setDepartments] = useState(initialDepartments);
   const [query, setQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
   const [createOpen, setCreateOpen] = useState(false);
   const [viewing, setViewing] = useState<SerializedDepartment | null>(null);
   const [editing, setEditing] = useState<SerializedDepartment | null>(null);
@@ -411,22 +419,78 @@ export function DepartmentsManagement({
             onChange={(event) => setQuery(event.target.value)}
           />
         </div>
-        <Button
-          disabled={colleges.length === 0}
-          type="button"
-          onClick={() => setCreateOpen(true)}
-        >
-          <FiPlus className="h-4 w-4" aria-hidden="true" />
-          Create Department
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <CampusViewToggle
+            value={viewMode}
+            options={viewOptions}
+            onValueChange={setViewMode}
+          />
+          <Button
+            disabled={colleges.length === 0}
+            type="button"
+            onClick={() => setCreateOpen(true)}
+          >
+            <FiPlus className="h-4 w-4" aria-hidden="true" />
+            Create Department
+          </Button>
+        </div>
       </div>
 
-      <div className="mt-5">
-        <CampusDataTable
-          columns={columns}
-          data={filteredDepartments}
-          getRowId={(department) => department.id}
-          empty={
+      {viewMode === "cards" ? (
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {filteredDepartments.length > 0 ? (
+            filteredDepartments.map((department) => (
+              <article
+                key={department.id}
+                className="flex h-full flex-col rounded-xl border border-border bg-surface p-4 transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-background text-primary">
+                    <FiLayers className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <AdminActionMenu
+                    items={[
+                      {
+                        label: "View",
+                        icon: FiEye,
+                        onSelect: () => setViewing(department),
+                      },
+                      {
+                        label: "Edit",
+                        icon: FiEdit,
+                        onSelect: () => setEditing(department),
+                      },
+                      {
+                        label: "Deactivate",
+                        icon: FiSlash,
+                        disabled: department.status === "INACTIVE",
+                        onSelect: () => setDeactivating(department),
+                      },
+                    ]}
+                  />
+                </div>
+                <h3 className="mt-4 text-base font-semibold">
+                  {department.name}
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {department.code} · {department.collegeName}
+                </p>
+                <p className="mt-3 line-clamp-2 text-sm leading-6 text-muted-foreground">
+                  {department.description}
+                </p>
+                <div className="mt-auto flex items-center justify-between gap-3 pt-5">
+                  <StatusBadge status={department.status} />
+                  <span className="text-xs text-muted-foreground">
+                    {department.id === "department-cs"
+                      ? "2 teachers"
+                      : department.id === "department-electronics"
+                        ? "1 teacher"
+                        : "0 teachers"}
+                  </span>
+                </div>
+              </article>
+            ))
+          ) : (
             <EmptyState
               title={
                 colleges.length === 0
@@ -442,11 +506,38 @@ export function DepartmentsManagement({
                     ? "Adjust your search and try again."
                     : "Create the first department to support teacher invitations."
               }
-              className="mx-auto border-0 bg-transparent"
+              className="mx-auto border-0 bg-transparent md:col-span-2 xl:col-span-3"
             />
-          }
-        />
-      </div>
+          )}
+        </div>
+      ) : (
+        <div className="mt-5">
+          <CampusDataTable
+            columns={columns}
+            data={filteredDepartments}
+            getRowId={(department) => department.id}
+            empty={
+              <EmptyState
+                title={
+                  colleges.length === 0
+                    ? "Create a college first"
+                    : query
+                      ? "No matching departments"
+                      : "No departments yet"
+                }
+                description={
+                  colleges.length === 0
+                    ? "Departments must belong to a college."
+                    : query
+                      ? "Adjust your search and try again."
+                      : "Create the first department to support teacher invitations."
+                }
+                className="mx-auto border-0 bg-transparent"
+              />
+            }
+          />
+        </div>
+      )}
 
       <Modal
         open={createOpen}

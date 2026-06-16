@@ -32,7 +32,7 @@ export function UserMenu({ name, email }: UserMenuProps) {
     await authClient.signOut({
       fetchOptions: {
         onSuccess: () => {
-          router.push("/login");
+          router.replace("/");
           router.refresh();
         },
       },
@@ -42,7 +42,12 @@ export function UserMenu({ name, email }: UserMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button aria-label="Open user menu" size="icon" variant="ghost">
+        <Button
+          aria-label="Open user menu"
+          className="bg-surface-muted"
+          size="icon"
+          variant="secondary"
+        >
           <Avatar.Root className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
             <Avatar.Fallback>{initials || "CH"}</Avatar.Fallback>
           </Avatar.Root>

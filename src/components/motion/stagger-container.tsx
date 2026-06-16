@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion, type HTMLMotionProps } from "framer-motion";
-import { Children } from "react";
+import { Children, isValidElement } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -34,8 +34,12 @@ export function StaggerContainer({
       }}
       {...props}
     >
-      {Children.map(children, (child) => (
-        <StaggerItem>{child}</StaggerItem>
+      {Children.toArray(children).map((child, index) => (
+        <StaggerItem
+          key={isValidElement(child) && child.key ? child.key : index}
+        >
+          {child}
+        </StaggerItem>
       ))}
     </motion.div>
   );
@@ -54,7 +58,7 @@ export function StaggerItem({
 
   return (
     <motion.div
-      className={cn(className)}
+      className={cn("h-full", className)}
       variants={
         reducedMotion
           ? undefined

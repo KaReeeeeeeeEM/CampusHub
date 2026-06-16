@@ -1,4 +1,5 @@
 import {
+  FiArchive,
   FiBell,
   FiCalendar,
   FiCheckSquare,
@@ -32,6 +33,11 @@ export const committeeNavItems = [
     label: "Tasks",
     href: "/committee-member/tasks",
     icon: FiCheckSquare,
+  },
+  {
+    label: "Lost & Found",
+    href: "/committee-member/lost-found",
+    icon: FiArchive,
   },
   {
     label: "Profile",

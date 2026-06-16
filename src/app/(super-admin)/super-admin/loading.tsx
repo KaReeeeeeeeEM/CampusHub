@@ -1,12 +1,10 @@
-import { LoadingState } from "@/components/shared/loading-state";
+import { PageLoadingState } from "@/components/shared/page-loading-state";
 
 export default function SuperAdminLoading() {
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <LoadingState
-        label="Loading Super Admin workspace"
-        className="min-h-80 rounded-lg border border-border bg-surface"
-      />
-    </main>
+    <PageLoadingState
+      title="Loading Super Admin workspace"
+      description="Fetching platform metrics, universities, users, and applications."
+    />
   );
 }

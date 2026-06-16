@@ -1,4 +1,5 @@
 import {
+  FiArchive,
   FiBarChart2,
   FiBell,
   FiCalendar,
@@ -62,6 +63,11 @@ export const representativeNavItems = [
     label: "Polls",
     href: "/representative/polls",
     icon: FiPieChart,
+  },
+  {
+    label: "Lost & Found",
+    href: "/representative/lost-found",
+    icon: FiArchive,
   },
   {
     label: "Settings",

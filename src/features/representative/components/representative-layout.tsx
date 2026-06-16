@@ -1,3 +1,4 @@
+import { DashboardPageTransition } from "@/components/motion/dashboard-page-transition";
 import { RepresentativeSidebar } from "@/features/representative/components/representative-sidebar";
 import { RepresentativeTopbar } from "@/features/representative/components/representative-topbar";
 import type { AuthUser } from "@/types/auth";
@@ -17,7 +18,7 @@ export function RepresentativeLayout({
         <RepresentativeSidebar />
         <div className="min-w-0 flex-1">
           <RepresentativeTopbar user={user} />
-          {children}
+          <DashboardPageTransition>{children}</DashboardPageTransition>
         </div>
       </div>
     </div>

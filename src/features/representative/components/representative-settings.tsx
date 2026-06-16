@@ -3,11 +3,7 @@
 import { useState } from "react";
 import { FiBell, FiSave, FiShield, FiUsers } from "react-icons/fi";
 
-import {
-  CampusInput,
-  CampusTextarea,
-  campusToast,
-} from "@/components/campushub";
+import { campusToast } from "@/components/campushub";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -19,6 +15,32 @@ const tabs = [
   "Committee Settings",
   "Student Enrollment Settings",
 ] as const;
+
+function SettingValue({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-lg border border-border bg-background p-4",
+        className,
+      )}
+    >
+      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-2 text-sm font-medium leading-6 text-foreground">
+        {value}
+      </p>
+    </div>
+  );
+}
 
 export function RepresentativeSettings() {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>(
@@ -62,18 +84,13 @@ export function RepresentativeSettings() {
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="grid gap-4 md:grid-cols-2">
-              <label className="space-y-2">
-                <span className="text-sm font-medium">College Name</span>
-                <CampusInput defaultValue="College of ICT" />
-              </label>
-              <label className="space-y-2">
-                <span className="text-sm font-medium">Short Name</span>
-                <CampusInput defaultValue="CoICT" />
-              </label>
-              <label className="space-y-2 md:col-span-2">
-                <span className="text-sm font-medium">Description</span>
-                <CampusTextarea defaultValue="College of Information and Communication Technologies at the University of Dar es Salaam." />
-              </label>
+              <SettingValue label="College Name" value="College of ICT" />
+              <SettingValue label="Short Name" value="CoICT" />
+              <SettingValue
+                className="md:col-span-2"
+                label="Description"
+                value="College of Information and Communication Technologies at the University of Dar es Salaam."
+              />
             </div>
             <Button
               type="button"
@@ -93,14 +110,11 @@ export function RepresentativeSettings() {
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="grid gap-4 md:grid-cols-2">
-              <label className="space-y-2">
-                <span className="text-sm font-medium">Primary Color</span>
-                <CampusInput defaultValue="#4F46E5" />
-              </label>
-              <label className="space-y-2">
-                <span className="text-sm font-medium">College Tagline</span>
-                <CampusInput defaultValue="Innovation for society" />
-              </label>
+              <SettingValue label="Primary Color" value="#4F46E5" />
+              <SettingValue
+                label="College Tagline"
+                value="Innovation for society"
+              />
             </div>
             <div className="rounded-lg border border-border bg-primary/5 p-5">
               <p className="text-sm font-medium text-primary">
@@ -111,7 +125,10 @@ export function RepresentativeSettings() {
                 communication surfaces.
               </p>
             </div>
-            <Button type="button" onClick={() => saveSettings("Branding Saved")}>
+            <Button
+              type="button"
+              onClick={() => saveSettings("Branding Saved")}
+            >
               <FiSave className="h-4 w-4" aria-hidden="true" />
               Save Branding
             </Button>
@@ -196,14 +213,8 @@ export function RepresentativeSettings() {
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="grid gap-4 md:grid-cols-2">
-              <label className="space-y-2">
-                <span className="text-sm font-medium">Default Link Expiry</span>
-                <CampusInput defaultValue="90 days" />
-              </label>
-              <label className="space-y-2">
-                <span className="text-sm font-medium">Default Usage Limit</span>
-                <CampusInput defaultValue="500 students" />
-              </label>
+              <SettingValue label="Default Link Expiry" value="90 days" />
+              <SettingValue label="Default Usage Limit" value="500 students" />
             </div>
             <div className="flex items-start gap-3 rounded-lg border border-border bg-background p-4">
               <FiShield

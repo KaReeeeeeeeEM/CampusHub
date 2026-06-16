@@ -1,7 +1,9 @@
 "use client";
 
-import { FiMenu } from "react-icons/fi";
+import { FiSidebar } from "react-icons/fi";
 
+import { AppearanceDrawer } from "@/components/navigation/appearance-drawer";
+import { DashboardThemeToggle } from "@/components/navigation/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { UserMenu } from "@/components/navigation/user-menu";
 import { StudentBreadcrumbs } from "@/features/student-portal/components/student-breadcrumbs";
@@ -12,25 +14,42 @@ import { useNavigationStore } from "@/store/navigation-store";
 
 export function StudentTopNavigation() {
   const toggleSidebar = useNavigationStore((state) => state.toggleSidebar);
+  const toggleSidebarCollapsed = useNavigationStore(
+    (state) => state.toggleSidebarCollapsed,
+  );
 
   return (
-    <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur-xl">
-      <div className="flex h-16 items-center gap-3 px-4 sm:px-6 lg:px-8">
-        <Button
-          aria-label="Toggle student navigation"
-          className="lg:hidden"
-          size="icon"
-          type="button"
-          variant="ghost"
-          onClick={toggleSidebar}
-        >
-          <FiMenu className="h-4 w-4" aria-hidden="true" />
-        </Button>
-        <div className="hidden min-w-0 md:block">
+    <header className="dashboard-topbar sticky top-0 z-30 border-b border-border">
+      <div className="flex h-14 items-center">
+        <div className="flex h-full w-14 shrink-0 items-center justify-center border-r border-border">
+          <Button
+            aria-label="Open student navigation"
+            className="lg:hidden"
+            size="icon"
+            type="button"
+            variant="ghost"
+            onClick={toggleSidebar}
+          >
+            <FiSidebar className="h-4 w-4" aria-hidden="true" />
+          </Button>
+          <Button
+            aria-label="Collapse student navigation"
+            className="hidden lg:inline-flex"
+            size="icon"
+            type="button"
+            variant="ghost"
+            onClick={toggleSidebarCollapsed}
+          >
+            <FiSidebar className="h-4 w-4" aria-hidden="true" />
+          </Button>
+        </div>
+        <div className="hidden h-full min-w-0 border-r border-border md:block">
           <StudentBreadcrumbs />
         </div>
-        <StudentSearch className="ml-auto hidden max-w-md flex-1 lg:flex" />
-        <div className="ml-auto flex items-center gap-1 lg:ml-0">
+        <StudentSearch className="ml-auto hidden max-w-sm flex-1 lg:flex" />
+        <div className="flex items-center gap-1 px-3">
+          <AppearanceDrawer />
+          <DashboardThemeToggle />
           <StudentNotificationArea />
           <UserMenu
             name={mockStudentProfile.name}
