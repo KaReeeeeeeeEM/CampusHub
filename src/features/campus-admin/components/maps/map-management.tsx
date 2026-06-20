@@ -39,17 +39,31 @@ import {
   SelectValue,
 } from "@/components/ui/radix-select";
 import { AdminActionMenu } from "@/features/administration/components/admin-action-menu";
-import type { CampusLocation } from "@/features/campus-admin/lib/mock-data";
 import type { DataTableColumn } from "@/components/shared/data-table";
 import { cn } from "@/lib/utils";
 
+type CampusLocation = {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  latitude: number;
+  longitude: number;
+  buildingCode: string | null;
+  status: string;
+};
+
 const categories = [
-  "Library",
-  "Hostels",
-  "Lecture Halls",
-  "Administration",
-  "Sports",
-  "Medical Services",
+  { label: "Academic", value: "ACADEMIC" },
+  { label: "Office", value: "OFFICE" },
+  { label: "Hostel", value: "HOSTEL" },
+  { label: "Library", value: "LIBRARY" },
+  { label: "Cafeteria", value: "CAFETERIA" },
+  { label: "Laboratory", value: "LABORATORY" },
+  { label: "Health", value: "HEALTH" },
+  { label: "Sports", value: "SPORTS" },
+  { label: "Parking", value: "PARKING" },
+  { label: "Other", value: "OTHER" },
 ] as const;
 const viewOptions = [
   { value: "table", label: "Table view", icon: FiList },
@@ -65,13 +79,65 @@ const startingPointOptions = [
 
 const locationSchema = z.object({
   name: z.string().min(2, "Location name is required."),
-  category: z.enum(categories),
+  category: z.enum([
+    "ACADEMIC",
+    "OFFICE",
+    "HOSTEL",
+    "LIBRARY",
+    "CAFETERIA",
+    "LABORATORY",
+    "HEALTH",
+    "SPORTS",
+    "PARKING",
+    "OTHER",
+  ]),
   code: z.string().min(2, "Code is required."),
-  coordinates: z.string().min(3, "Coordinates are required."),
+  coordinates: z
+    .string()
+    .min(3, "Coordinates are required.")
+    .refine((value) => {
+      const [latitude, longitude] = value
+        .split(",")
+        .map((part) => Number(part.trim()));
+
+      return Number.isFinite(latitude) && Number.isFinite(longitude);
+    }, "Coordinates must use latitude, longitude format."),
   description: z.string().min(10, "Description is required."),
 });
 
 type LocationInput = z.infer<typeof locationSchema>;
+
+function getLocationCode(location: CampusLocation) {
+  return location.buildingCode ?? "";
+}
+
+function getLocationCoordinates(location: CampusLocation) {
+  return `${location.latitude}, ${location.longitude}`;
+}
+
+function normalizeLocation(location: CampusLocation): CampusLocation {
+  return {
+    ...location,
+    description: location.description ?? "",
+    buildingCode: location.buildingCode ?? "",
+  };
+}
+
+function getLocationPayload(values: LocationInput) {
+  const [latitude, longitude] = values.coordinates
+    .split(",")
+    .map((value) => Number(value.trim()));
+
+  return {
+    name: values.name,
+    description: values.description,
+    category: values.category,
+    latitude,
+    longitude,
+    buildingCode: values.code,
+    status: "ACTIVE",
+  };
+}
 
 function LocationForm({
   location,
@@ -92,9 +158,9 @@ function LocationForm({
     resolver: zodResolver(locationSchema),
     defaultValues: {
       name: location?.name ?? "",
-      category: location?.category ?? "Library",
-      code: location?.code ?? "",
-      coordinates: location?.coordinates ?? "",
+      category: (location?.category as LocationInput["category"]) ?? "LIBRARY",
+      code: location ? getLocationCode(location) : "",
+      coordinates: location ? getLocationCoordinates(location) : "",
       description: location?.description ?? "",
     },
   });
@@ -126,8 +192,8 @@ function LocationForm({
             </SelectTrigger>
             <SelectContent>
               {categories.map((category) => (
-                <SelectItem key={category} value={category}>
-                  {category}
+                <SelectItem key={category.value} value={category.value}>
+                  {category.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -171,7 +237,9 @@ export function MapManagement({
 }: {
   initialLocations: CampusLocation[];
 }) {
-  const [locations, setLocations] = useState(initialLocations);
+  const [locations, setLocations] = useState(() =>
+    initialLocations.map(normalizeLocation),
+  );
   const [query, setQuery] = useState("");
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
   const [createOpen, setCreateOpen] = useState(false);
@@ -192,7 +260,7 @@ export function MapManagement({
     const normalized = query.toLowerCase().trim();
     if (!normalized) return locations;
     return locations.filter((location) =>
-      [location.name, location.category, location.code]
+      [location.name, location.category, getLocationCode(location)]
         .join(" ")
         .toLowerCase()
         .includes(normalized),
@@ -206,20 +274,32 @@ export function MapManagement({
   const routeDestination =
     locations.find((location) => location.id === routeDestinationId) ??
     selectedLocation;
+  const hasCampusLocations = locations.length > 0;
 
   function createLocation(values: LocationInput) {
     startTransition(async () => {
-      const id = `location-${Date.now()}`;
-      setLocations((current) => [
-        { id, status: "ACTIVE", ...values },
-        ...current,
-      ]);
-      setSelectedLocationId(id);
-      setRouteDestinationId(id);
+      const response = await fetch("/api/map-locations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(getLocationPayload(values)),
+      });
+
+      if (!response.ok) {
+        campusToast.error({
+          title: "Location Not Created",
+          description: "The location could not be saved.",
+        });
+        return;
+      }
+
+      const location = normalizeLocation(await response.json());
+      setLocations((current) => [location, ...current]);
+      setSelectedLocationId(location.id);
+      setRouteDestinationId(location.id);
       setCreateOpen(false);
       campusToast.success({
         title: "Map Point Added",
-        description: "The campus location was added successfully.",
+        description: "The campus location was saved.",
       });
     });
   }
@@ -227,9 +307,24 @@ export function MapManagement({
   function updateLocation(values: LocationInput) {
     if (!editing) return;
     startTransition(async () => {
+      const response = await fetch(`/api/map-locations/${editing.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(getLocationPayload(values)),
+      });
+
+      if (!response.ok) {
+        campusToast.error({
+          title: "Location Not Updated",
+          description: "The location could not be saved.",
+        });
+        return;
+      }
+
+      const updatedLocation = normalizeLocation(await response.json());
       setLocations((current) =>
         current.map((location) =>
-          location.id === editing.id ? { ...location, ...values } : location,
+          location.id === editing.id ? updatedLocation : location,
         ),
       );
       setEditing(null);
@@ -243,7 +338,11 @@ export function MapManagement({
   const columns: DataTableColumn<CampusLocation>[] = [
     { key: "name", header: "Location" },
     { key: "category", header: "Category" },
-    { key: "code", header: "Code" },
+    {
+      key: "buildingCode",
+      header: "Code",
+      cell: (location) => getLocationCode(location) || "Not set",
+    },
     { key: "status", header: "Status" },
     {
       key: "actions",
@@ -317,7 +416,7 @@ export function MapManagement({
                       {location.name}
                     </span>
                     <span className="mt-1 block truncate text-xs text-muted-foreground">
-                      {location.category} · {location.code}
+                      {location.category} · {getLocationCode(location)}
                     </span>
                   </span>
                 </Button>
@@ -354,7 +453,7 @@ export function MapManagement({
                     Coordinates
                   </p>
                   <p className="mt-1 text-sm font-medium">
-                    {selectedLocation.coordinates}
+                    {getLocationCoordinates(selectedLocation)}
                   </p>
                 </div>
                 <div className="rounded-md border border-border p-3">
@@ -376,7 +475,14 @@ export function MapManagement({
               <div className="relative min-h-[32rem] overflow-hidden">
                 <OpenStreetMap
                   className="absolute inset-0 z-0"
-                  locations={locations}
+                  locations={locations.map((location) => ({
+                    id: location.id,
+                    name: location.name,
+                    category: location.category,
+                    code: getLocationCode(location),
+                    description: location.description ?? "",
+                    coordinates: getLocationCoordinates(location),
+                  }))}
                   routeDestinationId={routeDestinationId}
                   selectedLocationId={selectedLocationId}
                   onSelectLocation={(locationId) => {
@@ -385,7 +491,7 @@ export function MapManagement({
                   }}
                 />
               </div>
-              <aside className="border-t border-border bg-background/55 p-4 lg:border-l lg:border-t-0">
+              <aside className="border-t border-border bg-background/55 p-6 lg:border-l lg:border-t-0">
                 <div className="flex items-center gap-2">
                   <span className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
                     <FiNavigation className="h-4 w-4" aria-hidden="true" />
@@ -397,7 +503,7 @@ export function MapManagement({
                     </p>
                   </div>
                 </div>
-                <div className="mt-4 space-y-4">
+                <div className="mt-5 space-y-5">
                   <label className="space-y-2">
                     <span className="text-xs font-semibold uppercase text-muted-foreground">
                       Starting point
@@ -424,6 +530,7 @@ export function MapManagement({
                     </span>
                     <Select
                       value={routeDestinationId}
+                      disabled={!hasCampusLocations}
                       onValueChange={(value) => {
                         setRouteDestinationId(value);
                         setSelectedLocationId(value);
@@ -441,24 +548,34 @@ export function MapManagement({
                       </SelectContent>
                     </Select>
                   </label>
-                  <div className="rounded-lg border border-border bg-surface p-3">
+                  <div className="rounded-lg border border-border bg-surface p-4">
                     <div className="flex items-center gap-2 text-sm font-semibold">
                       <FiTarget className="h-4 w-4 text-primary" />
                       Route preview
                     </div>
-                    <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                      {startingPoint} to{" "}
-                      <span className="font-medium text-foreground">
-                        {routeDestination?.name ?? "destination"}
-                      </span>
-                    </p>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      Estimated 6-12 min walk. Turn-by-turn routing will connect
-                      to live map services later.
-                    </p>
+                    {hasCampusLocations ? (
+                      <>
+                        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                          {startingPoint} to{" "}
+                          <span className="font-medium text-foreground">
+                            {routeDestination?.name ?? "destination"}
+                          </span>
+                        </p>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Estimated 6-12 min walk. Turn-by-turn routing will
+                          connect to live map services later.
+                        </p>
+                      </>
+                    ) : (
+                      <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                        Add at least one campus location before route previews
+                        can be used.
+                      </p>
+                    )}
                   </div>
                   <Button
                     className="w-full"
+                    disabled={!hasCampusLocations}
                     type="button"
                     onClick={() =>
                       campusToast.info({
@@ -536,13 +653,13 @@ export function MapManagement({
                       {location.name}
                     </h3>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {location.category} · {location.code}
+                      {location.category} · {getLocationCode(location)}
                     </p>
                     <p className="mt-3 line-clamp-2 text-sm leading-6 text-muted-foreground">
                       {location.description}
                     </p>
                     <p className="mt-auto pt-5 text-xs text-muted-foreground">
-                      {location.coordinates}
+                      {getLocationCoordinates(location)}
                     </p>
                   </article>
                 ))
@@ -602,7 +719,7 @@ export function MapManagement({
           <div className="space-y-3 text-sm">
             <p>{viewing.description}</p>
             <p className="text-muted-foreground">
-              {viewing.category} · {viewing.coordinates}
+              {viewing.category} · {getLocationCoordinates(viewing)}
             </p>
           </div>
         ) : null}
@@ -611,16 +728,31 @@ export function MapManagement({
         open={Boolean(deleting)}
         onOpenChange={(open) => !open && setDeleting(null)}
         title="Delete Location"
-        description={`Delete ${deleting?.name ?? "this location"} from the mock map?`}
+        description={`Delete ${deleting?.name ?? "this location"} from the campus map?`}
         destructive
         onConfirm={() => {
           if (deleting) {
-            setLocations((current) =>
-              current.filter((item) => item.id !== deleting.id),
-            );
-            campusToast.warning({
-              title: "Map Point Removed",
-              description: "The mock location was removed.",
+            startTransition(async () => {
+              const response = await fetch(`/api/map-locations/${deleting.id}`, {
+                method: "DELETE",
+              });
+
+              if (!response.ok) {
+                campusToast.error({
+                  title: "Location Not Removed",
+                  description: "The location could not be removed.",
+                });
+                return;
+              }
+
+              setLocations((current) =>
+                current.filter((item) => item.id !== deleting.id),
+              );
+              setDeleting(null);
+              campusToast.warning({
+                title: "Map Point Removed",
+                description: "The location was removed.",
+              });
             });
           }
         }}

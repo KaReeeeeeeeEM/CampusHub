@@ -3,20 +3,30 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Suspense } from "react";
 
-import { DevelopmentRoleSwitcher } from "@/components/navigation/development-role-switcher";
 import { SidebarNavTooltip } from "@/components/navigation/sidebar-nav-tooltip";
 import { SidebarFooterCard } from "@/components/navigation/sidebar-footer-card";
+import { useAuth } from "@/features/auth/auth-provider";
 import {
   campusAdminNavItems,
   campusAdminWorkspace,
 } from "@/features/campus-admin/components/campus-admin-navigation";
 import { cn } from "@/lib/utils";
 import { useNavigationStore } from "@/store/navigation-store";
+import type { AuthUser } from "@/types/auth";
+
+function getUserName(user: AuthUser | null | undefined) {
+  return (
+    user?.name ||
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
+    user?.email ||
+    "Campus Admin"
+  );
+}
 
 export function CampusAdminSidebar() {
   const pathname = usePathname();
+  const { user } = useAuth();
   const WorkspaceIcon = campusAdminWorkspace.icon;
   const collapsed = useNavigationStore((state) => state.sidebarCollapsed);
 
@@ -50,18 +60,12 @@ export function CampusAdminSidebar() {
             collapsed && "hidden",
           )}
         >
-          CampusHub
+          <span className="campushub-logo-text">CampusHub</span>
           <span className="block text-[11px] font-normal leading-tight text-muted-foreground">
             Campus Admin
           </span>
         </span>
       </Link>
-
-      <div className={cn(collapsed && "hidden")}>
-        <Suspense fallback={null}>
-          <DevelopmentRoleSwitcher />
-        </Suspense>
-      </div>
 
       <div className={cn("dashboard-panel mb-4 p-3", collapsed && "hidden")}>
         <div className="flex items-center gap-3">
@@ -115,8 +119,8 @@ export function CampusAdminSidebar() {
       </nav>
       <SidebarFooterCard
         className={cn("mt-auto", collapsed && "hidden")}
-        email="admin@udsm.ac.tz"
-        name="Campus Admin"
+        email={user?.email ?? "campus-admin@campushub.com"}
+        name={getUserName(user)}
         profileHref="/campus-admin/settings"
         streakLabel="Campus Streak"
       />

@@ -1,11 +1,6 @@
 import {
   FiArchive,
   FiBarChart2,
-  FiBell,
-  FiCalendar,
-  FiClipboard,
-  FiMessageSquare,
-  FiPieChart,
   FiSend,
   FiSettings,
   FiShield,
@@ -38,31 +33,6 @@ export const representativeNavItems = [
     label: "Student Invitations",
     href: "/representative/invitations",
     icon: FiSend,
-  },
-  {
-    label: "Announcements",
-    href: "/representative/announcements",
-    icon: FiBell,
-  },
-  {
-    label: "Events",
-    href: "/representative/events",
-    icon: FiCalendar,
-  },
-  {
-    label: "Forums",
-    href: "/representative/forums",
-    icon: FiMessageSquare,
-  },
-  {
-    label: "Suggestions",
-    href: "/representative/suggestions",
-    icon: FiClipboard,
-  },
-  {
-    label: "Polls",
-    href: "/representative/polls",
-    icon: FiPieChart,
   },
   {
     label: "Lost & Found",

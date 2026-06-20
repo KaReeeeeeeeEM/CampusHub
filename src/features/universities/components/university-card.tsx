@@ -13,9 +13,9 @@ import Link from "next/link";
 import type { PointerEvent } from "react";
 
 import { Button } from "@/components/ui/button";
-import type { University } from "@/features/universities/lib/mock-data";
+import type { PublicUniversity } from "@/features/universities/lib/university-directory-service";
 
-export function UniversityCard({ university }: { university: University }) {
+export function UniversityCard({ university }: { university: PublicUniversity }) {
   const reducedMotion = useReducedMotion();
   const pointerX = useMotionValue(0);
   const pointerY = useMotionValue(0);
@@ -97,7 +97,7 @@ export function UniversityCard({ university }: { university: University }) {
         <h2 className="mt-4 text-xl font-semibold">{university.name}</h2>
         <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
           <MapPin className="h-4 w-4" aria-hidden="true" />
-          {university.city}, {university.country}
+                {university.city}, {university.country}
         </div>
         <p className="mt-4 line-clamp-3 text-sm leading-6 text-muted-foreground">
           {university.description}

@@ -21,8 +21,8 @@ export function SuperAdminPlaceholderPage({
       />
       <div className="mt-8">
         <EmptyState
-          title="Foundation route ready"
-          description="The protected route, layout, navigation, and authorization boundary are in place. Feature-specific workflows can be added here without restructuring the Super Admin workspace."
+          title="No records available"
+          description="This protected Super Admin module is ready for live backend records. No mock data is rendered on this page."
           className="max-w-none"
         />
       </div>

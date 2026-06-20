@@ -4,15 +4,24 @@ import { FiSidebar } from "react-icons/fi";
 
 import { AppearanceDrawer } from "@/components/navigation/appearance-drawer";
 import { DashboardThemeToggle } from "@/components/navigation/theme-toggle";
+import { UniversityScopeBadge } from "@/components/navigation/university-scope-badge";
 import { Button } from "@/components/ui/button";
 import { UserMenu } from "@/components/navigation/user-menu";
 import { StudentBreadcrumbs } from "@/features/student-portal/components/student-breadcrumbs";
 import { StudentNotificationArea } from "@/features/student-portal/components/student-notification-area";
 import { StudentSearch } from "@/features/student-portal/components/student-search";
-import { mockStudentProfile } from "@/features/student-portal/lib/mock-data";
 import { useNavigationStore } from "@/store/navigation-store";
+import type { AuthUser } from "@/types/auth";
 
-export function StudentTopNavigation() {
+function getUserName(user: AuthUser) {
+  return (
+    user.name ||
+    [user.firstName, user.lastName].filter(Boolean).join(" ") ||
+    user.email
+  );
+}
+
+export function StudentTopNavigation({ user }: { user: AuthUser }) {
   const toggleSidebar = useNavigationStore((state) => state.toggleSidebar);
   const toggleSidebarCollapsed = useNavigationStore(
     (state) => state.toggleSidebarCollapsed,
@@ -46,19 +55,27 @@ export function StudentTopNavigation() {
         <div className="hidden h-full min-w-0 border-r border-border md:block">
           <StudentBreadcrumbs />
         </div>
+        <UniversityScopeBadge
+          universityId={user.universityId}
+          className="mx-3 hidden min-w-0 md:flex"
+        />
         <StudentSearch className="ml-auto hidden max-w-sm flex-1 lg:flex" />
         <div className="flex items-center gap-1 px-3">
           <AppearanceDrawer />
           <DashboardThemeToggle />
           <StudentNotificationArea />
           <UserMenu
-            name={mockStudentProfile.name}
-            email={mockStudentProfile.email}
+            name={getUserName(user)}
+            email={user.email}
           />
         </div>
       </div>
       <div className="border-t border-border px-4 py-3 md:hidden">
         <StudentBreadcrumbs />
+        <UniversityScopeBadge
+          universityId={user.universityId}
+          className="mt-3 max-w-full"
+        />
       </div>
       <div className="border-t border-border px-4 py-3 lg:hidden">
         <StudentSearch className="w-full" />

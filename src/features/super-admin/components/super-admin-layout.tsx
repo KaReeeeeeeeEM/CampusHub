@@ -1,4 +1,5 @@
 import { DashboardPageTransition } from "@/components/motion/dashboard-page-transition";
+import { DashboardIntroTour } from "@/components/onboarding/dashboard-intro-tour";
 import { SuperAdminSidebar } from "@/features/super-admin/components/super-admin-sidebar";
 import { SuperAdminTopbar } from "@/features/super-admin/components/super-admin-topbar";
 import type { AuthUser } from "@/types/auth";
@@ -19,6 +20,10 @@ export function SuperAdminLayout({ user, children }: SuperAdminLayoutProps) {
             <main className="min-h-0 flex-1 overflow-y-auto">
               <DashboardPageTransition>{children}</DashboardPageTransition>
             </main>
+            <DashboardIntroTour
+              role="Super Admin"
+              storageKey="campushub:intro:super-admin-dashboard"
+            />
           </div>
         </div>
       </div>

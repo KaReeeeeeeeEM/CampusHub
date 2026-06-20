@@ -1,11 +1,16 @@
 import { CampusAdminPageHeader } from "@/features/campus-admin/components/campus-admin-page-header";
 import { RepresentativesManagement } from "@/features/campus-admin/components/representatives/representatives-management";
 import {
-  mockColleges,
-  mockRepresentatives,
-} from "@/features/campus-admin/lib/mock-data";
+  getColleges,
+  getRepresentativeInvitations,
+} from "@/features/campus-admin/lib/campus-admin-service";
 
 export default async function CampusAdminRepresentativesPage() {
+  const [colleges, invitations] = await Promise.all([
+    getColleges(),
+    getRepresentativeInvitations(),
+  ]);
+
   return (
     <main className="w-full max-w-none px-4 py-6 sm:px-6">
       <CampusAdminPageHeader
@@ -14,8 +19,8 @@ export default async function CampusAdminRepresentativesPage() {
         description="Invite and manage college representatives. Representative accounts are activated through invitation links."
       />
       <RepresentativesManagement
-        colleges={mockColleges}
-        initialInvitations={mockRepresentatives}
+        colleges={colleges}
+        initialInvitations={invitations}
       />
     </main>
   );

@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { PublicLogo } from "@/components/public/public-logo";
-import { ThemeToggle } from "@/components/public/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { publicNavItems } from "@/features/public-site/content";
 import { cn } from "@/lib/utils";
@@ -60,13 +59,6 @@ export function PublicNavbar() {
           ))}
         </nav>
         <div className="ml-auto hidden items-center gap-2 lg:flex">
-          <ThemeToggle
-            className={
-              solid
-                ? undefined
-                : "text-white hover:bg-white/10 hover:text-white"
-            }
-          />
           <Button
             asChild
             className={
@@ -84,13 +76,6 @@ export function PublicNavbar() {
           </Button>
         </div>
         <div className="ml-auto flex items-center gap-2 lg:hidden">
-          <ThemeToggle
-            className={
-              solid
-                ? undefined
-                : "text-white hover:bg-white/10 hover:text-white"
-            }
-          />
           <Button
             aria-label={open ? "Close navigation" : "Open navigation"}
             className={

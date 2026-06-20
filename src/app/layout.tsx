@@ -1,13 +1,21 @@
 import type { Metadata, Viewport } from "next";
-import { Montserrat } from "next/font/google";
+import { Inter, Permanent_Marker } from "next/font/google";
 
 import { AppProviders } from "@/providers/app-providers";
+import "intro.js/introjs.css";
 import "leaflet/dist/leaflet.css";
 import "@/styles/globals.css";
 
-const montserrat = Montserrat({
+const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
+  display: "swap",
+});
+
+const permanentMarker = Permanent_Marker({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-display",
   display: "swap",
 });
 
@@ -50,7 +58,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${montserrat.variable} antialiased`}>
+      <body className={`${inter.variable} ${permanentMarker.variable} antialiased`}>
         <AppProviders>{children}</AppProviders>
       </body>
     </html>

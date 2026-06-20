@@ -31,7 +31,7 @@ export function StudentComingSoonPage({ item }: StudentComingSoonPageProps) {
             <Link href="/student/dashboard">Back to dashboard</Link>
           </Button>
           <Button asChild variant="secondary">
-            <Link href="/portal-selection">Switch portal</Link>
+            <Link href="/dashboard">Open dashboard</Link>
           </Button>
         </div>
       </section>

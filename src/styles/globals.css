@@ -128,8 +128,90 @@ body {
     "calt" 1;
 }
 
+.font-display,
+.campushub-logo-text,
+.campushub-hero-headline,
+.campushub-achievement-display,
+.campushub-streak-display,
+.campushub-badge-display,
+.campushub-promo-display {
+  font-family:
+    var(--font-display),
+    var(--font-sans),
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
+  letter-spacing: 0;
+}
+
+.public-brand-surface {
+  --background: #ffffff;
+  --secondary-background: #f8f9fa;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-muted: #f3f4f6;
+  --border: #e5e7eb;
+  --border-strong: #d1d5db;
+  --foreground: #111827;
+  --muted-foreground: #6b7280;
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --primary-active: #3730a3;
+  --ring: #4f46e5;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --info: #3b82f6;
+  --achievement: #d4a017;
+  --chart-primary: #4f46e5;
+  --chart-secondary: #3b82f6;
+  --chart-tertiary: #10b981;
+  --chart-accent: #f59e0b;
+  color-scheme: light;
+}
+
 .dashboard-shell {
   background: var(--secondary-background);
+  font-size: 0.875rem;
+}
+
+.dashboard-shell .text-xs {
+  font-size: 0.6875rem;
+}
+
+.dashboard-shell .text-sm {
+  font-size: 0.8125rem;
+}
+
+.dashboard-shell .text-base {
+  font-size: 0.875rem;
+}
+
+.dashboard-shell .text-lg {
+  font-size: 1rem;
+}
+
+.dashboard-shell .text-xl {
+  font-size: 1.125rem;
+}
+
+.dashboard-shell .text-2xl {
+  font-size: 1.375rem;
+}
+
+.dashboard-shell .text-3xl {
+  font-size: 1.75rem;
+}
+
+.dashboard-shell .text-4xl {
+  font-size: 2.125rem;
+}
+
+.dashboard-shell .text-5xl {
+  font-size: 2.5rem;
+}
+
+.dashboard-shell .text-6xl {
+  font-size: 3rem;
 }
 
 .dashboard-app-frame {
@@ -354,6 +436,101 @@ body {
   .loader::after {
     animation-duration: 3s;
   }
+}
+
+.campushub-intro-tooltip {
+  min-width: min(360px, calc(100vw - 32px));
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: 0 20px 70px rgb(0 0 0 / 28%);
+}
+
+.campushub-intro-tooltip .introjs-tooltip-header {
+  align-items: flex-start;
+  padding: 20px 20px 0;
+}
+
+.campushub-intro-tooltip .introjs-tooltip-title {
+  margin: 0;
+  padding: 0 44px 0 0;
+  color: var(--foreground);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.campushub-intro-tooltip .introjs-tooltiptext {
+  padding: 18px 20px 16px;
+  color: var(--muted-foreground);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.campushub-intro-tooltip .introjs-skipbutton {
+  right: 14px;
+  top: 14px;
+  width: auto;
+  height: auto;
+  padding: 4px 6px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.campushub-intro-tooltip .introjs-skipbutton:hover {
+  color: var(--foreground);
+}
+
+.campushub-intro-tooltip .introjs-progress {
+  height: 6px;
+  margin: 0 20px 18px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-muted);
+}
+
+.campushub-intro-tooltip .introjs-button {
+  min-width: 0;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 34px;
+  text-shadow: none;
+}
+
+.campushub-intro-tooltip .introjs-tooltipbuttons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 16px 20px 20px;
+  border-top: 1px solid var(--border);
+}
+
+.campushub-intro-tooltip .introjs-nextbutton,
+.campushub-intro-tooltip .introjs-donebutton {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.campushub-intro-tooltip .introjs-progressbar {
+  background: var(--primary);
+}
+
+.campushub-intro-highlight {
+  border-radius: 10px;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 45%, transparent);
 }
 
 .dashboard-table thead {

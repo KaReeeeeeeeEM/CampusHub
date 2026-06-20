@@ -1,4 +1,7 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-nocheck
 "use client";
+
 
 import type {
   EventClickArg,
@@ -129,6 +132,35 @@ import {
 import type { DataTableColumn } from "@/components/shared/data-table";
 import { cn } from "@/lib/utils";
 
+function toFiniteNumber(value: unknown, fallback = 0) {
+  const numberValue = Number(value);
+
+  return Number.isFinite(numberValue) ? numberValue : fallback;
+}
+
+function getSafeShowcaseProfile() {
+  const currentXp = toFiniteNumber(showcaseProfile.currentXp ?? showcaseProfile.xp);
+  const nextLevelXp = Math.max(
+    toFiniteNumber(showcaseProfile.nextLevelXp, 0),
+    currentXp,
+  );
+  const featuredProjects = Array.isArray(showcaseProfile.featuredProjects)
+    ? showcaseProfile.featuredProjects
+    : [];
+  const topProject = showcaseProfile.topProject ?? featuredProjects[0] ?? null;
+
+  return {
+    level: toFiniteNumber(showcaseProfile.level),
+    currentXp,
+    nextLevelXp,
+    xpRemaining: Math.max(nextLevelXp - currentXp, 0),
+    progressPercent:
+      nextLevelXp > 0 ? Math.min((currentXp / nextLevelXp) * 100, 100) : 0,
+    featuredProjects,
+    topProject,
+  };
+}
+
 const dashboardStatCards: {
   label: string;
   value: string;
@@ -138,132 +170,107 @@ const dashboardStatCards: {
 }[] = [
   {
     label: "Upcoming Events",
-    value: "6",
+    value: "0",
     icon: FiCalendar,
-    trend: "+2",
+    trend: "0",
     tone: "bg-blue-500/10 text-blue-500",
   },
   {
     label: "Saved Updates",
-    value: "14",
+    value: "0",
     icon: FiBell,
-    trend: "+8%",
+    trend: "0%",
     tone: "bg-rose-500/10 text-rose-500",
   },
   {
     label: "Active Forums",
-    value: "42",
+    value: "0",
     icon: FiMessageSquare,
-    trend: "+12%",
+    trend: "0%",
     tone: "bg-amber-500/10 text-amber-500",
   },
   {
     label: "Profile Score",
-    value: "86%",
+    value: "0%",
     icon: FiAward,
-    trend: "+4%",
+    trend: "0%",
     tone: "bg-violet-500/10 text-violet-500",
   },
   {
     label: "Campus Services",
-    value: "7",
+    value: "0",
     icon: FiMapPin,
-    trend: "live",
+    trend: "0",
     tone: "bg-emerald-500/10 text-emerald-500",
   },
 ];
 
 const engagementCategories = [
-  { name: "Academic", value: 4, color: "var(--chart-tertiary)" },
-  { name: "Events", value: 3, color: "var(--chart-secondary)" },
-  { name: "Forum", value: 2, color: "var(--chart-primary)" },
-  { name: "Support", value: 1, color: "var(--chart-accent)" },
+  { name: "Academic", value: 0, color: "var(--chart-tertiary)" },
+  { name: "Events", value: 0, color: "var(--chart-secondary)" },
+  { name: "Forum", value: 0, color: "var(--chart-primary)" },
+  { name: "Support", value: 0, color: "var(--chart-accent)" },
 ];
 
 const engagementOverviewMetrics = [
-  { label: "Academic", value: 72, color: "var(--primary)" },
-  { label: "Events", value: 58, color: "var(--chart-accent)" },
-  { label: "Forum", value: 46, color: "var(--chart-secondary)" },
-  { label: "Support", value: 35, color: "var(--chart-tertiary)" },
+  { label: "Academic", value: 0, color: "var(--primary)" },
+  { label: "Events", value: 0, color: "var(--chart-accent)" },
+  { label: "Forum", value: 0, color: "var(--chart-secondary)" },
+  { label: "Support", value: 0, color: "var(--chart-tertiary)" },
 ];
 
 const weeklyGoals = [
   {
     label: "Events Joined",
-    value: 71,
-    detail: "5 of 7 this week",
+    value: 0,
+    detail: "0 of 0 this week",
     color: "var(--chart-accent)",
   },
   {
     label: "Forum Activity",
-    value: 60,
-    detail: "3 of 5 discussions",
+    value: 0,
+    detail: "0 of 0 discussions",
     color: "var(--chart-secondary)",
   },
   {
     label: "Profile Growth",
-    value: 86,
-    detail: "86% complete",
+    value: 0,
+    detail: "0% complete",
     color: "var(--chart-tertiary)",
   },
 ];
 
-const recentCampusItems = [
-  { icon: "🎓", title: "AI Career Fair", meta: "Event · 25 min" },
-  { icon: "📚", title: "Library Hours Updated", meta: "Academic · 1 hour" },
-  { icon: "💬", title: "Hackathon Team Thread", meta: "Forum · 4 replies" },
-  { icon: "🗓️", title: "Semester Deadline", meta: "Almanac · Tomorrow" },
-  { icon: "🧭", title: "Innovation Hub", meta: "Map · Open now" },
-];
+const recentCampusItems: Array<{
+  icon: string;
+  title: string;
+  meta: string;
+}> = [];
 
 const campusPlanRows = [
   {
     day: "Mon",
-    dots: [
-      "var(--chart-accent)",
-      "var(--chart-secondary)",
-      "var(--chart-primary)",
-      "var(--chart-tertiary)",
-    ],
-    progress: "4/4",
+    dots: [],
+    progress: "0/0",
   },
   {
     day: "Tue",
-    dots: [
-      "var(--chart-accent)",
-      "var(--chart-secondary)",
-      "var(--chart-primary)",
-    ],
-    progress: "3/4",
+    dots: [],
+    progress: "0/0",
   },
   {
     day: "Wed",
-    dots: [
-      "var(--chart-accent)",
-      "var(--chart-secondary)",
-      "var(--chart-primary)",
-      "var(--chart-tertiary)",
-    ],
-    progress: "4/4",
+    dots: [],
+    progress: "0/0",
   },
   {
     day: "Thu",
-    dots: [
-      "var(--chart-accent)",
-      "var(--chart-secondary)",
-      "var(--chart-primary)",
-    ],
-    progress: "3/4",
+    dots: [],
+    progress: "0/0",
   },
   {
     day: "Fri",
-    dots: [
-      "var(--chart-accent)",
-      "var(--chart-secondary)",
-      "var(--chart-primary)",
-      "var(--chart-tertiary)",
-    ],
-    progress: "4/4",
+    dots: [],
+    progress: "0/0",
   },
 ];
 
@@ -297,19 +304,11 @@ function buildDashboardData(interval: DashboardInterval) {
   const config = dashboardIntervalMap[interval];
   const chartData = Array.from({ length: config.chartPoints }, (_, index) => {
     const seed = index + 1;
-    const events = Math.max(
-      1,
-      Math.round(((seed * 3) % 9) * config.multiplier),
-    );
-    const updates = Math.max(
-      2,
-      Math.round(((seed * 5) % 10) * config.multiplier),
-    );
 
     return {
       day: interval === "semester" ? `W${seed}` : String(seed).padStart(2, "0"),
-      events,
-      updates,
+      events: 0,
+      updates: 0,
     };
   });
   const eventsTotal = chartData.reduce((total, item) => total + item.events, 0);
@@ -317,7 +316,7 @@ function buildDashboardData(interval: DashboardInterval) {
     (total, item) => total + item.updates,
     0,
   );
-  const profileScore = Math.min(98, Math.round(86 + config.multiplier));
+  const profileScore = mockStudentProfile.completion ?? 0;
 
   return {
     intervalLabel: config.label,
@@ -325,29 +324,27 @@ function buildDashboardData(interval: DashboardInterval) {
       {
         ...dashboardStatCards[0],
         value: formatCompactNumber(eventsTotal),
-        trend: `+${Math.max(2, Math.round(config.multiplier * 2))}`,
+        trend: "0",
       },
       {
         ...dashboardStatCards[1],
         value: formatCompactNumber(updatesTotal),
-        trend: `+${Math.round(config.multiplier * 8)}%`,
+        trend: "0%",
       },
       {
         ...dashboardStatCards[2],
-        value: formatCompactNumber(Math.round(42 * config.multiplier)),
-        trend: `+${Math.round(config.multiplier * 12)}%`,
+        value: "0",
+        trend: "0%",
       },
       {
         ...dashboardStatCards[3],
         value: `${profileScore}%`,
-        trend: `+${Math.max(1, Math.round(config.multiplier * 2))}%`,
+        trend: "0%",
       },
       {
         ...dashboardStatCards[4],
-        value: formatCompactNumber(
-          Math.round(7 * Math.min(config.multiplier, 3)),
-        ),
-        trend: interval === "7d" ? "live" : "active",
+        value: "0",
+        trend: "0",
       },
     ],
     chartData,
@@ -355,35 +352,9 @@ function buildDashboardData(interval: DashboardInterval) {
       events: eventsTotal,
       updates: updatesTotal,
     },
-    engagementMetrics: engagementOverviewMetrics.map((metric, index) => ({
-      ...metric,
-      value: Math.min(
-        96,
-        Math.round(metric.value + config.multiplier * (index + 2)),
-      ),
-    })),
-    engagementCategories: engagementCategories.map((category, index) => ({
-      ...category,
-      value: Math.max(
-        1,
-        Math.round(category.value * config.multiplier + index),
-      ),
-    })),
-    weeklyGoals: weeklyGoals.map((goal, index) => {
-      const value = Math.min(
-        96,
-        Math.round(goal.value + config.multiplier * index),
-      );
-
-      return {
-        ...goal,
-        value,
-        detail:
-          interval === "7d"
-            ? goal.detail
-            : `${formatCompactNumber(Math.round(value * config.multiplier))} tracked in ${config.label.toLowerCase()}`,
-      };
-    }),
+    engagementMetrics: engagementOverviewMetrics,
+    engagementCategories,
+    weeklyGoals,
   };
 }
 
@@ -399,7 +370,7 @@ const leadershipStatCards: {
       .filter((student) => student.status === "ACTIVE")
       .length.toLocaleString(),
     icon: FiUsers,
-    href: "/student/leadership",
+    href: "/student/leadership/committee",
   },
   {
     label: "Active Invitation Links",
@@ -407,7 +378,7 @@ const leadershipStatCards: {
       .filter((invitation) => invitation.status === "ACTIVE")
       .length.toString(),
     icon: FiSend,
-    href: "/student/leadership",
+    href: "/student/leadership/invitations",
   },
   {
     label: "Upcoming College Events",
@@ -415,7 +386,7 @@ const leadershipStatCards: {
       .filter((event) => event.status === "UPCOMING")
       .length.toString(),
     icon: FiCalendar,
-    href: "/student/leadership",
+    href: "/student/leadership/events",
   },
   {
     label: "Pending Suggestions",
@@ -423,7 +394,7 @@ const leadershipStatCards: {
       .filter((suggestion) => suggestion.status === "PENDING")
       .length.toString(),
     icon: FiClipboard,
-    href: "/student/leadership",
+    href: "/student/leadership/suggestions",
   },
   {
     label: "Active Polls",
@@ -431,13 +402,13 @@ const leadershipStatCards: {
       .filter((poll) => poll.status === "ACTIVE")
       .length.toString(),
     icon: FiPieChart,
-    href: "/student/leadership",
+    href: "/student/leadership/polls",
   },
   {
     label: "Committee Members",
     value: mockCommitteeMembers.length.toString(),
     icon: FiUsers,
-    href: "/student/leadership",
+    href: "/student/leadership/committee",
   },
 ];
 
@@ -463,6 +434,367 @@ function hasLeadershipPosition(
       .filter(isStudentLeadershipPosition) ?? [];
 
   return Array.from(new Set([...explicit, ...legacy])).includes(position);
+}
+
+type OwnershipFilter = "all" | "mine" | "other";
+
+const ownershipFilters = [
+  { value: "all", label: "All" },
+  { value: "mine", label: "Mine" },
+  { value: "other", label: "Other" },
+] satisfies Array<{ value: OwnershipFilter; label: string }>;
+
+function getCurrentUserName(user: ReturnType<typeof useAuth>["user"]) {
+  return (
+    user?.name ||
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
+    user?.email ||
+    mockStudentProfile.name
+  );
+}
+
+function canCreateStudentContent(user: ReturnType<typeof useAuth>["user"]) {
+  return (
+    hasLeadershipPosition(
+      user?.studentLeadershipPositions,
+      user?.roles,
+      "REPRESENTATIVE",
+    ) ||
+    hasLeadershipPosition(
+      user?.studentLeadershipPositions,
+      user?.roles,
+      "COMMITTEE_MEMBER",
+    )
+  );
+}
+
+function matchesOwnership(
+  item: Record<string, unknown>,
+  ownership: OwnershipFilter,
+  currentUserName: string,
+) {
+  if (ownership === "all") return true;
+  const createdBy = String(item.createdBy ?? item.author ?? "");
+  return ownership === "mine"
+    ? createdBy === currentUserName
+    : createdBy !== currentUserName;
+}
+
+function OwnershipTabs({
+  value,
+  onValueChange,
+}: {
+  value: OwnershipFilter;
+  onValueChange: (value: OwnershipFilter) => void;
+}) {
+  return (
+    <div className="flex gap-2 overflow-x-auto pb-1">
+      {ownershipFilters.map((item) => (
+        <Button
+          key={item.value}
+          type="button"
+          variant={value === item.value ? "default" : "secondary"}
+          onClick={() => onValueChange(item.value)}
+        >
+          {item.label}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
+const createAnnouncementSchema = z.object({
+  title: z.string().min(2, "Title is required."),
+  category: z.enum(announcementCategories),
+  audience: z.string().min(2, "Audience is required."),
+  body: z.string().min(10, "Announcement body is required."),
+});
+
+type CreateAnnouncementInput = z.infer<typeof createAnnouncementSchema>;
+
+function CreateAnnouncementForm({
+  onSubmit,
+  isSubmitting,
+}: {
+  onSubmit: (values: CreateAnnouncementInput) => void;
+  isSubmitting: boolean;
+}) {
+  const { register, handleSubmit, watch, setValue, formState } = useForm<
+    z.input<typeof createAnnouncementSchema>,
+    unknown,
+    CreateAnnouncementInput
+  >({
+    resolver: zodResolver(createAnnouncementSchema),
+    defaultValues: {
+      title: "",
+      category: "General",
+      audience: "All Students",
+      body: "",
+    },
+  });
+
+  return (
+    <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
+      <label className="block space-y-2">
+        <span className="text-sm font-medium">Title</span>
+        <CampusInput
+          {...register("title")}
+          invalid={Boolean(formState.errors.title)}
+          placeholder="Announcement title"
+        />
+      </label>
+      <div className="grid gap-5 md:grid-cols-2">
+        <label className="block space-y-2">
+          <span className="text-sm font-medium">Category</span>
+          <Select
+            value={watch("category")}
+            onValueChange={(value) =>
+              setValue("category", value as CreateAnnouncementInput["category"])
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {announcementCategories.map((category) => (
+                <SelectItem key={category} value={category}>
+                  {category}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </label>
+        <label className="block space-y-2">
+          <span className="text-sm font-medium">Audience</span>
+          <CampusInput
+            {...register("audience")}
+            invalid={Boolean(formState.errors.audience)}
+            placeholder="All Students"
+          />
+        </label>
+      </div>
+      <label className="block space-y-2">
+        <span className="text-sm font-medium">Body</span>
+        <CampusTextarea
+          {...register("body")}
+          invalid={Boolean(formState.errors.body)}
+          placeholder="Write the announcement body."
+        />
+      </label>
+      <Button className="w-full" disabled={isSubmitting} type="submit">
+        {isSubmitting ? <FiLoader className="h-4 w-4 animate-spin" /> : null}
+        Create Announcement
+      </Button>
+    </form>
+  );
+}
+
+const createEventSchema = z.object({
+  title: z.string().min(2, "Event title is required."),
+  category: z.string().min(2, "Category is required."),
+  venue: z.string().min(2, "Venue is required."),
+  date: z.string().min(1, "Date is required."),
+  time: z.string().min(1, "Time is required."),
+  expectedAttendees: z.coerce.number().int().min(0),
+  description: z.string().min(10, "Description is required."),
+});
+
+type CreateEventInput = z.infer<typeof createEventSchema>;
+
+function CreateEventForm({
+  onSubmit,
+  isSubmitting,
+}: {
+  onSubmit: (values: CreateEventInput) => void;
+  isSubmitting: boolean;
+}) {
+  const { register, handleSubmit, formState } = useForm<
+    z.input<typeof createEventSchema>,
+    unknown,
+    CreateEventInput
+  >({
+    resolver: zodResolver(createEventSchema),
+    defaultValues: {
+      title: "",
+      category: "General",
+      venue: "",
+      date: "",
+      time: "",
+      expectedAttendees: 0,
+      description: "",
+    },
+  });
+
+  return (
+    <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
+      <div className="grid gap-5 md:grid-cols-2">
+        <label className="block space-y-2 md:col-span-2">
+          <span className="text-sm font-medium">Title</span>
+          <CampusInput
+            {...register("title")}
+            invalid={Boolean(formState.errors.title)}
+            placeholder="Event title"
+          />
+        </label>
+        <label className="block space-y-2">
+          <span className="text-sm font-medium">Category</span>
+          <CampusInput
+            {...register("category")}
+            invalid={Boolean(formState.errors.category)}
+            placeholder="Workshop"
+          />
+        </label>
+        <label className="block space-y-2">
+          <span className="text-sm font-medium">Venue</span>
+          <CampusInput
+            {...register("venue")}
+            invalid={Boolean(formState.errors.venue)}
+            placeholder="Main Hall"
+          />
+        </label>
+        <label className="block space-y-2">
+          <span className="text-sm font-medium">Date</span>
+          <CampusInput
+            {...register("date")}
+            type="date"
+            invalid={Boolean(formState.errors.date)}
+          />
+        </label>
+        <label className="block space-y-2">
+          <span className="text-sm font-medium">Time</span>
+          <CampusInput
+            {...register("time")}
+            placeholder="10:00 AM"
+            invalid={Boolean(formState.errors.time)}
+          />
+        </label>
+        <label className="block space-y-2 md:col-span-2">
+          <span className="text-sm font-medium">Expected Attendees</span>
+          <CampusInput
+            {...register("expectedAttendees")}
+            type="number"
+            invalid={Boolean(formState.errors.expectedAttendees)}
+          />
+        </label>
+      </div>
+      <label className="block space-y-2">
+        <span className="text-sm font-medium">Description</span>
+        <CampusTextarea
+          {...register("description")}
+          invalid={Boolean(formState.errors.description)}
+          placeholder="Describe the event."
+        />
+      </label>
+      <Button className="w-full" disabled={isSubmitting} type="submit">
+        {isSubmitting ? <FiLoader className="h-4 w-4 animate-spin" /> : null}
+        Create Event
+      </Button>
+    </form>
+  );
+}
+
+const createPollSchema = z.object({
+  title: z.string().min(2, "Title is required."),
+  question: z.string().min(5, "Question is required."),
+  category: z.string().min(2, "Category is required."),
+  audience: z.string().min(2, "Audience is required."),
+  endDate: z.string().min(1, "End date is required."),
+  description: z.string().min(10, "Description is required."),
+  options: z.string().min(3, "Add at least two options."),
+});
+
+type CreatePollInput = z.infer<typeof createPollSchema>;
+
+function CreatePollForm({
+  onSubmit,
+  isSubmitting,
+}: {
+  onSubmit: (values: CreatePollInput) => void;
+  isSubmitting: boolean;
+}) {
+  const { register, handleSubmit, formState } = useForm<
+    z.input<typeof createPollSchema>,
+    unknown,
+    CreatePollInput
+  >({
+    resolver: zodResolver(createPollSchema),
+    defaultValues: {
+      title: "",
+      question: "",
+      category: "General",
+      audience: "All Students",
+      endDate: "",
+      description: "",
+      options: "Yes\nNo",
+    },
+  });
+
+  return (
+    <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
+      <div className="grid gap-5 md:grid-cols-2">
+        <label className="block space-y-2">
+          <span className="text-sm font-medium">Title</span>
+          <CampusInput
+            {...register("title")}
+            invalid={Boolean(formState.errors.title)}
+            placeholder="Poll title"
+          />
+        </label>
+        <label className="block space-y-2">
+          <span className="text-sm font-medium">End Date</span>
+          <CampusInput
+            {...register("endDate")}
+            type="date"
+            invalid={Boolean(formState.errors.endDate)}
+          />
+        </label>
+        <label className="block space-y-2">
+          <span className="text-sm font-medium">Category</span>
+          <CampusInput
+            {...register("category")}
+            invalid={Boolean(formState.errors.category)}
+            placeholder="General"
+          />
+        </label>
+        <label className="block space-y-2">
+          <span className="text-sm font-medium">Audience</span>
+          <CampusInput
+            {...register("audience")}
+            invalid={Boolean(formState.errors.audience)}
+            placeholder="All Students"
+          />
+        </label>
+      </div>
+      <label className="block space-y-2">
+        <span className="text-sm font-medium">Question</span>
+        <CampusInput
+          {...register("question")}
+          invalid={Boolean(formState.errors.question)}
+          placeholder="What should students vote on?"
+        />
+      </label>
+      <label className="block space-y-2">
+        <span className="text-sm font-medium">Description</span>
+        <CampusTextarea
+          {...register("description")}
+          invalid={Boolean(formState.errors.description)}
+          placeholder="Explain the context for the poll."
+        />
+      </label>
+      <label className="block space-y-2">
+        <span className="text-sm font-medium">Options</span>
+        <CampusTextarea
+          {...register("options")}
+          invalid={Boolean(formState.errors.options)}
+          placeholder={"Yes\nNo"}
+        />
+      </label>
+      <Button className="w-full" disabled={isSubmitting} type="submit">
+        {isSubmitting ? <FiLoader className="h-4 w-4 animate-spin" /> : null}
+        Create Poll
+      </Button>
+    </form>
+  );
 }
 
 function formatDate(value: string) {
@@ -768,12 +1100,37 @@ function EventDetails({ event }: { event: StudentEvent }) {
       <p className="text-sm leading-6 text-muted-foreground">
         {event.description}
       </p>
+      <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+        <div className="flex gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <FiMapPin className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+              Event location
+            </p>
+            <h3 className="mt-1 text-lg font-semibold text-foreground">{event.venue}</h3>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              Use the campus map to find the venue and plan your route before the event starts.
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <Button type="button" variant="secondary" className="w-full">
+            <FiNavigation className="h-4 w-4" aria-hidden="true" />
+            Open Directions
+          </Button>
+          <Button type="button" variant="secondary" className="w-full">
+            <FiMapPin className="h-4 w-4" aria-hidden="true" />
+            View on Campus Map
+          </Button>
+        </div>
+      </div>
       <div className="grid gap-3 sm:grid-cols-2">
         {[
           ["Category", event.category],
           ["Date", formatDate(event.date)],
           ["Time", event.time],
-          ["Venue", event.venue],
           ["Expected Attendees", event.expectedAttendees.toLocaleString()],
           ["Status", event.status],
         ].map(([label, value]) => (
@@ -946,7 +1303,17 @@ export function StudentDashboardView() {
     user?.roles,
     "REPRESENTATIVE",
   );
-  const firstName = user?.name?.split(" ")[0] ?? "Faith";
+  const firstName = user?.name?.split(" ")[0] ?? "Student";
+  const todayLabel = useMemo(
+    () =>
+      new Intl.DateTimeFormat(undefined, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      }).format(new Date()),
+    [],
+  );
   const dashboardData = useMemo(
     () => buildDashboardData(selectedInterval),
     [selectedInterval],
@@ -974,7 +1341,7 @@ export function StudentDashboardView() {
           <div>
             <p className="text-xl font-semibold">Good morning, {firstName}</p>
             <p className="mt-1 text-sm font-medium text-muted-foreground">
-              Thursday, June 11, 2026
+              {todayLabel}
             </p>
           </div>
           <Select value={selectedInterval} onValueChange={changeInterval}>
@@ -1081,12 +1448,12 @@ export function StudentDashboardView() {
                 <FiZap className="h-5 w-5" aria-hidden="true" />
               </span>
               <div>
-                <p className="text-2xl font-semibold">86</p>
+                <p className="text-2xl font-semibold">0</p>
                 <p className="text-xs font-medium text-muted-foreground">
                   avg. activity score
                 </p>
               </div>
-              <span className="ml-auto text-sm font-medium">64 - 92</span>
+              <span className="ml-auto text-sm font-medium">0 - 0</span>
             </div>
           </div>
           <div className="mt-5 space-y-4">
@@ -1117,27 +1484,34 @@ export function StudentDashboardView() {
           }
           className="h-full"
         >
-          <div className="space-y-5">
-            {recentCampusItems.map((item) => (
-              <Link
-                key={item.title}
-                className="group flex items-center gap-4 rounded-lg p-2 transition-colors hover:bg-surface-muted"
-                href="/student/notifications"
-              >
-                <span className="text-2xl" aria-hidden="true">
-                  {item.icon}
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold group-hover:text-primary">
-                    {item.title}
+          {recentCampusItems.length > 0 ? (
+            <div className="space-y-5">
+              {recentCampusItems.map((item) => (
+                <Link
+                  key={item.title}
+                  className="group flex items-center gap-4 rounded-lg p-2 transition-colors hover:bg-surface-muted"
+                  href="/student/notifications"
+                >
+                  <span className="text-2xl" aria-hidden="true">
+                    {item.icon}
                   </span>
-                  <span className="mt-1 block text-xs font-medium text-muted-foreground">
-                    {item.meta}
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold group-hover:text-primary">
+                      {item.title}
+                    </span>
+                    <span className="mt-1 block text-xs font-medium text-muted-foreground">
+                      {item.meta}
+                    </span>
                   </span>
-                </span>
-              </Link>
-            ))}
-          </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title="No recent updates"
+              description="Fresh activity from your campus will appear here."
+            />
+          )}
         </DashboardPanel>
 
         <DashboardPanel
@@ -1453,7 +1827,7 @@ export function StudentDashboardView() {
           subtitle="College operations for student leaders"
           action={
             <Button asChild variant="secondary">
-              <Link href="/student/leadership">
+              <Link href="/student/leadership/committee">
                 <FiUsers className="h-4 w-4" aria-hidden="true" />
                 Manage
               </Link>
@@ -1484,7 +1858,7 @@ export function StudentDashboardView() {
                   <Link
                     key={item.id}
                     className="block rounded-md bg-surface p-3 text-sm transition-colors hover:text-primary"
-                    href="/student/leadership"
+                    href="/student/leadership/announcements"
                   >
                     <span className="font-medium">{item.title}</span>
                     <span className="mt-1 block text-xs text-muted-foreground">
@@ -1501,7 +1875,7 @@ export function StudentDashboardView() {
                   <Link
                     key={item.id}
                     className="block rounded-md bg-surface p-3 text-sm transition-colors hover:text-primary"
-                    href="/student/leadership"
+                    href="/student/leadership/suggestions"
                   >
                     <span className="font-medium">{item.subject}</span>
                     <span className="mt-1 block text-xs text-muted-foreground">
@@ -1586,7 +1960,7 @@ export function LegacyStudentDashboardView() {
               </p>
             </div>
             <Button asChild variant="secondary">
-              <Link href="/student/leadership">
+              <Link href="/student/leadership/committee">
                 <FiUsers className="h-4 w-4" aria-hidden="true" />
                 Manage Leadership
               </Link>
@@ -1621,7 +1995,7 @@ export function LegacyStudentDashboardView() {
                   <Link
                     key={item.id}
                     className="block rounded-md border border-border bg-surface-muted p-3 text-sm transition-colors hover:border-primary/50 hover:bg-primary/5"
-                    href="/student/leadership"
+                    href="/student/leadership/announcements"
                   >
                     <span className="font-medium">{item.title}</span>
                     <span className="mt-1 block text-xs text-muted-foreground">
@@ -1638,7 +2012,7 @@ export function LegacyStudentDashboardView() {
                   <Link
                     key={item.id}
                     className="block rounded-md border border-border bg-surface-muted p-3 text-sm transition-colors hover:border-primary/50 hover:bg-primary/5"
-                    href="/student/leadership"
+                    href="/student/leadership/suggestions"
                   >
                     <span className="font-medium">{item.subject}</span>
                     <span className="mt-1 block text-xs text-muted-foreground">
@@ -1794,20 +2168,27 @@ export function LegacyStudentDashboardView() {
 }
 
 export function AnnouncementsPageView() {
+  const { user } = useAuth();
+  const [announcements, setAnnouncements] = useState(mockAnnouncements);
   const [query, setQuery] = useState("");
   const [category, setCategory] =
     useState<(typeof announcementCategories)[number]>("All");
+  const [ownership, setOwnership] = useState<OwnershipFilter>("all");
   const [view, setView] = useState<AnnouncementViewMode>("grid");
   const [viewing, setViewing] = useState<StudentAnnouncement | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const currentUserName = getCurrentUserName(user);
+  const canCreate = canCreateStudentContent(user);
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     const selectedCategory = category.trim().toLowerCase();
 
-    return mockAnnouncements.filter((announcement) => {
+    return announcements.filter((announcement) => {
       const categoryMatch =
         selectedCategory === "all" ||
-        announcement.category.toLowerCase() === selectedCategory;
+        String(announcement.category).toLowerCase() === selectedCategory;
       const queryMatch =
         !normalized ||
         [
@@ -1819,9 +2200,13 @@ export function AnnouncementsPageView() {
           .join(" ")
           .toLowerCase()
           .includes(normalized);
-      return categoryMatch && queryMatch;
+      return (
+        categoryMatch &&
+        queryMatch &&
+        matchesOwnership(announcement, ownership, currentUserName)
+      );
     });
-  }, [category, query]);
+  }, [announcements, category, currentUserName, ownership, query]);
 
   const groupedAnnouncements = useMemo(() => {
     const groups = announcementGroupLabels.reduce(
@@ -1843,12 +2228,41 @@ export function AnnouncementsPageView() {
     setCategory(nextCategory);
   }
 
+  function createAnnouncement(values: CreateAnnouncementInput) {
+    startTransition(() => {
+      setAnnouncements((current) => [
+        {
+          id: `announcement-${Date.now()}`,
+          date: new Date().toISOString().slice(0, 10),
+          pinned: false,
+          createdBy: currentUserName,
+          ...values,
+        },
+        ...current,
+      ]);
+      setCreateOpen(false);
+      setOwnership("mine");
+      campusToast.success({
+        title: "Announcement Created",
+        description: "The announcement was added to this page.",
+      });
+    });
+  }
+
   return (
     <StudentShell>
       <StudentPageHeader
         eyebrow="Announcements"
         title="Campus updates that matter."
         description="Browse official academic, welfare, sports, media, and technology announcements from your university and college."
+        action={
+          canCreate ? (
+            <Button type="button" onClick={() => setCreateOpen(true)}>
+              <FiPlus className="h-4 w-4" aria-hidden="true" />
+              Create Announcement
+            </Button>
+          ) : null
+        }
       />
       <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <SearchBar query={query} setQuery={setQuery} placeholder="Search announcements" />
@@ -1870,6 +2284,11 @@ export function AnnouncementsPageView() {
           </Button>
         ))}
       </div>
+      {canCreate ? (
+        <div className="mt-4">
+          <OwnershipTabs value={ownership} onValueChange={setOwnership} />
+        </div>
+      ) : null}
       {filtered.length > 0 && view === "grid" ? (
         <div
           key={`announcements-grid-${category}-${query.trim() || "all"}-${filtered.length}`}
@@ -1912,6 +2331,18 @@ export function AnnouncementsPageView() {
       >
         {viewing ? <AnnouncementDetails announcement={viewing} /> : null}
       </Modal>
+      <Modal
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        title="Create Announcement"
+        description="Publish an announcement directly from this page."
+        className="max-w-2xl"
+      >
+        <CreateAnnouncementForm
+          onSubmit={createAnnouncement}
+          isSubmitting={isPending}
+        />
+      </Modal>
     </StudentShell>
   );
 }
@@ -1928,21 +2359,33 @@ const studentEventsViewOptions = [
 }>;
 
 export function EventsPageView() {
+  const { user } = useAuth();
+  const [events, setEvents] = useState(mockEvents);
   const [query, setQuery] = useState("");
+  const [ownership, setOwnership] = useState<OwnershipFilter>("all");
   const [view, setView] = useState<StudentEventsViewMode>("cards");
   const [viewing, setViewing] = useState<StudentEvent | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const currentUserName = getCurrentUserName(user);
+  const canCreate = canCreateStudentContent(user);
 
   const filtered = useMemo(() => {
     const normalized = query.toLowerCase().trim();
-    if (!normalized) return mockEvents;
-    return mockEvents.filter((event) =>
-      [event.title, event.category, event.venue, event.description]
-        .join(" ")
-        .toLowerCase()
-        .includes(normalized),
-    );
-  }, [query]);
+    return events.filter((event) => {
+      const queryMatch =
+        !normalized ||
+        [event.title, event.category, event.venue, event.description]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalized);
+
+      return (
+        queryMatch && matchesOwnership(event, ownership, currentUserName)
+      );
+    });
+  }, [currentUserName, events, ownership, query]);
   const calendarEvents = useMemo<FullCalendarEventInput[]>(
     () =>
       filtered.map((event) => ({
@@ -1966,7 +2409,7 @@ export function EventsPageView() {
     [filtered],
   );
   const selectedDateEvents = selectedDate
-    ? mockEvents.filter((event) => event.date.slice(0, 10) === selectedDate)
+    ? events.filter((event) => event.date.slice(0, 10) === selectedDate)
     : [];
 
   function openCalendarDate(arg: DateClickArg) {
@@ -1974,10 +2417,30 @@ export function EventsPageView() {
   }
 
   function openCalendarEvent(arg: EventClickArg) {
-    const event = mockEvents.find((item) => item.id === arg.event.id);
+    const event = events.find((item) => item.id === arg.event.id);
     if (event) {
       setViewing(event);
     }
+  }
+
+  function createEvent(values: CreateEventInput) {
+    startTransition(() => {
+      setEvents((current) => [
+        {
+          id: `event-${Date.now()}`,
+          status: "Upcoming",
+          createdBy: currentUserName,
+          ...values,
+        },
+        ...current,
+      ]);
+      setCreateOpen(false);
+      setOwnership("mine");
+      campusToast.success({
+        title: "Event Created",
+        description: "The event was added to this page.",
+      });
+    });
   }
 
   return (
@@ -1986,6 +2449,14 @@ export function EventsPageView() {
         eyebrow="Events"
         title="Find your next campus moment."
         description="Discover workshops, hackathons, conferences, sports, clubs, and social activities across campus."
+        action={
+          canCreate ? (
+            <Button type="button" onClick={() => setCreateOpen(true)}>
+              <FiPlus className="h-4 w-4" aria-hidden="true" />
+              Create Event
+            </Button>
+          ) : null
+        }
       />
       <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <SearchBar
@@ -1999,6 +2470,11 @@ export function EventsPageView() {
           onValueChange={setView}
         />
       </div>
+      {canCreate && tab !== "my-votes" ? (
+        <div className="mt-4">
+          <OwnershipTabs value={ownership} onValueChange={setOwnership} />
+        </div>
+      ) : null}
       {view === "cards" ? (
         filtered.length > 0 ? (
           <StaggerContainer className="mt-6 grid gap-5 lg:grid-cols-3">
@@ -2008,12 +2484,20 @@ export function EventsPageView() {
                 className="overflow-hidden transition-transform duration-300 hover:-translate-y-1 hover:border-primary/40"
               >
                 <div className="relative h-44">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={event.banner}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
+                  {event.banner ? (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={event.banner}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    </>
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-primary/10 text-primary">
+                      <FiCalendar className="h-10 w-10" aria-hidden="true" />
+                    </div>
+                  )}
                 </div>
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between gap-3">
@@ -2140,6 +2624,15 @@ export function EventsPageView() {
       >
         {viewing ? <EventDetails event={viewing} /> : null}
       </Drawer>
+      <Modal
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        title="Create Event"
+        description="Publish an event directly from this page."
+        className="max-w-2xl"
+      >
+        <CreateEventForm onSubmit={createEvent} isSubmitting={isPending} />
+      </Modal>
     </StudentShell>
   );
 }
@@ -2634,6 +3127,7 @@ export function MapPageView() {
     mockCampusLocations.find(
       (location) => location.id === routeDestinationId,
     ) ?? selectedLocation;
+  const hasCampusLocations = mockCampusLocations.length > 0;
 
   return (
     <StudentShell>
@@ -2642,9 +3136,9 @@ export function MapPageView() {
         title="Find places faster."
         description="Search key campus locations, student services, lecture halls, hostels, dining spaces, and medical facilities."
       />
-      <section className="mt-6 overflow-hidden rounded-xl border border-border bg-surface">
-        <div className="grid min-h-[42rem] lg:grid-cols-[22rem_1fr] xl:grid-cols-[25rem_1fr]">
-          <aside className="border-b border-border bg-background/55 p-4 lg:border-b-0 lg:border-r">
+      <section className="mt-6 h-[calc(100dvh-15rem)] min-h-[46rem] overflow-hidden rounded-xl border border-border bg-surface">
+        <div className="grid h-full lg:grid-cols-[22rem_1fr] xl:grid-cols-[25rem_1fr]">
+          <aside className="min-h-0 overflow-y-auto border-b border-border bg-background/55 p-4 lg:border-b-0 lg:border-r">
             <div className="relative">
               <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <CampusInput
@@ -2721,8 +3215,8 @@ export function MapPageView() {
               )}
             </div>
           </aside>
-          <div className="grid lg:grid-cols-[1fr_20rem]">
-            <div className="relative min-h-[34rem] overflow-hidden">
+          <div className="grid min-h-0 lg:grid-cols-[1fr_22rem]">
+            <div className="relative min-h-[34rem] overflow-hidden lg:min-h-0">
               <OpenStreetMap
                 className="absolute inset-0 z-0"
                 locations={mockCampusLocations}
@@ -2734,9 +3228,9 @@ export function MapPageView() {
                 }}
               />
             </div>
-            <aside className="border-t border-border bg-background/55 p-4 lg:border-l lg:border-t-0">
+            <aside className="min-h-0 overflow-y-auto border-t border-border bg-background/55 p-6 lg:border-l lg:border-t-0 xl:p-8">
               {selectedLocation ? (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <div>
                     <StatusPill>{selectedLocation.category}</StatusPill>
                     <h2 className="mt-3 text-lg font-semibold">
@@ -2783,7 +3277,11 @@ export function MapPageView() {
                   </Button>
                 </div>
               ) : null}
-              <div className="mt-5 border-t border-border pt-5">
+              <div
+                className={cn(
+                  selectedLocation ? "mt-8 border-t border-border pt-8" : "",
+                )}
+              >
                 <div className="flex items-center gap-2">
                   <span className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
                     <FiTarget className="h-4 w-4" aria-hidden="true" />
@@ -2795,8 +3293,8 @@ export function MapPageView() {
                     </p>
                   </div>
                 </div>
-                <div className="mt-4 space-y-4">
-                  <label className="space-y-2">
+                <div className="mt-7 space-y-7">
+                  <label className="block space-y-3">
                     <span className="text-xs font-semibold uppercase text-muted-foreground">
                       Start
                     </span>
@@ -2816,12 +3314,13 @@ export function MapPageView() {
                       </SelectContent>
                     </Select>
                   </label>
-                  <label className="space-y-2">
+                  <label className="block space-y-3">
                     <span className="text-xs font-semibold uppercase text-muted-foreground">
                       Destination
                     </span>
                     <Select
                       value={routeDestinationId}
+                      disabled={!hasCampusLocations}
                       onValueChange={(value) => {
                         setRouteDestinationId(value);
                         setSelectedLocationId(value);
@@ -2839,21 +3338,31 @@ export function MapPageView() {
                       </SelectContent>
                     </Select>
                   </label>
-                  <div className="rounded-lg border border-border bg-surface p-3">
+                  <div className="rounded-lg border border-border bg-surface p-5">
                     <p className="text-sm font-semibold">Route preview</p>
-                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                      {startingPoint} to{" "}
-                      <span className="font-medium text-foreground">
-                        {routeDestination?.name ?? "destination"}
-                      </span>
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Estimated campus walk:{" "}
-                      {routeDestination?.distance ?? "6 min walk"}.
-                    </p>
+                    {hasCampusLocations ? (
+                      <>
+                        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                          {startingPoint} to{" "}
+                          <span className="font-medium text-foreground">
+                            {routeDestination?.name ?? "destination"}
+                          </span>
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Estimated campus walk:{" "}
+                          {routeDestination?.distance ?? "unavailable"}.
+                        </p>
+                      </>
+                    ) : (
+                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                        Publish campus locations from the campus admin map
+                        manager before student navigation can be used.
+                      </p>
+                    )}
                   </div>
                   <Button
                     className="w-full"
+                    disabled={!hasCampusLocations}
                     type="button"
                     onClick={() =>
                       campusToast.info({
@@ -4152,31 +4661,43 @@ export function StudentPollsPageView({
 }: {
   initialTab?: StudentPollTab;
 }) {
+  const { user } = useAuth();
+  const [polls, setPolls] = useState(mockPolls);
   const [tab, setTab] = useState<StudentPollTab>(initialTab);
   const [query, setQuery] = useState("");
+  const [ownership, setOwnership] = useState<OwnershipFilter>("all");
   const [viewing, setViewing] = useState<Poll | null>(null);
   const [voting, setVoting] = useState<Poll | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const [votes, setVotes] = useState<Record<string, string>>(
     Object.fromEntries(
       mockStudentVotes.map((vote) => [vote.pollId, vote.selectedOption]),
     ),
   );
+  const currentUserName = getCurrentUserName(user);
+  const canCreate = canCreateStudentContent(user);
 
-  const activePolls = mockPolls.filter((poll) => poll.status === "ACTIVE");
-  const closedPolls = mockPolls.filter((poll) => poll.status === "CLOSED");
+  const activePolls = polls.filter((poll) => poll.status === "ACTIVE");
+  const closedPolls = polls.filter((poll) => poll.status === "CLOSED");
   const visiblePolls = tab === "closed" ? closedPolls : activePolls;
   const filteredPolls = visiblePolls.filter((poll) => {
     const normalized = query.toLowerCase().trim();
-    if (!normalized) return true;
-    return [poll.title, poll.question, poll.category, poll.createdBy]
-      .join(" ")
-      .toLowerCase()
-      .includes(normalized);
+    const queryMatch =
+      !normalized ||
+      [poll.title, poll.question, poll.category, poll.createdBy]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalized);
+
+    return (
+      queryMatch && matchesOwnership(poll, ownership, currentUserName)
+    );
   });
   const voteRows = mockStudentVotes
     .map((vote) => ({
       ...vote,
-      poll: mockPolls.find((poll) => poll.id === vote.pollId),
+      poll: polls.find((poll) => poll.id === vote.pollId),
     }))
     .filter((vote) => {
       if (!vote.poll) return false;
@@ -4199,6 +4720,53 @@ export function StudentPollsPageView({
     campusToast.success({
       title: "Vote Submitted",
       description: "Your poll response has been recorded.",
+      });
+  }
+
+  function createPoll(values: CreatePollInput) {
+    const parsedOptions = values.options
+      .split(/\n|,/)
+      .map((option) => option.trim())
+      .filter(Boolean);
+    const uniqueOptions = Array.from(new Set(parsedOptions));
+    const options = uniqueOptions.length >= 2 ? uniqueOptions : ["Yes", "No"];
+
+    startTransition(() => {
+      setPolls((current) => [
+        {
+          id: `poll-${Date.now()}`,
+          title: values.title,
+          question: values.question,
+          category: values.category,
+          audience: values.audience,
+          description: values.description,
+          createdBy: currentUserName,
+          createdAt: new Date().toISOString().slice(0, 10),
+          endDate: values.endDate,
+          status: "ACTIVE",
+          responses: 0,
+          participationRate: 0,
+          options,
+          optionVotes: Object.fromEntries(options.map((option) => [option, 0])),
+          resultsVisibility: "AFTER_VOTING",
+          rules: [
+            "One vote per student",
+            "Votes are anonymous",
+            "Results show after voting",
+          ],
+          votesOverTime: [],
+          departmentParticipation: [],
+          yearParticipation: [],
+        },
+        ...current,
+      ]);
+      setCreateOpen(false);
+      setTab("active");
+      setOwnership("mine");
+      campusToast.success({
+        title: "Poll Created",
+        description: "The poll was added to this page.",
+      });
     });
   }
 
@@ -4208,6 +4776,14 @@ export function StudentPollsPageView({
         eyebrow="Polls"
         title="Shape campus decisions."
         description="Vote on active student polls, review closed poll outcomes, and track your participation history."
+        action={
+          canCreate ? (
+            <Button type="button" onClick={() => setCreateOpen(true)}>
+              <FiPlus className="h-4 w-4" aria-hidden="true" />
+              Create Poll
+            </Button>
+          ) : null
+        }
       />
       <div className="mt-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <SearchBar query={query} setQuery={setQuery} placeholder="Search polls" />
@@ -4228,6 +4804,11 @@ export function StudentPollsPageView({
           })}
         </div>
       </div>
+      {canCreate ? (
+        <div className="mt-4">
+          <OwnershipTabs value={ownership} onValueChange={setOwnership} />
+        </div>
+      ) : null}
 
       {tab === "active" || tab === "closed" ? (
         filteredPolls.length > 0 ? (
@@ -4299,6 +4880,15 @@ export function StudentPollsPageView({
         hasVoted={viewing ? Boolean(votes[viewing.id]) : false}
         onClose={() => setViewing(null)}
       />
+      <Modal
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        title="Create Poll"
+        description="Publish a poll directly from this page."
+        className="max-w-2xl"
+      >
+        <CreatePollForm onSubmit={createPoll} isSubmitting={isPending} />
+      </Modal>
     </StudentShell>
   );
 }
@@ -4524,6 +5114,8 @@ export function SuggestionsPageView() {
 }
 
 export function ProfilePageView() {
+  const safeShowcaseProfile = getSafeShowcaseProfile();
+
   return (
     <StudentShell>
       <StudentPageHeader
@@ -4566,48 +5158,59 @@ export function ProfilePageView() {
                     <FiZap className="h-5 w-5" aria-hidden="true" />
                   </span>
                   <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                    Level {showcaseProfile.level}
+                    Level {safeShowcaseProfile.level}
                   </span>
                 </div>
                 <p className="mt-4 text-2xl font-semibold">
-                  {showcaseProfile.currentXp.toLocaleString()} XP
+                  {safeShowcaseProfile.currentXp.toLocaleString()} XP
                 </p>
                 <div className="mt-4 h-2 overflow-hidden rounded-full bg-surface-muted">
                   <div
                     className="h-full rounded-full bg-primary"
                     style={{
-                      width: `${(showcaseProfile.currentXp / showcaseProfile.nextLevelXp) * 100}%`,
+                      width: `${safeShowcaseProfile.progressPercent}%`,
                     }}
                   />
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  {showcaseProfile.nextLevelXp - showcaseProfile.currentXp} XP
-                  to next level
+                  {safeShowcaseProfile.xpRemaining.toLocaleString()} XP to next level
                 </p>
               </div>
               <div className="rounded-lg border border-border bg-background p-4">
                 <p className="text-xs uppercase text-muted-foreground">
                   Top Project
                 </p>
-                <p className="mt-2 text-base font-semibold">
-                  {showcaseProfile.topProject.name}
-                </p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {showcaseProfile.topProject.shortDescription}
-                </p>
-                <div className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground">
-                  <span className="inline-flex items-center gap-1">
-                    <FiEye className="h-3.5 w-3.5" aria-hidden="true" />
-                    {showcaseProfile.topProject.views.toLocaleString()} views
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <FiStar
-                      className="h-3.5 w-3.5 text-amber-500"
-                      aria-hidden="true"
-                    />
-                    {showcaseProfile.topProject.stars} stars
-                  </span>
-                </div>
+                {safeShowcaseProfile.topProject ? (
+                  <>
+                    <p className="mt-2 text-base font-semibold">
+                      {safeShowcaseProfile.topProject.name ?? "Untitled project"}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                      {safeShowcaseProfile.topProject.shortDescription ??
+                        "No project summary has been added yet."}
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1">
+                        <FiEye className="h-3.5 w-3.5" aria-hidden="true" />
+                        {toFiniteNumber(
+                          safeShowcaseProfile.topProject.views,
+                        ).toLocaleString()}{" "}
+                        views
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <FiStar
+                          className="h-3.5 w-3.5 text-amber-500"
+                          aria-hidden="true"
+                        />
+                        {toFiniteNumber(safeShowcaseProfile.topProject.stars)} stars
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    No showcase project has been published yet.
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -4616,23 +5219,31 @@ export function ProfilePageView() {
               <CardTitle>Badges</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-2">
-              {showcaseBadges.slice(0, 4).map((badge) => (
-                <div
-                  key={badge.id}
-                  className="flex items-center justify-between rounded-lg border border-border bg-background px-3 py-2"
-                >
-                  <span className="inline-flex min-w-0 items-center gap-2 text-sm">
-                    <FiAward
-                      className="h-4 w-4 shrink-0 text-primary"
-                      aria-hidden="true"
-                    />
-                    <span className="truncate">{badge.name}</span>
-                  </span>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {badge.status}
-                  </span>
-                </div>
-              ))}
+              {showcaseBadges.length > 0 ? (
+                showcaseBadges.slice(0, 4).map((badge, index) => (
+                  <div
+                    key={badge.id ?? `badge-${index}`}
+                    className="flex items-center justify-between rounded-lg border border-border bg-background px-3 py-2"
+                  >
+                    <span className="inline-flex min-w-0 items-center gap-2 text-sm">
+                      <FiAward
+                        className="h-4 w-4 shrink-0 text-primary"
+                        aria-hidden="true"
+                      />
+                      <span className="truncate">
+                        {badge.name ?? "CampusHub badge"}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {badge.status ?? "Locked"}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted-foreground">
+                  No badges earned yet.
+                </p>
+              )}
             </CardContent>
           </Card>
           <Card>
@@ -4640,17 +5251,26 @@ export function ProfilePageView() {
               <CardTitle>Featured Projects</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-2">
-              {showcaseProfile.featuredProjects.map((project) => (
-                <div
-                  key={project.id}
-                  className="rounded-lg border border-border bg-background px-3 py-2"
-                >
-                  <p className="truncate text-sm font-medium">{project.name}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {project.category} · {project.status}
-                  </p>
-                </div>
-              ))}
+              {safeShowcaseProfile.featuredProjects.length > 0 ? (
+                safeShowcaseProfile.featuredProjects.map((project, index) => (
+                  <div
+                    key={project.id ?? `featured-project-${index}`}
+                    className="rounded-lg border border-border bg-background px-3 py-2"
+                  >
+                    <p className="truncate text-sm font-medium">
+                      {project.name ?? "Untitled project"}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {project.category ?? "Showcase"} ·{" "}
+                      {project.status ?? "Draft"}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted-foreground">
+                  No featured projects yet.
+                </p>
+              )}
             </CardContent>
           </Card>
         </aside>
@@ -4744,6 +5364,25 @@ export function NotificationsPageView() {
   const unreadCount = notifications.filter(
     (notification) => notification.unread,
   ).length;
+  const viewNotification = (notification: StudentNotification) => {
+    setNotifications((current) =>
+      current.map((item) =>
+        item.id === notification.id ? { ...item, unread: false } : item,
+      ),
+    );
+    campusToast.info({
+      title: notification.title,
+      description: notification.description,
+    });
+  };
+  const markNotificationRead = (id: string) => {
+    setNotifications((current) =>
+      current.map((item) => (item.id === id ? { ...item, unread: false } : item)),
+    );
+  };
+  const clearNotification = (id: string) => {
+    setNotifications((current) => current.filter((item) => item.id !== id));
+  };
 
   return (
     <StudentShell>
@@ -4781,8 +5420,8 @@ export function NotificationsPageView() {
           </div>
         }
       />
-      <section className="mt-8 grid gap-6 lg:grid-cols-[280px_1fr]">
-        <Card className="sticky top-24 h-fit self-start">
+      <section className="mt-8 grid items-start gap-6 lg:grid-cols-[280px_1fr]">
+        <Card className="h-fit self-start">
           <CardContent className="space-y-2 p-3">
             <div className="flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium">
               <span>Unread</span>
@@ -4805,12 +5444,15 @@ export function NotificationsPageView() {
             ))}
           </CardContent>
         </Card>
-        <div className="space-y-3">
+        <div className="min-h-[22rem] space-y-3">
           {notifications.length > 0 ? (
             notifications.map((notification) => (
               <NotificationCard
                 key={notification.id}
                 notification={notification}
+                onClear={clearNotification}
+                onMarkRead={markNotificationRead}
+                onView={viewNotification}
               />
             ))
           ) : (
@@ -4827,8 +5469,14 @@ export function NotificationsPageView() {
 
 function NotificationCard({
   notification,
+  onView,
+  onMarkRead,
+  onClear,
 }: {
   notification: StudentNotification;
+  onView: (notification: StudentNotification) => void;
+  onMarkRead: (id: string) => void;
+  onClear: (id: string) => void;
 }) {
   return (
     <Card className={notification.unread ? "border-primary/40" : undefined}>
@@ -4849,6 +5497,35 @@ function NotificationCard({
             {notification.time}
           </p>
         </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              aria-label={`Open actions for ${notification.title}`}
+              className="h-9 w-9 shrink-0 p-0"
+              type="button"
+              variant="ghost"
+            >
+              <FiMoreVertical className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => onView(notification)}>
+              <FiEye className="h-4 w-4" aria-hidden="true" />
+              View
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={!notification.unread}
+              onClick={() => onMarkRead(notification.id)}
+            >
+              <FiCheckCircle className="h-4 w-4" aria-hidden="true" />
+              Mark as read
+            </DropdownMenuItem>
+            <DropdownMenuItem destructive onClick={() => onClear(notification.id)}>
+              <FiTrash2 className="h-4 w-4" aria-hidden="true" />
+              Clear
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </CardContent>
     </Card>
   );

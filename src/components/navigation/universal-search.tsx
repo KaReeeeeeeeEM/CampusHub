@@ -26,11 +26,6 @@ import {
   isStudentLeadershipPosition,
 } from "@/features/authorization/roles";
 import { useAuth } from "@/features/auth/auth-provider";
-import {
-  DEV_ROLE_PREVIEW_COOKIE,
-  isRolePreviewKey,
-  type RolePreviewKey,
-} from "@/features/development/role-preview";
 import { useNavigationStore } from "@/store/navigation-store";
 
 type SearchItem = {
@@ -42,38 +37,6 @@ type SearchItem = {
   roles: RoleKey[];
   leadershipPositions?: StudentLeadershipPosition[];
 };
-
-function readDevelopmentPreviewRole() {
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  const value = document.cookie
-    .split("; ")
-    .find((item) => item.startsWith(`${DEV_ROLE_PREVIEW_COOKIE}=`))
-    ?.split("=")[1];
-  const decoded = value ? decodeURIComponent(value) : null;
-
-  return isRolePreviewKey(decoded) ? decoded : null;
-}
-
-function getPreviewAccess(previewRole: RolePreviewKey | null) {
-  if (!previewRole) {
-    return null;
-  }
-
-  if (isStudentLeadershipPosition(previewRole)) {
-    return {
-      roles: ["STUDENT"] satisfies RoleKey[],
-      leadershipPositions: [previewRole] satisfies StudentLeadershipPosition[],
-    };
-  }
-
-  return {
-    roles: [previewRole] satisfies RoleKey[],
-    leadershipPositions: [] satisfies StudentLeadershipPosition[],
-  };
-}
 
 function normalizeLeadershipPositions(
   positions?: string[],
@@ -399,24 +362,80 @@ const searchItems: SearchItem[] = [
   },
   {
     title: "Teacher Portal",
-    description: "Teacher workspace placeholder for future academic tools.",
-    href: "/portal/teacher",
+    description: "Search academic updates, student talent, projects, polls, and forums.",
+    href: "/teacher/dashboard",
     group: "Teacher",
     icon: FiBookOpen,
     roles: ["TEACHER"],
   },
   {
     title: "Alumni Portal",
-    description: "Alumni workspace placeholder for future network tools.",
-    href: "/portal/alumni",
+    description: "Alumni networking, mentorship, and university updates.",
+    href: "/alumni/dashboard",
     group: "Alumni",
     icon: FiUsers,
     roles: ["ALUMNI"],
   },
   {
+    title: "Alumni Community",
+    description: "Find fellow alumni by department, class year, location, and industry.",
+    href: "/alumni/community",
+    group: "Alumni",
+    icon: FiUsers,
+    roles: ["ALUMNI"],
+  },
+  {
+    title: "Alumni Mentorship",
+    description: "Manage mentorship requests, active mentees, and mentorship history.",
+    href: "/alumni/mentorship",
+    group: "Alumni",
+    icon: FiUsers,
+    roles: ["ALUMNI"],
+  },
+  {
+    title: "Alumni Students",
+    description: "Discover talented students, projects, skills, and achievements.",
+    href: "/alumni/students",
+    group: "Alumni",
+    icon: FiUsers,
+    roles: ["ALUMNI"],
+  },
+  {
+    title: "Alumni Showcase",
+    description: "Explore student projects, innovators, and university research.",
+    href: "/alumni/showcase",
+    group: "Alumni",
+    icon: FiGrid,
+    roles: ["ALUMNI"],
+  },
+  {
+    title: "Alumni Events",
+    description: "Browse reunions, networking events, workshops, and university activities.",
+    href: "/alumni/events",
+    group: "Alumni",
+    icon: FiCalendar,
+    roles: ["ALUMNI"],
+  },
+  {
+    title: "Alumni Opportunities",
+    description: "Share and discover jobs, internships, funding, and competitions.",
+    href: "/alumni/opportunities",
+    group: "Alumni",
+    icon: FiBriefcase,
+    roles: ["ALUMNI"],
+  },
+  {
+    title: "Alumni Notifications",
+    description: "Review mentorship, event, opportunity, showcase, and university updates.",
+    href: "/alumni/notifications",
+    group: "Alumni",
+    icon: FiBookOpen,
+    roles: ["ALUMNI"],
+  },
+  {
     title: "Employer Portal",
-    description: "Employer workspace placeholder for future hiring tools.",
-    href: "/portal/employer",
+    description: "Talent discovery, showcase projects, opportunities, and recruiting analytics.",
+    href: "/employer/dashboard",
     group: "Employer",
     icon: FiBriefcase,
     roles: ["EMPLOYER"],
@@ -428,22 +447,7 @@ export function UniversalSearch() {
   const open = useNavigationStore((state) => state.commandOpen);
   const setOpen = useNavigationStore((state) => state.setCommandOpen);
   const [query, setQuery] = useState("");
-  const [previewRole, setPreviewRole] = useState<RolePreviewKey | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    if (process.env.NODE_ENV === "production") {
-      return;
-    }
-
-    const syncPreviewRole = () => setPreviewRole(readDevelopmentPreviewRole());
-
-    syncPreviewRole();
-    window.addEventListener("campushub:dev-role-preview", syncPreviewRole);
-
-    return () =>
-      window.removeEventListener("campushub:dev-role-preview", syncPreviewRole);
-  }, []);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -467,15 +471,6 @@ export function UniversalSearch() {
   }, [open]);
 
   const roleAccess = useMemo(() => {
-    const previewAccess =
-      user?.roles?.includes("SUPER_ADMIN") || user?.role === "SUPER_ADMIN"
-        ? getPreviewAccess(previewRole)
-        : null;
-
-    if (previewAccess) {
-      return previewAccess;
-    }
-
     const roles = Array.from(
       new Set(
         [...(user?.roles ?? []), user?.role].filter((role): role is RoleKey =>
@@ -491,7 +486,7 @@ export function UniversalSearch() {
         user?.roles,
       ),
     };
-  }, [previewRole, user?.role, user?.roles, user?.studentLeadershipPositions]);
+  }, [user?.role, user?.roles, user?.studentLeadershipPositions]);
 
   const roleItems = useMemo(
     () =>

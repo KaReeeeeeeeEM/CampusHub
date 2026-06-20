@@ -19,17 +19,17 @@ const campusAdminInvitationSchema = new Schema(
     },
     firstName: {
       type: String,
-      required: true,
+      default: null,
       trim: true,
     },
     lastName: {
       type: String,
-      required: true,
+      default: null,
       trim: true,
     },
     email: {
       type: String,
-      required: true,
+      default: null,
       lowercase: true,
       trim: true,
       index: true,

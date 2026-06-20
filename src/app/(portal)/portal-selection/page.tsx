@@ -1,5 +1,11 @@
-import { PortalSelectionView } from "@/features/portal-selection/components/portal-selection-view";
+import { redirect } from "next/navigation";
 
-export default function PortalSelectionPage() {
-  return <PortalSelectionView />;
+import { getSessionLandingPath } from "@/lib/auth/role-redirect";
+import { requireSession } from "@/lib/auth/route-guards";
+import type { AuthSession } from "@/types/auth";
+
+export default async function PortalSelectionPage() {
+  const session = (await requireSession()) as AuthSession;
+
+  redirect(getSessionLandingPath(session));
 }

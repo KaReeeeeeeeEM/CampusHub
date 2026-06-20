@@ -9,9 +9,11 @@ import {
 import { StatGrid } from "@/components/public/stat-grid";
 import { Button } from "@/components/ui/button";
 import { UniversityDiscovery } from "@/features/universities/components/university-discovery";
-import { universities } from "@/features/universities/lib/mock-data";
+import { listPublicUniversities } from "@/features/universities/lib/university-directory-service";
 
-export default function UniversitiesPage() {
+export default async function UniversitiesPage() {
+  const universities = await listPublicUniversities();
+
   return (
     <>
       <PageHero

@@ -1,11 +1,16 @@
 import { CampusAdminPageHeader } from "@/features/campus-admin/components/campus-admin-page-header";
 import { TeachersManagement } from "@/features/campus-admin/components/teachers/teachers-management";
 import {
-  mockDepartments,
-  mockTeachers,
-} from "@/features/campus-admin/lib/mock-data";
+  getDepartments,
+  getTeacherInvitations,
+} from "@/features/campus-admin/lib/campus-admin-service";
 
 export default async function CampusAdminTeachersPage() {
+  const [departments, invitations] = await Promise.all([
+    getDepartments(),
+    getTeacherInvitations(),
+  ]);
+
   return (
     <main className="w-full max-w-none px-4 py-6 sm:px-6">
       <CampusAdminPageHeader
@@ -14,8 +19,8 @@ export default async function CampusAdminTeachersPage() {
         description="Invite and manage teachers. Teacher accounts are activated through invitation links."
       />
       <TeachersManagement
-        departments={mockDepartments}
-        initialInvitations={mockTeachers}
+        departments={departments}
+        initialInvitations={invitations}
       />
     </main>
   );

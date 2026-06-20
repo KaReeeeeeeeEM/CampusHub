@@ -4,7 +4,6 @@ export const EMPLOYER_APPLICATION_STATUSES = [
   "PENDING",
   "APPROVED",
   "REJECTED",
-  "MORE_INFORMATION_REQUESTED",
 ] as const;
 
 const employerApplicationSchema = new Schema(
@@ -65,6 +64,11 @@ const employerApplicationSchema = new Schema(
       required: true,
       trim: true,
     },
+    description: {
+      type: String,
+      default: null,
+      trim: true,
+    },
     status: {
       type: String,
       enum: EMPLOYER_APPLICATION_STATUSES,
@@ -77,6 +81,11 @@ const employerApplicationSchema = new Schema(
       trim: true,
     },
     reviewedByUserId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    reviewedBy: {
       type: String,
       default: null,
       index: true,

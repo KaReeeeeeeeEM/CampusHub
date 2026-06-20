@@ -5,7 +5,6 @@ import { useMemo, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import {
   FiCopy,
-  FiEdit,
   FiEye,
   FiGrid,
   FiList,
@@ -47,6 +46,13 @@ import type {
 } from "@/features/campus-admin/lib/campus-admin-service";
 import type { DataTableColumn } from "@/components/shared/data-table";
 
+type ApiResponse<T> = {
+  data: T | null;
+  error: {
+    message: string;
+  } | null;
+};
+
 type RepresentativesManagementProps = {
   colleges: SerializedCollege[];
   initialInvitations: Array<
@@ -56,9 +62,18 @@ type RepresentativesManagementProps = {
     }
   >;
 };
+
 const viewOptions = [
   { value: "table", label: "Table view", icon: FiList },
   { value: "cards", label: "Card view", icon: FiGrid },
+] as const;
+
+const expiryOptions = [
+  { label: "7 days", value: "7" },
+  { label: "14 days", value: "14" },
+  { label: "30 days", value: "30" },
+  { label: "60 days", value: "60" },
+  { label: "90 days", value: "90" },
 ] as const;
 
 function StatusBadge({
@@ -73,32 +88,24 @@ function StatusBadge({
   );
 }
 
-function getDefaultValues(
-  invitation?: SerializedRepresentativeInvitation,
-): RepresentativeInvitationInput {
-  return {
-    collegeId: invitation?.collegeId ?? "",
-    firstName: invitation?.firstName ?? "",
-    lastName: invitation?.lastName ?? "",
-    email: invitation?.email ?? "",
-    phone: invitation?.phone ?? "",
-    expiresInDays: 14,
-  };
+function getRecipientLabel(invitation: SerializedRepresentativeInvitation) {
+  const name = [invitation.firstName, invitation.lastName]
+    .filter(Boolean)
+    .join(" ");
+
+  return name || invitation.email || "Not redeemed yet";
 }
 
 function RepresentativeInvitationForm({
   colleges,
-  invitation,
   onSubmit,
   isSubmitting,
 }: {
   colleges: SerializedCollege[];
-  invitation?: SerializedRepresentativeInvitation;
   onSubmit: (values: RepresentativeInvitationInput) => void;
   isSubmitting: boolean;
 }) {
   const {
-    register,
     handleSubmit,
     watch,
     setValue,
@@ -109,13 +116,17 @@ function RepresentativeInvitationForm({
     RepresentativeInvitationInput
   >({
     resolver: zodResolver(representativeInvitationInputSchema),
-    defaultValues: getDefaultValues(invitation),
+    defaultValues: {
+      collegeId: "",
+      expiresInDays: 14,
+    },
   });
   const collegeId = watch("collegeId");
+  const expiresInDays = String(watch("expiresInDays") ?? 14);
 
   return (
     <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
-      <label className="space-y-2">
+      <label className="block space-y-2">
         <span className="text-sm font-medium">College</span>
         <Select
           value={collegeId}
@@ -126,7 +137,7 @@ function RepresentativeInvitationForm({
             })
           }
         >
-          <SelectTrigger>
+          <SelectTrigger className="w-full">
             <SelectValue placeholder="Select college" />
           </SelectTrigger>
           <SelectContent>
@@ -141,57 +152,38 @@ function RepresentativeInvitationForm({
           <p className="text-xs text-destructive">{errors.collegeId.message}</p>
         ) : null}
       </label>
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className="space-y-2">
-          <span className="text-sm font-medium">First Name</span>
-          <CampusInput
-            {...register("firstName")}
-            invalid={Boolean(errors.firstName)}
-            placeholder="Asha"
-          />
-          {errors.firstName ? (
-            <p className="text-xs text-destructive">
-              {errors.firstName.message}
-            </p>
-          ) : null}
-        </label>
-        <label className="space-y-2">
-          <span className="text-sm font-medium">Last Name</span>
-          <CampusInput
-            {...register("lastName")}
-            invalid={Boolean(errors.lastName)}
-            placeholder="Mollel"
-          />
-          {errors.lastName ? (
-            <p className="text-xs text-destructive">
-              {errors.lastName.message}
-            </p>
-          ) : null}
-        </label>
-        <label className="space-y-2">
-          <span className="text-sm font-medium">Email</span>
-          <CampusInput
-            {...register("email")}
-            invalid={Boolean(errors.email)}
-            placeholder="representative@university.edu"
-            type="email"
-          />
-          {errors.email ? (
-            <p className="text-xs text-destructive">{errors.email.message}</p>
-          ) : null}
-        </label>
-        <label className="space-y-2">
-          <span className="text-sm font-medium">Phone</span>
-          <CampusInput {...register("phone")} placeholder="+255 000 000 000" />
-        </label>
-      </div>
+
+      <label className="block space-y-2">
+        <span className="text-sm font-medium">Expiry</span>
+        <Select
+          value={expiresInDays}
+          onValueChange={(value) =>
+            setValue("expiresInDays", Number(value), {
+              shouldDirty: true,
+              shouldValidate: true,
+            })
+          }
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select expiry" />
+          </SelectTrigger>
+          <SelectContent>
+            {expiryOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </label>
+
       <Button className="w-full" disabled={isSubmitting} type="submit">
         {isSubmitting ? (
           <FiLoader className="h-4 w-4 animate-spin" aria-hidden="true" />
         ) : (
-          <FiMail className="h-4 w-4" aria-hidden="true" />
+          <FiCopy className="h-4 w-4" aria-hidden="true" />
         )}
-        {invitation ? "Save Changes" : "Send Invitation"}
+        Generate Invitation Link
       </Button>
     </form>
   );
@@ -199,37 +191,71 @@ function RepresentativeInvitationForm({
 
 function InvitationDetails({
   invitation,
+  onCopy,
 }: {
   invitation: SerializedRepresentativeInvitation;
+  onCopy: (invitation: SerializedRepresentativeInvitation) => void;
 }) {
-  const rows = [
-    ["Name", `${invitation.firstName} ${invitation.lastName}`],
-    ["Email", invitation.email],
-    ["Phone", invitation.phone],
-    ["College", invitation.collegeName],
-    ["Status", invitation.status],
-    ["Expires", new Date(invitation.expiresAt).toLocaleDateString()],
-  ];
+  const expiresAt = new Date(invitation.expiresAt).toLocaleDateString();
+  const shareSubject = encodeURIComponent(
+    "CampusHub representative invitation",
+  );
+  const shareBody = encodeURIComponent(
+    `Use this one-time CampusHub activation link for ${invitation.collegeName}: ${invitation.invitationUrl}`,
+  );
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-md border border-border bg-background p-3">
-        <p className="text-xs uppercase tracking-normal text-muted-foreground">
-          Invitation URL
-        </p>
-        <p className="mt-2 break-all text-sm font-medium">
+    <div className="space-y-6">
+      <div className="rounded-md border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-primary">
+        One-time representative activation link for {invitation.collegeName}.
+        Expires on {expiresAt}.
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-md border border-border bg-background px-4 py-3 sm:flex-row sm:items-center">
+        <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
           {invitation.invitationUrl}
         </p>
+        <Button
+          type="button"
+          variant="ghost"
+          className="justify-start gap-2 text-primary hover:text-primary sm:justify-center"
+          onClick={() => onCopy(invitation)}
+        >
+          <FiCopy className="h-4 w-4" aria-hidden="true" />
+          Copy link
+        </Button>
       </div>
+
       <div className="grid gap-3 sm:grid-cols-2">
-        {rows.map(([label, value]) => (
+        {[
+          ["College", invitation.collegeName],
+          ["Recipient", getRecipientLabel(invitation)],
+          ["Status", invitation.status],
+          ["Expires", expiresAt],
+        ].map(([label, value]) => (
           <div key={label} className="rounded-md border border-border p-3">
             <p className="text-xs uppercase tracking-normal text-muted-foreground">
               {label}
             </p>
-            <p className="mt-1 text-sm font-medium">{value || "Not set"}</p>
+            <p className="mt-1 text-sm font-medium">{value}</p>
           </div>
         ))}
+      </div>
+
+      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+        <span>Share via</span>
+        <Button
+          asChild
+          size="icon"
+          type="button"
+          variant="secondary"
+          aria-label="Share invitation by email"
+          className="rounded-full"
+        >
+          <a href={`mailto:?subject=${shareSubject}&body=${shareBody}`}>
+            <FiMail className="h-4 w-4" aria-hidden="true" />
+          </a>
+        </Button>
       </div>
     </div>
   );
@@ -245,8 +271,6 @@ export function RepresentativesManagement({
   const [createOpen, setCreateOpen] = useState(false);
   const [viewing, setViewing] =
     useState<SerializedRepresentativeInvitation | null>(null);
-  const [editing, setEditing] =
-    useState<SerializedRepresentativeInvitation | null>(null);
   const [deactivating, setDeactivating] =
     useState<SerializedRepresentativeInvitation | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -260,11 +284,11 @@ export function RepresentativesManagement({
 
     return invitations.filter((invitation) =>
       [
-        invitation.firstName,
-        invitation.lastName,
+        getRecipientLabel(invitation),
         invitation.email,
         invitation.collegeName,
         invitation.status,
+        invitation.invitationUrl,
       ]
         .filter(Boolean)
         .join(" ")
@@ -275,54 +299,35 @@ export function RepresentativesManagement({
 
   function createInvitation(values: RepresentativeInvitationInput) {
     startTransition(async () => {
-      const college = colleges.find((item) => item.id === values.collegeId);
+      const response = await fetch("/api/campus-admin/representative-invitations", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(values),
+      });
+      const payload = (await response.json()) as ApiResponse<{
+        invitation: SerializedRepresentativeInvitation;
+      }>;
+
+      if (!response.ok || !payload.data) {
+        campusToast.error({
+          title: "Invitation Failed",
+          description:
+            payload.error?.message ??
+            "Unable to generate representative invitation link.",
+        });
+        return;
+      }
+
+      const invitation = payload.data.invitation;
       setInvitations((current) => [
-        {
-          id: `representative-${Date.now()}`,
-          universityId: "udsm",
-          collegeName: college?.name ?? "Unknown college",
-          status: "SENT",
-          invitationUrl: `https://campushub.local/representatives/activate/${Date.now()}`,
-          expiresAt: new Date(
-            Date.now() + 14 * 24 * 60 * 60 * 1000,
-          ).toISOString(),
-          createdAt: new Date().toISOString(),
-          ...values,
-          phone: values.phone || null,
-        },
-        ...current,
+        invitation,
+        ...current.filter((item) => item.id !== invitation.id),
       ]);
       setCreateOpen(false);
+      setViewing(invitation);
       campusToast.info({
-        title: "Representative Invitation Sent",
-        description: "The representative invitation was sent successfully.",
-      });
-    });
-  }
-
-  function updateInvitation(values: RepresentativeInvitationInput) {
-    if (!editing) {
-      return;
-    }
-
-    startTransition(async () => {
-      const college = colleges.find((item) => item.id === values.collegeId);
-      setInvitations((current) =>
-        current.map((invitation) =>
-          invitation.id === editing.id
-            ? {
-                ...invitation,
-                ...values,
-                phone: values.phone || null,
-                collegeName: college?.name ?? invitation.collegeName,
-              }
-            : invitation,
-        ),
-      );
-      setEditing(null);
-      campusToast.success({
-        title: "Representative Updated",
-        description: "Representative invitation details were updated.",
+        title: "Invitation Link Generated",
+        description: "Copy and share this one-time activation link.",
       });
     });
   }
@@ -332,32 +337,49 @@ export function RepresentativesManagement({
     action: "resend" | "deactivate",
   ) {
     startTransition(async () => {
+      const response = await fetch(
+        `/api/campus-admin/representative-invitations/${invitation.id}`,
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action }),
+        },
+      );
+      const payload = (await response.json()) as ApiResponse<{
+        invitation: SerializedRepresentativeInvitation;
+      }>;
+
+      if (!response.ok || !payload.data) {
+        campusToast.error({
+          title:
+            action === "resend"
+              ? "Invitation Not Regenerated"
+              : "Invitation Not Deactivated",
+          description:
+            payload.error?.message ?? "Unable to update the invitation.",
+        });
+        return;
+      }
+
       setInvitations((current) =>
         current.map((item) =>
-          item.id === invitation.id
-            ? {
-                ...item,
-                status: action === "resend" ? "SENT" : "DISABLED",
-                invitationUrl:
-                  action === "resend"
-                    ? `https://campushub.local/representatives/activate/${Date.now()}`
-                    : item.invitationUrl,
-              }
-            : item,
+          item.id === invitation.id ? payload.data!.invitation : item,
         ),
       );
       setDeactivating(null);
-      if (action === "resend") {
-        campusToast.info({
-          title: "Invitation Resent",
-          description: "Representative invitation has been regenerated.",
-        });
-      } else {
-        campusToast.warning({
-          title: "Representative Deactivated",
-          description: "Representative invitation has been deactivated.",
-        });
+      if (viewing?.id === invitation.id) {
+        setViewing(payload.data.invitation);
       }
+      campusToast.info({
+        title:
+          action === "resend"
+            ? "Invitation Link Regenerated"
+            : "Invitation Deactivated",
+        description:
+          action === "resend"
+            ? "Copy and share the new one-time activation link."
+            : "The activation link can no longer be used.",
+      });
     });
   }
 
@@ -367,41 +389,33 @@ export function RepresentativesManagement({
     await navigator.clipboard.writeText(invitation.invitationUrl);
     campusToast.info({
       title: "Invitation Copied",
-      description: "The representative invitation URL is ready to share.",
+      description: "The activation URL is ready to share.",
     });
   }
 
   const columns: DataTableColumn<SerializedRepresentativeInvitation>[] = [
     {
-      key: "photo",
-      header: "Photo",
-      className: "w-20",
+      key: "collegeName",
+      header: "College",
+    },
+    {
+      key: "recipient",
+      header: "Recipient",
       cell: (invitation) => (
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-          {invitation.firstName.charAt(0)}
-          {invitation.lastName.charAt(0)}
-        </span>
+        <div>
+          <p className="font-medium">{getRecipientLabel(invitation)}</p>
+          <p className="text-xs text-muted-foreground">
+            {invitation.email ?? "One-time activation link"}
+          </p>
+        </div>
       ),
     },
     {
-      key: "name",
-      header: "Name",
-      cell: (invitation) => (
-        <span>
-          {invitation.firstName} {invitation.lastName}
-        </span>
-      ),
-    },
-    { key: "collegeName", header: "College" },
-    {
-      key: "position",
-      header: "Position",
+      key: "expiresAt",
+      header: "Expires",
       cell: (invitation) =>
-        "position" in invitation
-          ? String(invitation.position)
-          : "Representative",
+        new Date(invitation.expiresAt).toLocaleDateString(),
     },
-    { key: "email", header: "Email" },
     {
       key: "status",
       header: "Status",
@@ -420,17 +434,12 @@ export function RepresentativesManagement({
               onSelect: () => setViewing(invitation),
             },
             {
-              label: "Edit",
-              icon: FiEdit,
-              onSelect: () => setEditing(invitation),
-            },
-            {
               label: "Copy Link",
               icon: FiCopy,
               onSelect: () => void copyInvitationUrl(invitation),
             },
             {
-              label: "Resend Invitation",
+              label: "Regenerate Link",
               icon: FiRefreshCw,
               onSelect: () => patchInvitation(invitation, "resend"),
             },
@@ -457,7 +466,7 @@ export function RepresentativesManagement({
           />
           <CampusInput
             className="pl-9"
-            placeholder="Search representatives"
+            placeholder="Search representative invitations"
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -475,7 +484,7 @@ export function RepresentativesManagement({
             onClick={() => setCreateOpen(true)}
           >
             <FiPlus className="h-4 w-4" aria-hidden="true" />
-            Create Representative
+            Generate Link
           </Button>
         </div>
       </div>
@@ -489,9 +498,8 @@ export function RepresentativesManagement({
                 className="flex h-full flex-col rounded-xl border border-border bg-surface p-4 transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                    {invitation.firstName.charAt(0)}
-                    {invitation.lastName.charAt(0)}
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <FiMail className="h-5 w-5" aria-hidden="true" />
                   </span>
                   <AdminActionMenu
                     items={[
@@ -501,17 +509,12 @@ export function RepresentativesManagement({
                         onSelect: () => setViewing(invitation),
                       },
                       {
-                        label: "Edit",
-                        icon: FiEdit,
-                        onSelect: () => setEditing(invitation),
-                      },
-                      {
                         label: "Copy Link",
                         icon: FiCopy,
                         onSelect: () => void copyInvitationUrl(invitation),
                       },
                       {
-                        label: "Resend Invitation",
+                        label: "Regenerate Link",
                         icon: FiRefreshCw,
                         onSelect: () => patchInvitation(invitation, "resend"),
                       },
@@ -526,20 +529,19 @@ export function RepresentativesManagement({
                   />
                 </div>
                 <h3 className="mt-4 text-base font-semibold">
-                  {invitation.firstName} {invitation.lastName}
+                  {invitation.collegeName}
                 </h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {"position" in invitation
-                    ? String(invitation.position)
-                    : "Representative"}
+                  {getRecipientLabel(invitation)}
                 </p>
-                <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">
-                  {invitation.collegeName}
+                <p className="mt-3 line-clamp-2 break-all text-sm text-muted-foreground">
+                  {invitation.invitationUrl}
                 </p>
                 <div className="mt-auto flex items-center justify-between gap-3 pt-5">
                   <StatusBadge status={invitation.status} />
                   <span className="text-xs text-muted-foreground">
-                    {invitation.email}
+                    Expires{" "}
+                    {new Date(invitation.expiresAt).toLocaleDateString()}
                   </span>
                 </div>
               </article>
@@ -550,15 +552,15 @@ export function RepresentativesManagement({
                 colleges.length === 0
                   ? "Create a college first"
                   : query
-                    ? "No matching representatives"
-                    : "No representatives yet"
+                    ? "No matching invitations"
+                    : "No representative invitations yet"
               }
               description={
                 colleges.length === 0
                   ? "Representatives must be invited into a college."
                   : query
                     ? "Adjust your search and try again."
-                    : "Invite the first college representative."
+                    : "Generate a one-time activation link for the first college representative."
               }
               className="mx-auto border-0 bg-transparent md:col-span-2 xl:col-span-3"
             />
@@ -576,15 +578,15 @@ export function RepresentativesManagement({
                   colleges.length === 0
                     ? "Create a college first"
                     : query
-                      ? "No matching representatives"
-                      : "No representatives yet"
+                      ? "No matching invitations"
+                      : "No representative invitations yet"
                 }
                 description={
                   colleges.length === 0
                     ? "Representatives must be invited into a college."
                     : query
                       ? "Adjust your search and try again."
-                      : "Invite the first college representative."
+                      : "Generate a one-time activation link for the first college representative."
                 }
                 className="mx-auto border-0 bg-transparent"
               />
@@ -597,7 +599,7 @@ export function RepresentativesManagement({
         open={createOpen}
         onOpenChange={setCreateOpen}
         title="Create Representative Invitation"
-        description="Invite a representative into a college."
+        description="Generate a college-specific one-time activation link."
         className="max-h-[90vh] max-w-3xl overflow-y-auto"
       >
         <RepresentativeInvitationForm
@@ -607,39 +609,26 @@ export function RepresentativesManagement({
         />
       </Modal>
 
-      <Modal
-        open={Boolean(editing)}
-        onOpenChange={(open) => !open && setEditing(null)}
-        title="Edit Representative Invitation"
-        description="Update representative invitation details."
-        className="max-h-[90vh] max-w-3xl overflow-y-auto"
-      >
-        {editing ? (
-          <RepresentativeInvitationForm
-            key={editing.id}
-            colleges={colleges}
-            invitation={editing}
-            onSubmit={updateInvitation}
-            isSubmitting={isPending}
-          />
-        ) : null}
-      </Modal>
-
       <Drawer
         open={Boolean(viewing)}
         onOpenChange={(open) => !open && setViewing(null)}
         title="Representative Invitation"
-        description="Invitation recipient, college, status, and activation link."
+        description="College, status, expiry, and activation link."
         className="max-w-xl"
       >
-        {viewing ? <InvitationDetails invitation={viewing} /> : null}
+        {viewing ? (
+          <InvitationDetails
+            invitation={viewing}
+            onCopy={(invitation) => void copyInvitationUrl(invitation)}
+          />
+        ) : null}
       </Drawer>
 
       <ConfirmDialog
         open={Boolean(deactivating)}
         onOpenChange={(open) => !open && setDeactivating(null)}
-        title="Deactivate Representative"
-        description={`Deactivate ${deactivating?.firstName ?? "this"} ${deactivating?.lastName ?? "representative"}?`}
+        title="Deactivate Representative Invitation"
+        description={`Deactivate the activation link for ${deactivating?.collegeName ?? "this college"}?`}
         confirmLabel="Deactivate"
         destructive
         onConfirm={() =>

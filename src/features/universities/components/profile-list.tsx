@@ -1,11 +1,24 @@
 import { CalendarDays, ExternalLink } from "lucide-react";
 
+import { EmptyState } from "@/components/shared/empty-state";
 import type {
-  UniversityEvent,
-  UniversityOpportunity,
-} from "@/features/universities/lib/mock-data";
+  PublicUniversity,
+} from "@/features/universities/lib/university-directory-service";
 
-export function PublicEventList({ events }: { events: UniversityEvent[] }) {
+type PublicEvent = PublicUniversity["publicEvents"][number];
+type PublicOpportunity = PublicUniversity["publicOpportunities"][number];
+
+export function PublicEventList({ events }: { events: PublicEvent[] }) {
+  if (events.length === 0) {
+    return (
+      <EmptyState
+        title="No public events yet"
+        description="Public events will appear here when this university publishes real event records."
+        className="mx-auto"
+      />
+    );
+  }
+
   return (
     <div className="grid gap-4">
       {events.map((event) => (
@@ -36,8 +49,18 @@ export function PublicEventList({ events }: { events: UniversityEvent[] }) {
 export function PublicOpportunityList({
   opportunities,
 }: {
-  opportunities: UniversityOpportunity[];
+  opportunities: PublicOpportunity[];
 }) {
+  if (opportunities.length === 0) {
+    return (
+      <EmptyState
+        title="No public opportunities yet"
+        description="Public opportunities will appear here when employers or university teams publish real records."
+        className="mx-auto"
+      />
+    );
+  }
+
   return (
     <div className="grid gap-4">
       {opportunities.map((opportunity) => (

@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/layout/app-shell";
 import { requireCompletedOnboarding } from "@/lib/auth/route-guards";
+import { DashboardThemeProvider } from "@/providers/dashboard-theme-provider";
 
 export default async function PortalLayout({
   children,
@@ -8,5 +9,9 @@ export default async function PortalLayout({
 }) {
   await requireCompletedOnboarding();
 
-  return <AppShell>{children}</AppShell>;
+  return (
+    <DashboardThemeProvider>
+      <AppShell>{children}</AppShell>
+    </DashboardThemeProvider>
+  );
 }

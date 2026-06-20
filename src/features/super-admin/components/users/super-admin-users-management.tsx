@@ -10,6 +10,7 @@ import {
   FiLoader,
   FiSearch,
   FiSlash,
+  FiTrash2,
   FiUserCheck,
 } from "react-icons/fi";
 import { z } from "zod";
@@ -32,10 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/radix-select";
 import { AdminActionMenu } from "@/features/administration/components/admin-action-menu";
-import {
-  superAdminUsers,
-  type SuperAdminUser,
-} from "@/features/super-admin/lib/admin-mock-data";
+import type { SerializedSuperAdminUser } from "@/features/super-admin/lib/super-admin-service";
 import type { DataTableColumn } from "@/components/shared/data-table";
 
 const userSchema = z.object({
@@ -51,11 +49,18 @@ const userSchema = z.object({
 });
 
 type UserInput = z.infer<typeof userSchema>;
+type SuperAdminUser = SerializedSuperAdminUser;
+type ApiEnvelope<T> = {
+  data: T | null;
+  error: {
+    message: string;
+  } | null;
+};
 
 const allValue = "ALL";
 
-function uniqueOptions(key: keyof SuperAdminUser) {
-  return Array.from(new Set(superAdminUsers.map((user) => String(user[key]))));
+function uniqueOptions(users: SuperAdminUser[], key: keyof SuperAdminUser) {
+  return Array.from(new Set(users.map((user) => String(user[key]))));
 }
 
 function StatusBadge({ status }: { status: SuperAdminUser["status"] }) {
@@ -70,6 +75,15 @@ function StatusBadge({ status }: { status: SuperAdminUser["status"] }) {
       {status}
     </span>
   );
+}
+
+async function getApiError(response: Response) {
+  try {
+    const payload = (await response.json()) as ApiEnvelope<unknown>;
+    return payload.error?.message || "The request could not be completed.";
+  } catch {
+    return "The request could not be completed.";
+  }
 }
 
 function UserForm({
@@ -105,11 +119,11 @@ function UserForm({
     <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
       <div className="grid gap-4 md:grid-cols-2">
         {[
-          ["name", "Full Name", "Amina Mushi"],
+          ["name", "Full Name", "Full name"],
           ["email", "Email", "name@university.edu"],
           ["role", "Role", "Student"],
           ["position", "Position", "Representative"],
-          ["university", "University", "University of Dar es Salaam"],
+          ["university", "University", "Assigned university"],
           ["college", "College", "College of ICT"],
           ["department", "Department", "Computer Science"],
           ["phone", "Phone", "+255 000 000 000"],
@@ -155,8 +169,12 @@ function UserForm({
   );
 }
 
-export function SuperAdminUsersManagement() {
-  const [users, setUsers] = useState(superAdminUsers);
+export function SuperAdminUsersManagement({
+  initialUsers,
+}: {
+  initialUsers: SuperAdminUser[];
+}) {
+  const [users, setUsers] = useState(initialUsers);
   const [search, setSearch] = useState("");
   const [role, setRole] = useState(allValue);
   const [university, setUniversity] = useState(allValue);
@@ -167,6 +185,7 @@ export function SuperAdminUsersManagement() {
   const [viewing, setViewing] = useState<SuperAdminUser | null>(null);
   const [editing, setEditing] = useState<SuperAdminUser | null>(null);
   const [suspending, setSuspending] = useState<SuperAdminUser | null>(null);
+  const [deleting, setDeleting] = useState<SuperAdminUser | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const filteredUsers = useMemo(() => {
@@ -229,6 +248,49 @@ export function SuperAdminUsersManagement() {
     });
   }
 
+  function deleteSelectedUser() {
+    if (!deleting) {
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        const response = await fetch(`/api/super-admin/users/${deleting.id}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          campusToast.error({
+            title: "User Not Deleted",
+            description: await getApiError(response),
+          });
+          return;
+        }
+
+        setUsers((current) =>
+          current.filter((user) => user.id !== deleting.id),
+        );
+        if (viewing?.id === deleting.id) {
+          setViewing(null);
+        }
+        if (editing?.id === deleting.id) {
+          setEditing(null);
+        }
+        setDeleting(null);
+        campusToast.warning({
+          title: "User Deleted",
+          description: `${deleting.name} has been removed from active user access.`,
+        });
+      } catch {
+        campusToast.error({
+          title: "User Not Deleted",
+          description: "Unable to delete the user. Please try again.",
+        });
+      }
+    });
+  }
+
   const columns: DataTableColumn<SuperAdminUser>[] = [
     {
       key: "photo",
@@ -283,6 +345,12 @@ export function SuperAdminUsersManagement() {
                   description: `A reset instruction would be sent to ${user.email}.`,
                 }),
             },
+            {
+              label: "Delete",
+              icon: FiTrash2,
+              destructive: true,
+              onSelect: () => setDeleting(user),
+            },
           ]}
         />
       ),
@@ -305,12 +373,12 @@ export function SuperAdminUsersManagement() {
           />
         </div>
         {[
-          ["Role", role, setRole, uniqueOptions("role")],
-          ["University", university, setUniversity, uniqueOptions("university")],
-          ["College", college, setCollege, uniqueOptions("college")],
-          ["Department", department, setDepartment, uniqueOptions("department")],
-          ["Position", position, setPosition, uniqueOptions("position")],
-          ["Status", status, setStatus, uniqueOptions("status")],
+          ["Role", role, setRole, uniqueOptions(users, "role")],
+          ["University", university, setUniversity, uniqueOptions(users, "university")],
+          ["College", college, setCollege, uniqueOptions(users, "college")],
+          ["Department", department, setDepartment, uniqueOptions(users, "department")],
+          ["Position", position, setPosition, uniqueOptions(users, "position")],
+          ["Status", status, setStatus, uniqueOptions(users, "status")],
         ].map(([label, value, setter, options]) => (
           <Select
             key={label as string}
@@ -430,6 +498,20 @@ export function SuperAdminUsersManagement() {
           }
           setSuspending(null);
         }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleting)}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        title="Delete User"
+        description={
+          deleting
+            ? `${deleting.name} will be removed from active access and signed out of existing sessions.`
+            : "This user will be removed from active access."
+        }
+        confirmLabel="Delete"
+        destructive
+        onConfirm={deleteSelectedUser}
       />
     </div>
   );

@@ -3,22 +3,37 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Suspense, useState } from "react";
-import { FiSidebar } from "react-icons/fi";
+import { useEffect, useMemo, useState } from "react";
+import { FiChevronDown, FiSidebar } from "react-icons/fi";
 
-import { DevelopmentRoleSwitcher } from "@/components/navigation/development-role-switcher";
 import { Drawer } from "@/components/shared/drawer";
 import { Button } from "@/components/ui/button";
-import {
-  superAdminNavItems,
-  superAdminWorkspace,
-} from "@/features/super-admin/components/super-admin-navigation";
+import { superAdminNavSections } from "@/features/super-admin/components/super-admin-navigation";
 import { cn } from "@/lib/utils";
 
 export function SuperAdminMobileMenu() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const WorkspaceIcon = superAdminWorkspace.icon;
+  const activeSectionLabel = useMemo(() => {
+    return (
+      superAdminNavSections.find((section) =>
+        section.items.some(
+          (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
+        ),
+      )?.label ?? superAdminNavSections[0]?.label
+    );
+  }, [pathname]);
+  const [openSection, setOpenSection] = useState<string | null>(
+    activeSectionLabel ?? null,
+  );
+
+  useEffect(() => {
+    setOpenSection(activeSectionLabel ?? null);
+  }, [activeSectionLabel]);
+
+  function toggleSection(label: string) {
+    setOpenSection((current) => (current === label ? null : label));
+  }
 
   return (
     <>
@@ -56,52 +71,66 @@ export function SuperAdminMobileMenu() {
             />
           </span>
           <span className="min-w-0 text-sm font-semibold leading-5">
-            CampusHub
+            <span className="campushub-logo-text">CampusHub</span>
             <span className="block text-xs font-normal text-muted-foreground">
               Super Admin
             </span>
           </span>
         </Link>
 
-        <Suspense fallback={null}>
-          <DevelopmentRoleSwitcher />
-        </Suspense>
-
-        <div className="mb-4 rounded-lg border border-border bg-background p-3">
-          <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
-              <WorkspaceIcon className="h-4 w-4" aria-hidden="true" />
-            </span>
-            <div>
-              <p className="text-sm font-medium">{superAdminWorkspace.label}</p>
-              <p className="text-xs text-muted-foreground">Platform control</p>
-            </div>
-          </div>
-        </div>
-
-        <nav className="space-y-1">
-          {superAdminNavItems.map((item) => {
-            const Icon = item.icon;
-            const active =
-              pathname === item.href || pathname.startsWith(`${item.href}/`);
-
-            return (
-              <Link
-                key={item.href}
+        <nav className="space-y-2">
+          {superAdminNavSections.map((section, sectionIndex) => (
+            <div key={section.label ?? `section-${sectionIndex}`} className="space-y-1">
+              {section.label ? (
+                <button
+                  type="button"
+                  className="flex h-10 w-full items-center justify-between rounded-md px-3 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+                  aria-expanded={openSection === section.label}
+                  onClick={() => toggleSection(section.label!)}
+                >
+                  <span>{section.label}</span>
+                  <FiChevronDown
+                    className={cn(
+                      "h-3.5 w-3.5 transition-transform",
+                      openSection === section.label && "rotate-180",
+                    )}
+                    aria-hidden="true"
+                  />
+                </button>
+              ) : null}
+              <div
                 className={cn(
-                  "flex h-10 items-center gap-3 rounded-md px-3 text-sm transition-colors",
-                  active
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-background hover:text-foreground",
+                  "space-y-1",
+                  section.label &&
+                    openSection !== section.label &&
+                    "hidden",
                 )}
-                href={item.href}
-                onClick={() => setOpen(false)}
               >
-                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span className="truncate">{item.label}</span>
-              </Link>
-            );
-          })}
+                {section.items.map((item) => {
+                const Icon = item.icon;
+                const active =
+                  pathname === item.href || pathname.startsWith(`${item.href}/`);
+
+                return (
+                  <Link
+                    key={item.href}
+                    className={cn(
+                      "flex h-10 items-center gap-3 rounded-md px-3 text-sm transition-colors",
+                      active
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-background hover:text-foreground",
+                    )}
+                    href={item.href}
+                    onClick={() => setOpen(false)}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span className="truncate">{item.label}</span>
+                  </Link>
+                );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
       </Drawer>
     </>

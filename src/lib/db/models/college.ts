@@ -1,5 +1,7 @@
 import { model, models, Schema, type InferSchemaType } from "mongoose";
 
+import { tenantLifecycleFields } from "@/lib/db/models/model-helpers";
+
 const collegeSchema = new Schema(
   {
     _id: {
@@ -28,10 +30,22 @@ const collegeSchema = new Schema(
       default: null,
       trim: true,
     },
+    code: {
+      type: String,
+      required: true,
+      uppercase: true,
+      trim: true,
+      index: true,
+    },
     logo: {
       type: String,
       default: null,
       trim: true,
+    },
+    deanUserId: {
+      type: String,
+      default: null,
+      index: true,
     },
     description: {
       type: String,
@@ -44,6 +58,7 @@ const collegeSchema = new Schema(
       default: "ACTIVE",
       index: true,
     },
+    ...tenantLifecycleFields,
   },
   {
     collection: "college",
@@ -52,6 +67,11 @@ const collegeSchema = new Schema(
 );
 
 collegeSchema.index({ universityId: 1, slug: 1 }, { unique: true });
+collegeSchema.index(
+  { universityId: 1, code: 1 },
+  { unique: true, partialFilterExpression: { code: { $type: "string" } } },
+);
+collegeSchema.index({ universityId: 1, status: 1, deletedAt: 1 });
 
 export type CollegeDocument = InferSchemaType<typeof collegeSchema>;
 

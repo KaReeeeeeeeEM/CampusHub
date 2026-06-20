@@ -2,7 +2,7 @@
 
 import { FadeIn } from "@/components/motion/fade-in";
 import { HoverCard } from "@/components/motion/hover-card";
-import { universities } from "@/features/universities/lib/mock-data";
+import type { PublicUniversity } from "@/features/universities/lib/university-directory-service";
 import { cn } from "@/lib/utils";
 import { useThemeStore } from "@/store/theme-store";
 import dynamic from "next/dynamic";
@@ -68,7 +68,11 @@ function getSystemTheme() {
     : "light";
 }
 
-export function UniversityNetworkGlobe() {
+export function UniversityNetworkGlobe({
+  universities,
+}: {
+  universities: PublicUniversity[];
+}) {
   const reducedMotion = useReducedMotion();
   const theme = useThemeStore((state) => state.theme);
   const globeRef = useRef<GlobeMethods | undefined>(undefined);

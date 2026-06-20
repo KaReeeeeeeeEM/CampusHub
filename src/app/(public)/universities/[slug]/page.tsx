@@ -14,9 +14,9 @@ import {
   PublicOpportunityList,
 } from "@/features/universities/components/profile-list";
 import {
-  getUniversityBySlug,
-  universities,
-} from "@/features/universities/lib/mock-data";
+  getPublicUniversityBySlug,
+  listPublicUniversities,
+} from "@/features/universities/lib/university-directory-service";
 
 type UniversityProfilePageProps = {
   params: Promise<{
@@ -24,7 +24,9 @@ type UniversityProfilePageProps = {
   }>;
 };
 
-export function generateStaticParams() {
+export async function generateStaticParams() {
+  const universities = await listPublicUniversities();
+
   return universities.map((university) => ({
     slug: university.slug,
   }));
@@ -32,7 +34,7 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: UniversityProfilePageProps) {
   const { slug } = await params;
-  const university = getUniversityBySlug(slug);
+  const university = await getPublicUniversityBySlug(slug);
 
   if (!university) {
     return {
@@ -50,7 +52,7 @@ export default async function UniversityProfilePage({
   params,
 }: UniversityProfilePageProps) {
   const { slug } = await params;
-  const university = getUniversityBySlug(slug);
+  const university = await getPublicUniversityBySlug(slug);
 
   if (!university) {
     notFound();
@@ -68,7 +70,7 @@ export default async function UniversityProfilePage({
           sizes="100vw"
         />
         <div className="absolute inset-0 -z-10 bg-black/64" />
-        <div className="mx-auto flex min-h-[560px] max-w-7xl flex-col justify-end px-4 py-16 text-white sm:px-6 lg:px-8">
+        <div className="mx-auto flex min-h-[80vh] max-w-7xl flex-col justify-end px-4 py-16 text-white sm:px-6 lg:px-8">
           <Link
             className="mb-8 inline-flex w-fit items-center gap-2 text-sm text-zinc-200 hover:text-white"
             href="/universities"
@@ -91,7 +93,7 @@ export default async function UniversityProfilePage({
                 {university.type}
               </span>
             </div>
-            <h1 className="mt-5 text-4xl font-semibold tracking-normal sm:text-6xl">
+            <h1 className="campushub-hero-headline mt-5 text-4xl font-semibold tracking-normal sm:text-6xl">
               {university.name}
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-zinc-200">
@@ -107,7 +109,7 @@ export default async function UniversityProfilePage({
                   className="h-4 w-4 text-primary"
                   aria-hidden="true"
                 />
-                Founded {university.founded}
+                {university.founded ? `Created ${university.founded}` : "Founded date not set"}
               </span>
             </div>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -165,14 +167,20 @@ export default async function UniversityProfilePage({
             description="Public college listings help students, staff, alumni, and employers understand where they belong in the university ecosystem."
           />
           <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {university.colleges.map((college) => (
-              <div
-                key={college}
-                className="rounded-lg border border-border bg-background p-5 font-medium"
-              >
-                {college}
+            {university.colleges.length > 0 ? (
+              university.colleges.map((college) => (
+                <div
+                  key={college}
+                  className="rounded-lg border border-border bg-background p-5 font-medium"
+                >
+                  {college}
+                </div>
+              ))
+            ) : (
+              <div className="rounded-lg border border-dashed border-border bg-background p-6 text-sm text-muted-foreground md:col-span-2 lg:col-span-3">
+                No public college records have been added for this university yet.
               </div>
-            ))}
+            )}
           </div>
         </SectionInner>
       </Section>
@@ -185,17 +193,23 @@ export default async function UniversityProfilePage({
             title="Public institutional signals."
           />
           <dl className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {university.stats.map((stat) => (
-              <div
-                key={stat.label}
-                className="rounded-lg border border-border bg-surface p-6 text-center"
-              >
-                <dt className="text-sm text-muted-foreground">{stat.label}</dt>
-                <dd className="mt-2 text-3xl font-semibold text-primary">
-                  {stat.value}
-                </dd>
+            {university.stats.length > 0 ? (
+              university.stats.map((stat) => (
+                <div
+                  key={stat.label}
+                  className="rounded-lg border border-border bg-surface p-6 text-center"
+                >
+                  <dt className="text-sm text-muted-foreground">{stat.label}</dt>
+                  <dd className="mt-2 text-3xl font-semibold text-primary">
+                    {stat.value}
+                  </dd>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-lg border border-dashed border-border bg-surface p-6 text-center text-sm text-muted-foreground sm:col-span-2 lg:col-span-4">
+                No public statistics are available yet.
               </div>
-            ))}
+            )}
           </dl>
         </SectionInner>
       </Section>
@@ -206,7 +220,7 @@ export default async function UniversityProfilePage({
             <SectionHeading
               eyebrow="Public events"
               title="Open campus activities."
-              description="Mock public events show how university profiles can promote ecosystem activity."
+              description="Public events are shown only when real university event records exist."
             />
             <div className="mt-8">
               <PublicEventList events={university.publicEvents} />
@@ -216,7 +230,7 @@ export default async function UniversityProfilePage({
             <SectionHeading
               eyebrow="Public opportunities"
               title="Visible opportunities."
-              description="Mock public opportunities show how employers, students, alumni, and departments can interact."
+              description="Public opportunities are shown only when real opportunity records exist."
             />
             <div className="mt-8">
               <PublicOpportunityList

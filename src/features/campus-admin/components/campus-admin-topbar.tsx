@@ -1,12 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { FiSidebar } from "react-icons/fi";
 
 import { AppearanceDrawer } from "@/components/navigation/appearance-drawer";
 import { NotificationMenu } from "@/components/navigation/notification-menu";
 import { Search } from "@/components/navigation/search";
 import { DashboardThemeToggle } from "@/components/navigation/theme-toggle";
+import { UniversityScopeBadge } from "@/components/navigation/university-scope-badge";
 import { UserMenu } from "@/components/navigation/user-menu";
 import { Button } from "@/components/ui/button";
 import { CampusAdminBreadcrumbs } from "@/features/campus-admin/components/campus-admin-breadcrumbs";
@@ -41,6 +41,10 @@ export function CampusAdminTopbar({ user }: CampusAdminTopbarProps) {
       <div className="h-full border-r border-border">
         <CampusAdminBreadcrumbs />
       </div>
+      <UniversityScopeBadge
+        universityId={user.universityId}
+        className="mx-3 hidden min-w-0 md:flex"
+      />
       <Search
         className="ml-auto hidden max-w-sm flex-1 lg:flex"
         placeholder="Search campus"
@@ -49,9 +53,6 @@ export function CampusAdminTopbar({ user }: CampusAdminTopbarProps) {
         <AppearanceDrawer />
         <DashboardThemeToggle />
         <NotificationMenu />
-        <Button asChild className="hidden sm:inline-flex" variant="default">
-          <Link href="/campus-admin/colleges">Manage Colleges</Link>
-        </Button>
         <UserMenu name={user.name} email={user.email} />
       </div>
     </header>

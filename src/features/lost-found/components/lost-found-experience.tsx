@@ -69,6 +69,7 @@ type LostFoundItem = {
   description: string;
   contact: string;
   verification: string;
+  images: string[];
 };
 
 const categories = [
@@ -99,7 +100,9 @@ const dateFilters = [
   "Last Month",
   "Older",
 ] satisfies LostFoundDateFilter[];
-const mockReferenceDate = new Date("2026-06-16T12:00:00");
+function getReferenceDate() {
+  return new Date();
+}
 
 const lostFoundViewOptions = [
   { value: "table", label: "List view", icon: FiList },
@@ -110,78 +113,7 @@ const lostFoundViewOptions = [
   icon: IconType;
 }>;
 
-const lostFoundItems: LostFoundItem[] = [
-  {
-    id: "lf-001",
-    title: "Black HP laptop charger",
-    type: "Lost",
-    category: "Electronics",
-    status: "Open",
-    location: "CoICT Lecture Block",
-    reportedBy: "Faith Joseph",
-    reportedAt: "Today, 9:20 AM",
-    description:
-      "Lost near Lab 4 after the morning database systems practical. The adapter has a small blue tape mark near the cable.",
-    contact: "In-app message preferred",
-    verification: "Owner should describe the cable mark and adapter wattage.",
-  },
-  {
-    id: "lf-002",
-    title: "Student ID card",
-    type: "Found",
-    category: "Documents",
-    status: "Matched",
-    location: "Main Library entrance",
-    reportedBy: "Brian Massawe",
-    reportedAt: "Yesterday",
-    description:
-      "Found a student identification card at the library entrance desk. It has been left with the library attendant.",
-    contact: "Collect from library desk",
-    verification: "Student must verify registration number.",
-  },
-  {
-    id: "lf-003",
-    title: "Blue Nike backpack",
-    type: "Lost",
-    category: "Bags",
-    status: "Under Review",
-    location: "Student Center",
-    reportedBy: "Neema Sanga",
-    reportedAt: "Jun 14, 2026",
-    description:
-      "Backpack contains notebooks, a calculator, and a water bottle. Last seen during the technology club meeting.",
-    contact: "Phone call after verification",
-    verification: "Owner should describe notebook labels inside the bag.",
-  },
-  {
-    id: "lf-004",
-    title: "Set of hostel keys",
-    type: "Found",
-    category: "Keys",
-    status: "Open",
-    location: "Hostel B walkway",
-    reportedBy: "Daniel Rweikiza",
-    reportedAt: "Jun 13, 2026",
-    description:
-      "A small key ring with three keys and a red rubber tag was found near Hostel B.",
-    contact: "Campus security office",
-    verification: "Claimant must identify the tag writing.",
-  },
-  {
-    id: "lf-005",
-    title: "Calculus textbook",
-    type: "Found",
-    category: "Books",
-    status: "Returned",
-    location: "Engineering lecture hall",
-    reportedBy: "Dr. Sarah Mushi",
-    reportedAt: "Jun 12, 2026",
-    description:
-      "A calculus textbook was found after a tutorial session and returned to the owner.",
-    contact: "Returned",
-    verification: "Resolved by department office.",
-  },
-];
+const lostFoundItems: LostFoundItem[] = [];
 
 const statusStyles: Record<LostFoundStatus, string> = {
   Open: "border-primary/25 bg-primary/10 text-primary",
@@ -224,6 +156,33 @@ function StatCard({
       </span>
       <p className="mt-4 text-2xl font-semibold">{value}</p>
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
+function ItemPhoto({
+  src,
+  title,
+  className,
+}: {
+  src: string;
+  title: string;
+  className?: string;
+}) {
+  return (
+    <div
+      aria-label={`${title} photo`}
+      className={cn(
+        "relative overflow-hidden rounded-lg border border-border bg-surface-muted",
+        className,
+      )}
+      role="img"
+      style={{
+        backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.04), rgba(0,0,0,0.28)), url(${src})`,
+        backgroundPosition: "center",
+        backgroundSize: "cover",
+      }}
+    >
     </div>
   );
 }
@@ -280,7 +239,8 @@ function LostFoundForm({
   portal: LostFoundPortal;
 }) {
   const isManagement = portal !== "student";
-  const [image, setImage] = useState("");
+  const [primaryImage, setPrimaryImage] = useState("");
+  const [supportingImage, setSupportingImage] = useState("");
   const [itemType, setItemType] = useState<LostFoundType>("Lost");
   const [itemCategory, setItemCategory] = useState("Electronics");
   const [status, setStatus] = useState<LostFoundStatus>("Open");
@@ -295,7 +255,7 @@ function LostFoundForm({
     >
       <div className="grid gap-5 md:grid-cols-2">
         <Field label="Item Title">
-          <CampusInput placeholder="Black HP laptop charger" />
+          <CampusInput placeholder="Describe the missing or found item" />
         </Field>
         <Field label="Item Type">
           <LostFoundSelect
@@ -316,7 +276,7 @@ function LostFoundForm({
           />
         </Field>
         <Field label="Last Seen / Found Location">
-          <CampusInput placeholder="CoICT Lecture Block" />
+          <CampusInput placeholder="Where was the item last seen or found?" />
         </Field>
       </div>
       {isManagement ? (
@@ -341,14 +301,24 @@ function LostFoundForm({
           rows={3}
         />
       </Field>
-      <Field label="Item Image">
-        <CampusFileUpload
-          accept="image/png,image/jpeg,image/webp"
-          label="Upload"
-          value={image}
-          onValueChange={setImage}
-        />
-      </Field>
+      <div className="grid gap-5 md:grid-cols-2">
+        <Field label="Primary Item Photo">
+          <CampusFileUpload
+            accept="image/png,image/jpeg,image/webp"
+            label="Upload"
+            value={primaryImage}
+            onValueChange={setPrimaryImage}
+          />
+        </Field>
+        <Field label="Supporting Photo">
+          <CampusFileUpload
+            accept="image/png,image/jpeg,image/webp"
+            label="Upload"
+            value={supportingImage}
+            onValueChange={setSupportingImage}
+          />
+        </Field>
+      </div>
       <Button className="w-full" type="submit">
         {isManagement ? "Save Item" : "Submit Report"}
       </Button>
@@ -372,6 +342,23 @@ function ItemDetails({ item }: { item: LostFoundItem }) {
 
   return (
     <div className="space-y-4">
+      <div className="space-y-3">
+        <ItemPhoto
+          src={item.images[0]}
+          title={item.title}
+          className="h-64 w-full"
+        />
+        <div className="grid grid-cols-2 gap-3">
+          {item.images.slice(1).map((image, index) => (
+            <ItemPhoto
+              key={image}
+              src={image}
+              title={`${item.title} supporting ${index + 1}`}
+              className="h-28"
+            />
+          ))}
+        </div>
+      </div>
       <div className="rounded-lg border border-border bg-background p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -416,37 +403,40 @@ function ItemCard({
   onView: (item: LostFoundItem) => void;
 }) {
   return (
-    <article className="flex h-full flex-col rounded-lg border border-border bg-surface p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Pill value={item.type} className={typeStyles[item.type]} />
-          <Pill value={item.category} className="border-border bg-surface-muted text-muted-foreground" />
+    <article className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-surface">
+      <ItemPhoto src={item.images[0]} title={item.title} className="h-44 rounded-none border-0" />
+      <div className="flex flex-1 flex-col p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Pill value={item.type} className={typeStyles[item.type]} />
+            <Pill value={item.category} className="border-border bg-surface-muted text-muted-foreground" />
+          </div>
+          <Pill value={item.status} className={statusStyles[item.status]} />
         </div>
-        <Pill value={item.status} className={statusStyles[item.status]} />
-      </div>
-      <h3 className="mt-5 text-lg font-semibold">{item.title}</h3>
-      <p className="mt-3 line-clamp-3 flex-1 text-sm leading-6 text-muted-foreground">
-        {item.description}
-      </p>
-      <div className="mt-5 space-y-2 text-sm text-muted-foreground">
-        <p className="flex items-center gap-2">
-          <FiMapPin className="h-4 w-4 text-primary" aria-hidden="true" />
-          {item.location}
+        <h3 className="mt-5 text-lg font-semibold">{item.title}</h3>
+        <p className="mt-3 line-clamp-3 flex-1 text-sm leading-6 text-muted-foreground">
+          {item.description}
         </p>
-        <p className="flex items-center gap-2">
-          <FiClock className="h-4 w-4 text-primary" aria-hidden="true" />
-          {item.reportedAt}
-        </p>
+        <div className="mt-5 space-y-2 text-sm text-muted-foreground">
+          <p className="flex items-center gap-2">
+            <FiMapPin className="h-4 w-4 text-primary" aria-hidden="true" />
+            {item.location}
+          </p>
+          <p className="flex items-center gap-2">
+            <FiClock className="h-4 w-4 text-primary" aria-hidden="true" />
+            {item.reportedAt}
+          </p>
+        </div>
+        <Button
+          className="mt-5 w-full"
+          type="button"
+          variant="secondary"
+          onClick={() => onView(item)}
+        >
+          <FiEye className="h-4 w-4" aria-hidden="true" />
+          View Details
+        </Button>
       </div>
-      <Button
-        className="mt-5 w-full"
-        type="button"
-        variant="secondary"
-        onClick={() => onView(item)}
-      >
-        <FiEye className="h-4 w-4" aria-hidden="true" />
-        View Details
-      </Button>
     </article>
   );
 }
@@ -478,11 +468,11 @@ function getReportedDate(item: LostFoundItem) {
   const normalized = item.reportedAt.toLowerCase();
 
   if (normalized.startsWith("today")) {
-    return mockReferenceDate;
+    return getReferenceDate();
   }
 
   if (normalized.startsWith("yesterday")) {
-    const yesterday = new Date(mockReferenceDate);
+    const yesterday = getReferenceDate();
     yesterday.setDate(yesterday.getDate() - 1);
     return yesterday;
   }
@@ -492,7 +482,7 @@ function getReportedDate(item: LostFoundItem) {
 
 function getDateDifferenceInDays(item: LostFoundItem) {
   const reportedDate = getReportedDate(item);
-  const difference = mockReferenceDate.getTime() - reportedDate.getTime();
+  const difference = getReferenceDate().getTime() - reportedDate.getTime();
 
   return Math.max(0, Math.floor(difference / (1000 * 60 * 60 * 24)));
 }
@@ -536,6 +526,22 @@ export function LostFoundExperience({
   const [confirming, setConfirming] = useState<LostFoundItem | null>(null);
 
   const isManagement = portal !== "student";
+  const activeReports = lostFoundItems.filter(
+    (item) => item.status !== "Returned",
+  ).length;
+  const returnedReports = lostFoundItems.filter(
+    (item) => item.status === "Returned",
+  ).length;
+  const verifiedClaims = lostFoundItems.filter((item) =>
+    ["Matched", "Returned"].includes(item.status),
+  ).length;
+  const pickupPoints = new Set(
+    lostFoundItems.map((item) => item.location).filter(Boolean),
+  ).size;
+  const verifiedClaimRate =
+    lostFoundItems.length > 0
+      ? `${Math.round((verifiedClaims / lostFoundItems.length) * 100)}%`
+      : "N/A";
   const filteredItems = useMemo(
     () =>
       lostFoundItems.filter((item) =>
@@ -558,9 +564,16 @@ export function LostFoundExperience({
       key: "title",
       header: "Item",
       cell: (item: LostFoundItem) => (
-        <div>
-          <p className="font-semibold">{item.title}</p>
-          <p className="text-xs text-muted-foreground">{item.location}</p>
+        <div className="flex items-center gap-3">
+          <ItemPhoto
+            src={item.images[0]}
+            title={item.title}
+            className="h-12 w-16 shrink-0 rounded-md"
+          />
+          <div>
+            <p className="font-semibold">{item.title}</p>
+            <p className="text-xs text-muted-foreground">{item.location}</p>
+          </div>
         </div>
       ),
     },
@@ -658,10 +671,26 @@ export function LostFoundExperience({
       </div>
 
       <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard icon={FiArchive} label="Active reports" value="24" />
-        <StatCard icon={FiCheckCircle} label="Returned this month" value="18" />
-        <StatCard icon={FiShield} label="Verified claims" value="91%" />
-        <StatCard icon={FiMapPin} label="Campus pickup points" value="7" />
+        <StatCard
+          icon={FiArchive}
+          label="Active reports"
+          value={activeReports.toLocaleString()}
+        />
+        <StatCard
+          icon={FiCheckCircle}
+          label="Returned this month"
+          value={returnedReports.toLocaleString()}
+        />
+        <StatCard
+          icon={FiShield}
+          label="Verified claims"
+          value={verifiedClaimRate}
+        />
+        <StatCard
+          icon={FiMapPin}
+          label="Campus pickup points"
+          value={pickupPoints.toLocaleString()}
+        />
       </section>
 
       <section className="mt-6 rounded-lg border border-border bg-background p-4">

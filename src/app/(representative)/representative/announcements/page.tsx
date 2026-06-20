@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function RepresentativeAnnouncementsPage() {
-  redirect("/student/leadership");
+  redirect("/student/leadership/announcements");
 }

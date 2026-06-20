@@ -28,6 +28,10 @@ export default async function PortalShellPage({
     redirect("/student/dashboard");
   }
 
+  if (portal === "employer") {
+    redirect("/employer/dashboard");
+  }
+
   await requirePortalAccess(portal);
 
   const definition = getPortalByKey(portal);
@@ -64,7 +68,7 @@ export default async function PortalShellPage({
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <Button asChild>
-            <Link href="/portal-selection">Switch portal</Link>
+            <Link href="/dashboard">Open dashboard</Link>
           </Button>
           <Button asChild variant="secondary">
             <Link href="/student/dashboard">Student dashboard</Link>

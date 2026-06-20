@@ -1,7 +1,6 @@
 import Link from "next/link";
 
 import { PublicLogo } from "@/components/public/public-logo";
-import { ThemeToggle } from "@/components/public/theme-toggle";
 import { AuthVisualStory } from "@/features/auth/components/auth-visual-story";
 
 type AuthShellProps = {
@@ -22,7 +21,6 @@ export function AuthShell({
       <section className="flex min-h-screen flex-col px-4 py-6 sm:px-6 lg:px-10">
         <div className="flex items-center justify-between">
           <PublicLogo />
-          <ThemeToggle />
         </div>
         <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-12">
           <p className="text-sm font-semibold uppercase tracking-normal text-primary">

@@ -16,6 +16,13 @@ function value(formData: FormData, key: string) {
   return typeof field === "string" ? field : "";
 }
 
+function coordinateValue(formData: FormData, key: string) {
+  const field = value(formData, key);
+  const number = Number(field);
+
+  return field.trim() && Number.isFinite(number) ? number : null;
+}
+
 function readUniversityForm(formData: FormData): UniversityInput {
   return {
     name: value(formData, "name"),
@@ -29,6 +36,10 @@ function readUniversityForm(formData: FormData): UniversityInput {
     website: value(formData, "website"),
     email: value(formData, "email"),
     phone: value(formData, "phone"),
+    locationName: value(formData, "locationName"),
+    locationAddress: value(formData, "locationAddress"),
+    locationLatitude: coordinateValue(formData, "locationLatitude"),
+    locationLongitude: coordinateValue(formData, "locationLongitude"),
     status: value(formData, "status") as UniversityInput["status"],
   };
 }
@@ -59,10 +70,6 @@ export async function deactivateUniversityAction(universityId: string) {
 export async function createCampusAdminInvitationAction(formData: FormData) {
   const input: CampusAdminInvitationInput = {
     universityId: value(formData, "universityId"),
-    firstName: value(formData, "firstName"),
-    lastName: value(formData, "lastName"),
-    email: value(formData, "email"),
-    phone: value(formData, "phone"),
     expiresInDays: Number(value(formData, "expiresInDays") || 14),
   };
 

@@ -35,12 +35,12 @@ export function PageHero({
         sizes="100vw"
       />
       <div className="absolute inset-0 -z-10 bg-black/62" />
-      <div className="mx-auto flex min-h-[700px] max-w-7xl flex-col justify-end px-4 pb-20 pt-48 text-white sm:px-6 sm:pt-52 lg:px-8">
+      <div className="mx-auto flex min-h-[80vh] max-w-7xl flex-col justify-end px-4 pb-20 pt-48 text-white sm:px-6 sm:pt-52 lg:px-8">
         <div className="max-w-3xl">
           <p className="text-sm font-semibold uppercase tracking-normal text-primary">
             {eyebrow}
           </p>
-          <h1 className="mt-4 text-4xl font-semibold tracking-normal sm:text-5xl lg:text-6xl">
+          <h1 className="campushub-hero-headline mt-4 text-4xl font-semibold tracking-normal sm:text-5xl lg:text-6xl">
             {title}
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-200 sm:text-lg">

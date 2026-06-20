@@ -1,23 +1,17 @@
 import { CampusAdminLayout } from "@/features/campus-admin/components/campus-admin-layout";
+import { requireRole } from "@/lib/auth/route-guards";
+import { DashboardThemeProvider } from "@/providers/dashboard-theme-provider";
 
 export default async function CampusAdminRouteLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await requireRole(["CAMPUS_ADMIN"]);
+
   return (
-    <CampusAdminLayout
-      user={{
-        id: "mock-campus-admin",
-        name: "Dr. Catherine Simba",
-        email: "campus.admin@udsm.ac.tz",
-        role: "CAMPUS_ADMIN",
-        roles: ["CAMPUS_ADMIN"],
-        universityId: "udsm",
-        onboardingCompleted: true,
-      }}
-    >
-      {children}
-    </CampusAdminLayout>
+    <DashboardThemeProvider>
+      <CampusAdminLayout user={session.user}>{children}</CampusAdminLayout>
+    </DashboardThemeProvider>
   );
 }

@@ -1,9 +1,12 @@
 import { StudentLayout } from "@/features/student-portal/components/student-layout";
+import { requireRole } from "@/lib/auth/route-guards";
 
-export default function StudentPortalLayout({
+export default async function StudentPortalLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <StudentLayout>{children}</StudentLayout>;
+  const session = await requireRole(["STUDENT"]);
+
+  return <StudentLayout user={session.user}>{children}</StudentLayout>;
 }

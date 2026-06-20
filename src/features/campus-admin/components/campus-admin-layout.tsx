@@ -1,4 +1,5 @@
 import { DashboardPageTransition } from "@/components/motion/dashboard-page-transition";
+import { DashboardIntroTour } from "@/components/onboarding/dashboard-intro-tour";
 import { CampusAdminSidebar } from "@/features/campus-admin/components/campus-admin-sidebar";
 import { CampusAdminTopbar } from "@/features/campus-admin/components/campus-admin-topbar";
 import type { AuthUser } from "@/types/auth";
@@ -19,6 +20,10 @@ export function CampusAdminLayout({ user, children }: CampusAdminLayoutProps) {
             <main className="min-h-0 flex-1 overflow-y-auto">
               <DashboardPageTransition>{children}</DashboardPageTransition>
             </main>
+            <DashboardIntroTour
+              role="Campus Admin"
+              storageKey="campushub:intro:campus-admin-dashboard"
+            />
           </div>
         </div>
       </div>

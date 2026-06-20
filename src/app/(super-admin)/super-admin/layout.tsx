@@ -1,5 +1,6 @@
 import { SuperAdminLayout } from "@/features/super-admin/components/super-admin-layout";
 import { requireRole } from "@/lib/auth/route-guards";
+import { DashboardThemeProvider } from "@/providers/dashboard-theme-provider";
 
 export default async function SuperAdminRouteLayout({
   children,
@@ -8,5 +9,9 @@ export default async function SuperAdminRouteLayout({
 }) {
   const session = await requireRole(["SUPER_ADMIN"]);
 
-  return <SuperAdminLayout user={session.user}>{children}</SuperAdminLayout>;
+  return (
+    <DashboardThemeProvider>
+      <SuperAdminLayout user={session.user}>{children}</SuperAdminLayout>
+    </DashboardThemeProvider>
+  );
 }

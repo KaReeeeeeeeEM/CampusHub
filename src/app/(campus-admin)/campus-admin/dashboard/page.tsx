@@ -4,25 +4,18 @@ import {
   FiCheckCircle,
   FiCircle,
   FiLayers,
+  FiInbox,
   FiUserCheck,
   FiUsers,
 } from "react-icons/fi";
 
 import { Button } from "@/components/ui/button";
-import {
-  SquareBarChartPanel,
-  SquareDonutChartPanel,
-  SquareGoalsPanel,
-} from "@/components/dashboard/square-dashboard-widgets";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CampusAdminPageHeader } from "@/features/campus-admin/components/campus-admin-page-header";
 import {
-  mockAlmanacEvents,
-  mockColleges,
-  mockDepartments,
-  mockRepresentatives,
-  mockTeachers,
-} from "@/features/campus-admin/lib/mock-data";
+  getCampusAdminDashboard,
+} from "@/features/campus-admin/lib/campus-admin-service";
+import { listAlmanacEvents } from "@/features/almanac/lib/almanac-service";
 
 const statCards = [
   { key: "collegesCount", label: "Colleges", icon: FiBookOpen },
@@ -36,77 +29,38 @@ const statCards = [
   { key: "studentsCount", label: "Students", icon: FiUsers },
 ] as const;
 
-const campusAdminActivity = [
-  { label: "05", primary: 3, secondary: 5 },
-  { label: "06", primary: 4, secondary: 2 },
-  { label: "07", primary: 2, secondary: 7 },
-  { label: "08", primary: 6, secondary: 4 },
-  { label: "09", primary: 5, secondary: 3 },
-  { label: "10", primary: 7, secondary: 6 },
-  { label: "11", primary: 4, secondary: 8 },
-];
-
-const campusAdminDistribution = [
-  { name: "Colleges", value: 5, color: "#60DDA0" },
-  { name: "Departments", value: 12, color: "#3478F6" },
-  { name: "Teachers", value: 86, color: "#7C3AED" },
-  { name: "Representatives", value: 18, color: "#F59E0B" },
-];
-
-const campusAdminGoals = [
-  {
-    label: "Department Readiness",
-    value: 78,
-    detail: "12 of 15 departments configured",
-    color: "#3478F6",
-  },
-  {
-    label: "Teacher Coverage",
-    value: 64,
-    detail: "Invitations sent this week",
-    color: "#10B981",
-  },
-  {
-    label: "Representative Activation",
-    value: 86,
-    detail: "College leadership coverage",
-    color: "#F97316",
-  },
-];
+function EmptyDashboardPanel({
+  title,
+  description,
+  href,
+  action,
+}: {
+  title: string;
+  description: string;
+  href: string;
+  action: string;
+}) {
+  return (
+    <div className="dashboard-card flex min-h-[18rem] flex-col items-center justify-center rounded-xl border border-border bg-surface p-6 text-center">
+      <span className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-background">
+        <FiInbox className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+      </span>
+      <h3 className="mt-4 text-base font-semibold">{title}</h3>
+      <p className="mt-2 max-w-xs text-sm leading-6 text-muted-foreground">
+        {description}
+      </p>
+      <Button asChild className="mt-5" variant="secondary">
+        <Link href={href}>{action}</Link>
+      </Button>
+    </div>
+  );
+}
 
 export default async function CampusAdminDashboardPage() {
-  const dashboard = {
-    stats: {
-      collegesCount: mockColleges.length,
-      departmentsCount: mockDepartments.length,
-      representativesCount: mockRepresentatives.length,
-      teachersCount: mockTeachers.length,
-      studentsCount: 18342,
-    },
-    checklist: [
-      {
-        label: "Create First College",
-        complete: mockColleges.length > 0,
-        href: "/campus-admin/colleges",
-      },
-      {
-        label: "Create First Department",
-        complete: mockDepartments.length > 0,
-        href: "/campus-admin/departments",
-      },
-      {
-        label: "Create First Representative",
-        complete: mockRepresentatives.length > 0,
-        href: "/campus-admin/representatives",
-      },
-      {
-        label: "Create First Teacher",
-        complete: mockTeachers.length > 0,
-        href: "/campus-admin/teachers",
-      },
-    ],
-    hasColleges: mockColleges.length > 0,
-  };
+  const [dashboard, almanacEvents] = await Promise.all([
+    getCampusAdminDashboard(),
+    listAlmanacEvents({}),
+  ]);
 
   return (
     <main className="mx-auto w-full max-w-none px-4 py-6 sm:px-6">
@@ -169,22 +123,23 @@ export default async function CampusAdminDashboardPage() {
       </section>
 
       <section className="mt-6 grid gap-4 xl:grid-cols-[1.15fr_1fr_0.9fr]">
-        <SquareBarChartPanel
-          data={campusAdminActivity}
-          primaryLabel="Created"
-          secondaryLabel="Updated"
-          subtitle="Colleges, departments, and invitation activity over 7 days"
-          title="University Activity"
+        <EmptyDashboardPanel
+          title="No activity metrics yet"
+          description="Activity charts will appear after real university actions are captured in analytics."
+          href="/campus-admin/colleges"
+          action="Manage Colleges"
         />
-        <SquareDonutChartPanel
-          data={campusAdminDistribution}
-          subtitle="Operational coverage across university entities"
-          title="Structure Distribution"
+        <EmptyDashboardPanel
+          title="No distribution chart yet"
+          description="Structure distribution will use live college, department, teacher, and representative records."
+          href="/campus-admin/departments"
+          action="Manage Departments"
         />
-        <SquareGoalsPanel
-          goals={campusAdminGoals}
-          subtitle="Track operational readiness"
-          title="Weekly Goals"
+        <EmptyDashboardPanel
+          title="No readiness goals yet"
+          description="Operational goals will appear when the backend analytics service publishes real targets."
+          href="/campus-admin/teachers"
+          action="Invite Teachers"
         />
       </section>
 
@@ -224,26 +179,13 @@ export default async function CampusAdminDashboardPage() {
           <CardHeader>
             <CardTitle>University Engagement Snapshot</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {[
-              ["College coverage", 92],
-              ["Department readiness", 78],
-              ["Teacher onboarding", 64],
-              ["Representative activation", 86],
-            ].map(([label, value]) => (
-              <div key={label}>
-                <div className="mb-2 flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">{label}</span>
-                  <span className="font-medium">{value}%</span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-background">
-                  <div
-                    className="h-full rounded-full bg-primary"
-                    style={{ width: `${value}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+          <CardContent>
+            <EmptyDashboardPanel
+              title="No engagement data yet"
+              description="Engagement percentages will use real logins, participation, and onboarding records."
+              href="/campus-admin/representatives"
+              action="Manage Representatives"
+            />
           </CardContent>
         </Card>
 
@@ -252,17 +194,29 @@ export default async function CampusAdminDashboardPage() {
             <CardTitle>Upcoming Almanac Events</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {mockAlmanacEvents.slice(0, 3).map((event) => (
-              <div
-                key={event.id}
-                className="rounded-md border border-border bg-background p-3"
-              >
-                <p className="text-sm font-medium">{event.title}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {new Date(event.date).toLocaleDateString()} · {event.type}
-                </p>
-              </div>
-            ))}
+            {almanacEvents.length > 0 ? (
+              almanacEvents.slice(0, 3).map((event) => (
+                <div
+                  key={event.id}
+                  className="rounded-md border border-border bg-background p-3"
+                >
+                  <p className="text-sm font-medium">{event.title}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {event.startDate
+                      ? new Date(event.startDate).toLocaleDateString()
+                      : "Date not set"}{" "}
+                    · {event.eventType}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <EmptyDashboardPanel
+                title="No almanac events yet"
+                description="Create academic dates to populate this dashboard section."
+                href="/campus-admin/almanac"
+                action="Open Almanac"
+              />
+            )}
           </CardContent>
         </Card>
       </section>
@@ -272,20 +226,13 @@ export default async function CampusAdminDashboardPage() {
           <CardHeader>
             <CardTitle>Recent Activities</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {[
-              "College of ICT updated its representative roster.",
-              "Department of Computer Science added two teacher invitations.",
-              "Main Library map point was reviewed for accuracy.",
-              "Semester II registration date was published.",
-            ].map((activity) => (
-              <div
-                key={activity}
-                className="rounded-md border border-border bg-background p-3 text-sm text-muted-foreground"
-              >
-                {activity}
-              </div>
-            ))}
+          <CardContent>
+            <EmptyDashboardPanel
+              title="No recent activity yet"
+              description="Real audit and activity feed events will appear here after campus actions occur."
+              href="/campus-admin/colleges"
+              action="Start Setup"
+            />
           </CardContent>
         </Card>
 

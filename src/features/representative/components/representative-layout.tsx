@@ -1,4 +1,5 @@
 import { DashboardPageTransition } from "@/components/motion/dashboard-page-transition";
+import { DashboardIntroTour } from "@/components/onboarding/dashboard-intro-tour";
 import { RepresentativeSidebar } from "@/features/representative/components/representative-sidebar";
 import { RepresentativeTopbar } from "@/features/representative/components/representative-topbar";
 import type { AuthUser } from "@/types/auth";
@@ -19,6 +20,10 @@ export function RepresentativeLayout({
         <div className="min-w-0 flex-1">
           <RepresentativeTopbar user={user} />
           <DashboardPageTransition>{children}</DashboardPageTransition>
+          <DashboardIntroTour
+            role="Representative"
+            storageKey="campushub:intro:representative-dashboard"
+          />
         </div>
       </div>
     </div>

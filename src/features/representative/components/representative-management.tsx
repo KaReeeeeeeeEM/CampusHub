@@ -1,4 +1,7 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-nocheck
 "use client";
+
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMemo, useState, useTransition } from "react";

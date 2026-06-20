@@ -9,6 +9,10 @@ function isAuthPath(pathname: string) {
   );
 }
 
+function isLegacyPortalSelectionPath(pathname: string) {
+  return pathname === "/portal-selection" || pathname.startsWith("/portal/");
+}
+
 export function getSafeCallbackUrl(value: string | null | undefined) {
   if (!value || value.startsWith("//")) {
     return DEFAULT_AUTHENTICATED_REDIRECT;
@@ -22,6 +26,10 @@ export function getSafeCallbackUrl(value: string | null | undefined) {
     }
 
     if (isAuthPath(url.pathname)) {
+      return DEFAULT_AUTHENTICATED_REDIRECT;
+    }
+
+    if (isLegacyPortalSelectionPath(url.pathname)) {
       return DEFAULT_AUTHENTICATED_REDIRECT;
     }
 

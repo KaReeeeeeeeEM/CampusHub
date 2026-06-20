@@ -140,7 +140,7 @@ export function AchievementModal({
                         icon={badgeIcon}
                         color={badgeColor}
                       />
-                      <Dialog.Title className="mt-8 text-3xl font-bold tracking-tight sm:text-4xl">
+                      <Dialog.Title className="campushub-achievement-display mt-8 text-3xl font-bold tracking-normal sm:text-4xl">
                         Hey, you dropped this
                       </Dialog.Title>
                       <Dialog.Description className="mt-5 text-base leading-7 text-muted-foreground">

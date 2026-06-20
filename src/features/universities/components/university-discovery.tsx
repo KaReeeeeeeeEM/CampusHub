@@ -7,10 +7,10 @@ import { CampusSearch, CampusSelect } from "@/components/campushub";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { UniversityCard } from "@/features/universities/components/university-card";
-import type { University } from "@/features/universities/lib/mock-data";
+import type { PublicUniversity } from "@/features/universities/lib/university-directory-service";
 
 type UniversityDiscoveryProps = {
-  universities: University[];
+  universities: PublicUniversity[];
 };
 
 export function UniversityDiscovery({

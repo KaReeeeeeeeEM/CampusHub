@@ -51,6 +51,13 @@ type DepartmentsManagementProps = {
   initialDepartments: SerializedDepartment[];
 };
 
+type ApiEnvelope<T> = {
+  data: T | null;
+  error: {
+    message: string;
+  } | null;
+};
+
 const statusOptions = [
   { label: "Active", value: "ACTIVE" },
   { label: "Inactive", value: "INACTIVE" },
@@ -76,6 +83,27 @@ function getDefaultValues(department?: SerializedDepartment): DepartmentInput {
     description: department?.description ?? "",
     status: department?.status ?? "ACTIVE",
   };
+}
+
+async function getApiError(response: Response) {
+  try {
+    const payload = (await response.json()) as ApiEnvelope<unknown>;
+    return payload.error?.message || "The request could not be completed.";
+  } catch {
+    return "The request could not be completed.";
+  }
+}
+
+async function readDepartmentResponse(response: Response) {
+  const payload = (await response.json()) as ApiEnvelope<{
+    department: SerializedDepartment;
+  }>;
+
+  if (!payload.data?.department) {
+    throw new Error("Department response was empty.");
+  }
+
+  return payload.data.department;
 }
 
 function DepartmentForm({
@@ -155,7 +183,7 @@ function DepartmentForm({
             <p className="text-xs text-destructive">{errors.code.message}</p>
           ) : null}
         </label>
-        <label className="space-y-2">
+        <label className="space-y-2 md:col-span-2">
           <span className="text-sm font-medium">Status</span>
           <Select
             value={status}
@@ -280,25 +308,35 @@ export function DepartmentsManagement({
 
   function createDepartment(values: DepartmentInput) {
     startTransition(async () => {
-      const college = colleges.find((item) => item.id === values.collegeId);
-      const createdAt = new Date().toISOString();
-      setDepartments((current) => [
-        {
-          id: `department-${Date.now()}`,
-          universityId: "udsm",
-          collegeName: college?.name ?? "Unknown college",
-          createdAt,
-          updatedAt: createdAt,
-          ...values,
-          code: values.code.toUpperCase(),
-        },
-        ...current,
-      ]);
-      setCreateOpen(false);
-      campusToast.success({
-        title: "Department Created",
-        description: "The department was created successfully.",
-      });
+      try {
+        const response = await fetch("/api/campus-admin/departments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(values),
+        });
+
+        if (!response.ok) {
+          campusToast.error({
+            title: "Department Not Created",
+            description: await getApiError(response),
+          });
+          return;
+        }
+
+        const department = await readDepartmentResponse(response);
+        setDepartments((current) => [department, ...current]);
+        setCreateOpen(false);
+        campusToast.success({
+          title: "Department Created",
+          description: "The department was created successfully.",
+        });
+      } catch {
+        campusToast.error({
+          title: "Department Not Created",
+          description: "Unable to save the department. Please try again.",
+        });
+      }
     });
   }
 
@@ -308,25 +346,42 @@ export function DepartmentsManagement({
     }
 
     startTransition(async () => {
-      const college = colleges.find((item) => item.id === values.collegeId);
-      setDepartments((current) =>
-        current.map((department) =>
-          department.id === editing.id
-            ? {
-                ...department,
-                ...values,
-                code: values.code.toUpperCase(),
-                collegeName: college?.name ?? department.collegeName,
-                updatedAt: new Date().toISOString(),
-              }
-            : department,
-        ),
-      );
-      setEditing(null);
-      campusToast.success({
-        title: "Department Updated",
-        description: "Department information updated successfully.",
-      });
+      try {
+        const response = await fetch(
+          `/api/campus-admin/departments/${editing.id}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify(values),
+          },
+        );
+
+        if (!response.ok) {
+          campusToast.error({
+            title: "Department Not Updated",
+            description: await getApiError(response),
+          });
+          return;
+        }
+
+        const updatedDepartment = await readDepartmentResponse(response);
+        setDepartments((current) =>
+          current.map((department) =>
+            department.id === editing.id ? updatedDepartment : department,
+          ),
+        );
+        setEditing(null);
+        campusToast.success({
+          title: "Department Updated",
+          description: "Department information updated successfully.",
+        });
+      } catch {
+        campusToast.error({
+          title: "Department Not Updated",
+          description: "Unable to save the department. Please try again.",
+        });
+      }
     });
   }
 
@@ -336,22 +391,42 @@ export function DepartmentsManagement({
     }
 
     startTransition(async () => {
-      setDepartments((current) =>
-        current.map((department) =>
-          department.id === deactivating.id
-            ? {
-                ...department,
-                status: "INACTIVE",
-                updatedAt: new Date().toISOString(),
-              }
-            : department,
-        ),
-      );
-      setDeactivating(null);
-      campusToast.warning({
-        title: "Department Deactivated",
-        description: "The department has been deactivated successfully.",
-      });
+      try {
+        const response = await fetch(
+          `/api/campus-admin/departments/${deactivating.id}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ action: "deactivate" }),
+          },
+        );
+
+        if (!response.ok) {
+          campusToast.error({
+            title: "Department Not Deactivated",
+            description: await getApiError(response),
+          });
+          return;
+        }
+
+        const updatedDepartment = await readDepartmentResponse(response);
+        setDepartments((current) =>
+          current.map((department) =>
+            department.id === deactivating.id ? updatedDepartment : department,
+          ),
+        );
+        setDeactivating(null);
+        campusToast.warning({
+          title: "Department Deactivated",
+          description: "The department has been deactivated successfully.",
+        });
+      } catch {
+        campusToast.error({
+          title: "Department Not Deactivated",
+          description: "Unable to deactivate the department. Please try again.",
+        });
+      }
     });
   }
 
@@ -362,12 +437,7 @@ export function DepartmentsManagement({
     {
       key: "teachers",
       header: "Teachers",
-      cell: (department) =>
-        department.id === "department-cs"
-          ? "2"
-          : department.id === "department-electronics"
-            ? "1"
-            : "0",
+      cell: () => "0",
     },
     {
       key: "status",
@@ -481,11 +551,7 @@ export function DepartmentsManagement({
                 <div className="mt-auto flex items-center justify-between gap-3 pt-5">
                   <StatusBadge status={department.status} />
                   <span className="text-xs text-muted-foreground">
-                    {department.id === "department-cs"
-                      ? "2 teachers"
-                      : department.id === "department-electronics"
-                        ? "1 teacher"
-                        : "0 teachers"}
+                    0 teachers
                   </span>
                 </div>
               </article>

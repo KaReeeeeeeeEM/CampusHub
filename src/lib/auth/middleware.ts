@@ -7,6 +7,7 @@ import {
   DEFAULT_AUTHENTICATED_REDIRECT,
   ONBOARDING_ROUTE_PREFIXES,
   PORTAL_ROUTE_PREFIXES,
+  PUBLIC_INVITATION_ROUTE_PREFIXES,
   PUBLIC_ROUTES,
 } from "@/constants/routes";
 import { getSafeCallbackUrl, hasUnsafeCallbackUrl } from "@/lib/auth/redirects";
@@ -22,9 +23,14 @@ function hasBetterAuthSessionCookie(request: NextRequest) {
   return request.cookies
     .getAll()
     .some(
-      (cookie) =>
-        cookie.name.includes("better-auth") ||
-        cookie.name.includes("campushub"),
+      (cookie) => {
+        const normalizedName = cookie.name.replace(/^__Secure-/, "");
+
+        return (
+          normalizedName === "better-auth.session_token" ||
+          normalizedName === "better-auth-session_token"
+        );
+      },
     );
 }
 
@@ -54,6 +60,10 @@ export function withAuthGuard(request: NextRequest) {
 
   const isAuthRoute = matchesPath(pathname, AUTH_ROUTE_PATHS);
   const isPublicRoute = matchesPath(pathname, PUBLIC_ROUTES);
+  const isPublicInvitationRoute = matchesPath(
+    pathname,
+    PUBLIC_INVITATION_ROUTE_PREFIXES,
+  );
   const isOnboardingRoute = matchesPath(pathname, ONBOARDING_ROUTE_PREFIXES);
   const isPortalRoute = matchesPath(pathname, PORTAL_ROUTE_PREFIXES);
   const isAppRoute = matchesPath(pathname, APP_ROUTE_PREFIXES);
@@ -80,6 +90,7 @@ export function withAuthGuard(request: NextRequest) {
 
   if (
     isPublicRoute ||
+    isPublicInvitationRoute ||
     (!isAuthRoute && !isOnboardingRoute && !isPortalRoute && !isAppRoute)
   ) {
     return NextResponse.next();

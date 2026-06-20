@@ -24,7 +24,7 @@ export function StudentDashboardFoundation() {
             </p>
           </div>
           <Button asChild>
-            <Link href="/portal-selection">Switch portal</Link>
+            <Link href="/dashboard">Open dashboard</Link>
           </Button>
         </div>
       </section>

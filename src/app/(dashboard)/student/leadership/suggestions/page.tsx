@@ -1,9 +1,8 @@
-import { redirect } from "next/navigation";
-
+import { StudentLeadershipSuggestionsPageView } from "@/features/representative/components/student-leadership-workspace";
 import { requireStudentLeadershipPosition } from "@/lib/auth/route-guards";
 
 export default async function StudentLeadershipSuggestionsPage() {
   await requireStudentLeadershipPosition("REPRESENTATIVE");
 
-  redirect("/student/leadership");
+  return <StudentLeadershipSuggestionsPageView />;
 }

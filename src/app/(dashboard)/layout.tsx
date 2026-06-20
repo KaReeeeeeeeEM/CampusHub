@@ -1,4 +1,5 @@
 import { requireCompletedOnboarding } from "@/lib/auth/route-guards";
+import { DashboardThemeProvider } from "@/providers/dashboard-theme-provider";
 
 export default async function DashboardLayout({
   children,
@@ -7,5 +8,5 @@ export default async function DashboardLayout({
 }) {
   await requireCompletedOnboarding();
 
-  return children;
+  return <DashboardThemeProvider>{children}</DashboardThemeProvider>;
 }

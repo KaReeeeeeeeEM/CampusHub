@@ -8,9 +8,11 @@ import type {
   EmployerApplicationInput,
   EmployerApplicationReviewInput,
 } from "@/features/employer-applications/lib/schemas";
+import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { auth, getAcquisitionSecret } from "@/lib/auth/auth";
 import { connectMongo } from "@/lib/db/mongodb";
 import { EmployerApplicationModel, UserModel } from "@/lib/db/models";
+import { emitNotificationEvent } from "@/lib/notifications/notification-events";
 import type { AuthSession } from "@/types/auth";
 
 const activationTokenTtlMs = 1000 * 60 * 60 * 24 * 7;
@@ -25,6 +27,10 @@ function hashToken(token: string) {
 
 function createActivationToken() {
   return randomBytes(32).toString("base64url");
+}
+
+function createTemporaryPassword() {
+  return `${randomBytes(18).toString("base64url")}Aa1!`;
 }
 
 function hasNonEmployerRole(user: {
@@ -75,7 +81,7 @@ export async function submitEmployerApplication(
 
   const activeApplication = await EmployerApplicationModel.findOne({
     email: input.email.toLowerCase(),
-    status: { $in: ["PENDING", "APPROVED", "MORE_INFORMATION_REQUESTED"] },
+    status: { $in: ["PENDING", "APPROVED"] },
   }).lean();
 
   if (activeApplication) {
@@ -96,7 +102,16 @@ export async function submitEmployerApplication(
     phone: input.phone,
     country: input.country,
     reasonForJoining: input.reasonForJoining,
+    description: input.reasonForJoining,
     status: "PENDING",
+  });
+
+  await writeAuditLog({
+    actorId: null,
+    action: "EMPLOYER_APPLICATION_SUBMITTED",
+    entityType: "employer_application",
+    entityId: String(application._id),
+    after: application.toObject(),
   });
 
   return application.toObject();
@@ -142,6 +157,7 @@ export async function reviewEmployerApplication(
     application.status = "APPROVED";
     application.reviewNotes = input.reviewNotes || null;
     application.reviewedByUserId = session.user.id;
+    application.reviewedBy = session.user.id;
     application.reviewedAt = new Date();
     application.activationTokenHash = hashToken(token);
     application.activationTokenExpiresAt = new Date(
@@ -150,6 +166,45 @@ export async function reviewEmployerApplication(
     application.activationInvitationSentAt = new Date();
 
     await application.save();
+
+    let employerUserId = existingUser?._id ? String(existingUser._id) : null;
+
+    if (!employerUserId) {
+      const response = await auth.api.signUpEmail({
+        body: {
+          name: application.contactPerson,
+          email: application.email,
+          password: createTemporaryPassword(),
+          callbackURL: "/verification-success",
+          intendedRole: ROLES.EMPLOYER,
+          acquisitionSource: "EMPLOYER_ACTIVATION",
+          acquisitionToken: getAcquisitionSecret(),
+        },
+      });
+
+      employerUserId = response.user.id;
+      application.employerUserId = employerUserId;
+      await application.save();
+    }
+
+    await writeAuditLog({
+      actorId: session.user.id,
+      action: "EMPLOYER_APPROVED",
+      entityType: "employer_application",
+      entityId: String(application._id),
+      after: {
+        status: "APPROVED",
+        employerUserId,
+      },
+    });
+    await emitNotificationEvent({
+      type: "EMPLOYER_APPROVED",
+      actorId: session.user.id,
+      recipientId: employerUserId,
+      recipientEmail: application.email,
+      entityType: "employer_application",
+      entityId: String(application._id),
+    });
 
     console.info("CampusHub employer activation invitation generated", {
       applicationId: application._id,
@@ -163,12 +218,30 @@ export async function reviewEmployerApplication(
     };
   }
 
-  application.status =
-    input.action === "reject" ? "REJECTED" : "MORE_INFORMATION_REQUESTED";
+  application.status = "REJECTED";
   application.reviewNotes = input.reviewNotes || null;
   application.reviewedByUserId = session.user.id;
+  application.reviewedBy = session.user.id;
   application.reviewedAt = new Date();
   await application.save();
+
+  await writeAuditLog({
+    actorId: session.user.id,
+    action: "EMPLOYER_REJECTED",
+    entityType: "employer_application",
+    entityId: String(application._id),
+    after: {
+      status: "REJECTED",
+      reviewNotes: application.reviewNotes,
+    },
+  });
+  await emitNotificationEvent({
+    type: "EMPLOYER_REJECTED",
+    actorId: session.user.id,
+    recipientEmail: application.email,
+    entityType: "employer_application",
+    entityId: String(application._id),
+  });
 
   return {
     application: application.toObject(),
@@ -221,6 +294,23 @@ export async function activateEmployerAccount(input: EmployerActivationInput) {
     throw new Error(
       "This email already belongs to a non-employer CampusHub account.",
     );
+  }
+
+  if (existingUser) {
+    await EmployerApplicationModel.updateOne(
+      { _id: application._id, activationUsedAt: null },
+      {
+        $set: {
+          activationUsedAt: new Date(),
+          employerUserId: existingUser._id,
+        },
+      },
+    );
+
+    return {
+      ok: true as const,
+      userId: String(existingUser._id),
+    };
   }
 
   const response = await auth.api.signUpEmail({

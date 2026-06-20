@@ -7,7 +7,7 @@ import {
   useScroll,
   useTransform,
 } from "framer-motion";
-import { ArrowRight, Network } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -27,13 +27,6 @@ const accentPositions = [
   { x: "22%", y: "72%" },
 ];
 
-const storySignals = [
-  "Campus life, connected",
-  "Institutional trust layer",
-  "Talent pathways opening",
-  "Lifelong networks active",
-];
-
 export function ImmersiveStoryHero() {
   const [activeIndex, setActiveIndex] = useState(0);
   const reducedMotion = useReducedMotion();
@@ -41,7 +34,6 @@ export function ImmersiveStoryHero() {
   const parallaxY = useTransform(scrollY, [0, 760], [0, 54]);
   const activeStory = heroSlides[activeIndex] ?? heroSlides[0];
   const accent = accentPositions[activeIndex] ?? accentPositions[0];
-  const activeSignal = storySignals[activeIndex] ?? storySignals[0];
 
   useEffect(() => {
     if (reducedMotion) {
@@ -60,7 +52,7 @@ export function ImmersiveStoryHero() {
   }
 
   return (
-    <section className="relative isolate min-h-[760px] overflow-hidden border-b border-white/10 bg-black text-white">
+    <section className="relative isolate min-h-[80vh] overflow-hidden border-b border-white/10 bg-black text-white">
       <div className="absolute inset-0">
         {heroSlides.map((story, index) => (
           <motion.div
@@ -102,30 +94,8 @@ export function ImmersiveStoryHero() {
       />
       <div className="absolute inset-x-0 bottom-0 top-36 opacity-35 [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:72px_72px]" />
 
-      <div className="relative z-10 mx-auto grid min-h-[760px] max-w-7xl content-end gap-8 px-4 pb-8 pt-36 sm:px-6 sm:pt-40 lg:grid-cols-[minmax(0,1fr)_25rem] lg:items-end lg:px-8 lg:pb-10">
+      <div className="relative z-10 mx-auto grid min-h-[80vh] max-w-7xl content-end gap-8 px-4 pb-8 pt-36 sm:px-6 sm:pt-40 lg:grid-cols-[minmax(0,1fr)_25rem] lg:items-end lg:px-8 lg:pb-10">
         <div className="max-w-5xl">
-          <div className="mb-7 flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-normal text-zinc-200">
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md">
-              <Network
-                className="h-3.5 w-3.5 text-primary"
-                aria-hidden="true"
-              />
-              CampusHub live ecosystem
-            </span>
-            <AnimatePresence mode="wait">
-              <motion.span
-                key={activeSignal}
-                className="text-primary"
-                initial={reducedMotion ? false : { opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={reducedMotion ? undefined : { opacity: 0, y: -8 }}
-                transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-              >
-                {activeSignal}
-              </motion.span>
-            </AnimatePresence>
-          </div>
-
           <AnimatePresence mode="wait">
             <motion.div
               key={activeStory.audience}
@@ -145,7 +115,7 @@ export function ImmersiveStoryHero() {
               <p className="text-sm font-semibold uppercase tracking-normal text-primary">
                 For {activeStory.audience}
               </p>
-              <h1 className="mt-4 max-w-5xl text-5xl font-semibold leading-[0.95] tracking-normal sm:text-7xl lg:text-8xl">
+              <h1 className="campushub-hero-headline mt-4 max-w-5xl text-5xl font-semibold leading-[0.95] tracking-normal sm:text-7xl lg:text-8xl">
                 {activeStory.title}
               </h1>
               <p className="mt-6 max-w-2xl text-base leading-7 text-zinc-200 sm:text-xl">

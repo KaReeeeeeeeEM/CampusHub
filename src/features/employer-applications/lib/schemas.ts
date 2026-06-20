@@ -30,7 +30,7 @@ export const employerApplicationSchema = z.object({
 });
 
 export const employerApplicationReviewSchema = z.object({
-  action: z.enum(["approve", "reject", "request-more-information"]),
+  action: z.enum(["approve", "reject"]),
   reviewNotes: z.string().max(1000).optional(),
 });
 

@@ -1,18 +1,13 @@
 import { randomUUID } from "node:crypto";
 
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import {
   isLegacyStudentLeadershipRoleKey,
   isRoleKey,
   isStudentLeadershipPosition,
-  type RoleKey,
 } from "@/features/authorization/roles";
-import {
-  DEV_ROLE_PREVIEW_COOKIE,
-  isRolePreviewKey,
-} from "@/features/development/role-preview";
+import type { RoleKey } from "@/features/authorization/roles";
 import {
   canAccessPortal,
   getPortalByKey,
@@ -79,27 +74,7 @@ async function resolvePreviewableAccess(session: AuthSession) {
   const roles = resolveUserRoles(session);
   const studentLeadershipPositions = resolveStudentLeadershipPositions(session);
 
-  if (
-    process.env.NODE_ENV === "production" ||
-    !roles.includes("SUPER_ADMIN")
-  ) {
-    return { roles, studentLeadershipPositions };
-  }
-
-  const previewRole = (await cookies()).get(DEV_ROLE_PREVIEW_COOKIE)?.value;
-
-  if (!isRolePreviewKey(previewRole)) {
-    return { roles, studentLeadershipPositions };
-  }
-
-  if (isStudentLeadershipPosition(previewRole)) {
-    return {
-      roles: ["STUDENT"] satisfies RoleKey[],
-      studentLeadershipPositions: [previewRole],
-    };
-  }
-
-  return { roles: [previewRole], studentLeadershipPositions: [] };
+  return { roles, studentLeadershipPositions };
 }
 
 export function getAvailablePortalsForAccess(userRoles: RoleKey[]) {
@@ -291,7 +266,7 @@ export async function selectPortal(portal: PortalKey) {
       selectedAt: selectedAt.toISOString(),
       quickAccess,
     } satisfies PortalPreferenceState,
-    redirectHref: definition?.href ?? "/portal-selection",
+    redirectHref: definition?.href ?? "/dashboard",
   };
 }
 
@@ -371,7 +346,7 @@ export async function requirePortalAccess(portal: PortalKey) {
   const state = await getPortalPreferenceState();
 
   if (!state.availablePortals.includes(portal)) {
-    redirect(state.recommendedPortal ? "/portal-selection" : "/onboarding");
+    redirect(state.recommendedPortal ? "/dashboard" : "/onboarding");
   }
 
   return state;

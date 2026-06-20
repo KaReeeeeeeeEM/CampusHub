@@ -52,7 +52,7 @@ export const portalDefinitions: PortalDefinition[] = [
     roleLabel: "Teacher",
     description:
       "Prepare academic staff workflows for departments, courses, students, and campus engagement.",
-    href: "/portal/teacher",
+    href: "/teacher/dashboard",
     requiredRoles: ["TEACHER"],
     capabilities: [
       "Course context",
@@ -82,7 +82,7 @@ export const portalDefinitions: PortalDefinition[] = [
     roleLabel: "Alumni",
     description:
       "Reconnect with your university, mentor students, discover opportunities, and grow your network.",
-    href: "/portal/alumni",
+    href: "/alumni/dashboard",
     requiredRoles: ["ALUMNI"],
     capabilities: ["Mentorship", "Career network", "Alumni community"],
     icon: Building2,
@@ -93,7 +93,7 @@ export const portalDefinitions: PortalDefinition[] = [
     roleLabel: "Employer",
     description:
       "Build university partnerships, access talent pools, and prepare recruiting workflows.",
-    href: "/portal/employer",
+    href: "/employer/dashboard",
     requiredRoles: ["EMPLOYER"],
     capabilities: ["Talent pipeline", "Campus recruiting", "Company profile"],
     icon: BriefcaseBusiness,

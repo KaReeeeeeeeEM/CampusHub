@@ -11,10 +11,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { mockNotifications } from "@/features/student-portal/lib/mock-data";
 
 export function StudentNotificationArea() {
-  const [notifications, setNotifications] = useState(mockNotifications);
+  const [notifications, setNotifications] = useState<
+    Array<{ id: string; title: string; description: string; unread: boolean }>
+  >([]);
   const unreadCount = notifications.filter(
     (notification) => notification.unread,
   ).length;

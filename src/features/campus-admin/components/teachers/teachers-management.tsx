@@ -5,7 +5,6 @@ import { useMemo, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import {
   FiCopy,
-  FiEdit,
   FiEye,
   FiGrid,
   FiList,
@@ -47,15 +46,31 @@ import type {
 } from "@/features/campus-admin/lib/campus-admin-service";
 import type { DataTableColumn } from "@/components/shared/data-table";
 
+type ApiResponse<T> = {
+  data: T | null;
+  error: {
+    message: string;
+  } | null;
+};
+
 type TeachersManagementProps = {
   departments: SerializedDepartment[];
   initialInvitations: Array<
     SerializedTeacherInvitation & { photo?: string | null }
   >;
 };
+
 const viewOptions = [
   { value: "table", label: "Table view", icon: FiList },
   { value: "cards", label: "Card view", icon: FiGrid },
+] as const;
+
+const expiryOptions = [
+  { label: "7 days", value: "7" },
+  { label: "14 days", value: "14" },
+  { label: "30 days", value: "30" },
+  { label: "60 days", value: "60" },
+  { label: "90 days", value: "90" },
 ] as const;
 
 function StatusBadge({
@@ -70,32 +85,24 @@ function StatusBadge({
   );
 }
 
-function getDefaultValues(
-  invitation?: SerializedTeacherInvitation,
-): TeacherInvitationInput {
-  return {
-    departmentId: invitation?.departmentId ?? "",
-    firstName: invitation?.firstName ?? "",
-    lastName: invitation?.lastName ?? "",
-    email: invitation?.email ?? "",
-    phone: invitation?.phone ?? "",
-    expiresInDays: 14,
-  };
+function getRecipientLabel(invitation: SerializedTeacherInvitation) {
+  const name = [invitation.firstName, invitation.lastName]
+    .filter(Boolean)
+    .join(" ");
+
+  return name || invitation.email || "Not redeemed yet";
 }
 
 function TeacherInvitationForm({
   departments,
-  invitation,
   onSubmit,
   isSubmitting,
 }: {
   departments: SerializedDepartment[];
-  invitation?: SerializedTeacherInvitation;
   onSubmit: (values: TeacherInvitationInput) => void;
   isSubmitting: boolean;
 }) {
   const {
-    register,
     handleSubmit,
     watch,
     setValue,
@@ -106,13 +113,17 @@ function TeacherInvitationForm({
     TeacherInvitationInput
   >({
     resolver: zodResolver(teacherInvitationInputSchema),
-    defaultValues: getDefaultValues(invitation),
+    defaultValues: {
+      departmentId: "",
+      expiresInDays: 14,
+    },
   });
   const departmentId = watch("departmentId");
+  const expiresInDays = String(watch("expiresInDays") ?? 14);
 
   return (
     <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
-      <label className="space-y-2">
+      <label className="block space-y-2">
         <span className="text-sm font-medium">Department</span>
         <Select
           value={departmentId}
@@ -123,7 +134,7 @@ function TeacherInvitationForm({
             })
           }
         >
-          <SelectTrigger>
+          <SelectTrigger className="w-full">
             <SelectValue placeholder="Select department" />
           </SelectTrigger>
           <SelectContent>
@@ -140,57 +151,38 @@ function TeacherInvitationForm({
           </p>
         ) : null}
       </label>
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className="space-y-2">
-          <span className="text-sm font-medium">First Name</span>
-          <CampusInput
-            {...register("firstName")}
-            invalid={Boolean(errors.firstName)}
-            placeholder="John"
-          />
-          {errors.firstName ? (
-            <p className="text-xs text-destructive">
-              {errors.firstName.message}
-            </p>
-          ) : null}
-        </label>
-        <label className="space-y-2">
-          <span className="text-sm font-medium">Last Name</span>
-          <CampusInput
-            {...register("lastName")}
-            invalid={Boolean(errors.lastName)}
-            placeholder="Mwangi"
-          />
-          {errors.lastName ? (
-            <p className="text-xs text-destructive">
-              {errors.lastName.message}
-            </p>
-          ) : null}
-        </label>
-        <label className="space-y-2">
-          <span className="text-sm font-medium">Email</span>
-          <CampusInput
-            {...register("email")}
-            invalid={Boolean(errors.email)}
-            placeholder="teacher@university.edu"
-            type="email"
-          />
-          {errors.email ? (
-            <p className="text-xs text-destructive">{errors.email.message}</p>
-          ) : null}
-        </label>
-        <label className="space-y-2">
-          <span className="text-sm font-medium">Phone</span>
-          <CampusInput {...register("phone")} placeholder="+255 000 000 000" />
-        </label>
-      </div>
+
+      <label className="block space-y-2">
+        <span className="text-sm font-medium">Expiry</span>
+        <Select
+          value={expiresInDays}
+          onValueChange={(value) =>
+            setValue("expiresInDays", Number(value), {
+              shouldDirty: true,
+              shouldValidate: true,
+            })
+          }
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select expiry" />
+          </SelectTrigger>
+          <SelectContent>
+            {expiryOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </label>
+
       <Button className="w-full" disabled={isSubmitting} type="submit">
         {isSubmitting ? (
           <FiLoader className="h-4 w-4 animate-spin" aria-hidden="true" />
         ) : (
-          <FiMail className="h-4 w-4" aria-hidden="true" />
+          <FiCopy className="h-4 w-4" aria-hidden="true" />
         )}
-        {invitation ? "Save Changes" : "Send Invitation"}
+        Generate Invitation Link
       </Button>
     </form>
   );
@@ -198,37 +190,69 @@ function TeacherInvitationForm({
 
 function InvitationDetails({
   invitation,
+  onCopy,
 }: {
   invitation: SerializedTeacherInvitation;
+  onCopy: (invitation: SerializedTeacherInvitation) => void;
 }) {
-  const rows = [
-    ["Name", `${invitation.firstName} ${invitation.lastName}`],
-    ["Email", invitation.email],
-    ["Phone", invitation.phone],
-    ["Department", invitation.departmentName],
-    ["Status", invitation.status],
-    ["Expires", new Date(invitation.expiresAt).toLocaleDateString()],
-  ];
+  const expiresAt = new Date(invitation.expiresAt).toLocaleDateString();
+  const shareSubject = encodeURIComponent("CampusHub teacher invitation");
+  const shareBody = encodeURIComponent(
+    `Use this one-time CampusHub activation link for ${invitation.departmentName}: ${invitation.invitationUrl}`,
+  );
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-md border border-border bg-background p-3">
-        <p className="text-xs uppercase tracking-normal text-muted-foreground">
-          Invitation URL
-        </p>
-        <p className="mt-2 break-all text-sm font-medium">
+    <div className="space-y-6">
+      <div className="rounded-md border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-primary">
+        One-time teacher activation link for {invitation.departmentName}.
+        Expires on {expiresAt}.
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-md border border-border bg-background px-4 py-3 sm:flex-row sm:items-center">
+        <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
           {invitation.invitationUrl}
         </p>
+        <Button
+          type="button"
+          variant="ghost"
+          className="justify-start gap-2 text-primary hover:text-primary sm:justify-center"
+          onClick={() => onCopy(invitation)}
+        >
+          <FiCopy className="h-4 w-4" aria-hidden="true" />
+          Copy link
+        </Button>
       </div>
+
       <div className="grid gap-3 sm:grid-cols-2">
-        {rows.map(([label, value]) => (
+        {[
+          ["Department", invitation.departmentName],
+          ["Recipient", getRecipientLabel(invitation)],
+          ["Status", invitation.status],
+          ["Expires", expiresAt],
+        ].map(([label, value]) => (
           <div key={label} className="rounded-md border border-border p-3">
             <p className="text-xs uppercase tracking-normal text-muted-foreground">
               {label}
             </p>
-            <p className="mt-1 text-sm font-medium">{value || "Not set"}</p>
+            <p className="mt-1 text-sm font-medium">{value}</p>
           </div>
         ))}
+      </div>
+
+      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+        <span>Share via</span>
+        <Button
+          asChild
+          size="icon"
+          type="button"
+          variant="secondary"
+          aria-label="Share invitation by email"
+          className="rounded-full"
+        >
+          <a href={`mailto:?subject=${shareSubject}&body=${shareBody}`}>
+            <FiMail className="h-4 w-4" aria-hidden="true" />
+          </a>
+        </Button>
       </div>
     </div>
   );
@@ -245,9 +269,6 @@ export function TeachersManagement({
   const [viewing, setViewing] = useState<SerializedTeacherInvitation | null>(
     null,
   );
-  const [editing, setEditing] = useState<SerializedTeacherInvitation | null>(
-    null,
-  );
   const [deactivating, setDeactivating] =
     useState<SerializedTeacherInvitation | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -261,11 +282,11 @@ export function TeachersManagement({
 
     return invitations.filter((invitation) =>
       [
-        invitation.firstName,
-        invitation.lastName,
+        getRecipientLabel(invitation),
         invitation.email,
         invitation.departmentName,
         invitation.status,
+        invitation.invitationUrl,
       ]
         .filter(Boolean)
         .join(" ")
@@ -276,58 +297,35 @@ export function TeachersManagement({
 
   function createInvitation(values: TeacherInvitationInput) {
     startTransition(async () => {
-      const department = departments.find(
-        (item) => item.id === values.departmentId,
-      );
+      const response = await fetch("/api/campus-admin/teacher-invitations", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(values),
+      });
+      const payload = (await response.json()) as ApiResponse<{
+        invitation: SerializedTeacherInvitation;
+      }>;
+
+      if (!response.ok || !payload.data) {
+        campusToast.error({
+          title: "Invitation Failed",
+          description:
+            payload.error?.message ??
+            "Unable to generate teacher invitation link.",
+        });
+        return;
+      }
+
+      const invitation = payload.data.invitation;
       setInvitations((current) => [
-        {
-          id: `teacher-${Date.now()}`,
-          universityId: "udsm",
-          departmentName: department?.name ?? "Unknown department",
-          status: "SENT",
-          invitationUrl: `https://campushub.local/teachers/activate/${Date.now()}`,
-          expiresAt: new Date(
-            Date.now() + 14 * 24 * 60 * 60 * 1000,
-          ).toISOString(),
-          createdAt: new Date().toISOString(),
-          ...values,
-          phone: values.phone || null,
-        },
-        ...current,
+        invitation,
+        ...current.filter((item) => item.id !== invitation.id),
       ]);
       setCreateOpen(false);
+      setViewing(invitation);
       campusToast.info({
-        title: "Teacher Invitation Sent",
-        description: "The teacher invitation was sent successfully.",
-      });
-    });
-  }
-
-  function updateInvitation(values: TeacherInvitationInput) {
-    if (!editing) {
-      return;
-    }
-
-    startTransition(async () => {
-      const department = departments.find(
-        (item) => item.id === values.departmentId,
-      );
-      setInvitations((current) =>
-        current.map((invitation) =>
-          invitation.id === editing.id
-            ? {
-                ...invitation,
-                ...values,
-                phone: values.phone || null,
-                departmentName: department?.name ?? invitation.departmentName,
-              }
-            : invitation,
-        ),
-      );
-      setEditing(null);
-      campusToast.success({
-        title: "Teacher Updated",
-        description: "Teacher invitation details were updated.",
+        title: "Invitation Link Generated",
+        description: "Copy and share this one-time activation link.",
       });
     });
   }
@@ -337,32 +335,49 @@ export function TeachersManagement({
     action: "resend" | "deactivate",
   ) {
     startTransition(async () => {
+      const response = await fetch(
+        `/api/campus-admin/teacher-invitations/${invitation.id}`,
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action }),
+        },
+      );
+      const payload = (await response.json()) as ApiResponse<{
+        invitation: SerializedTeacherInvitation;
+      }>;
+
+      if (!response.ok || !payload.data) {
+        campusToast.error({
+          title:
+            action === "resend"
+              ? "Invitation Not Regenerated"
+              : "Invitation Not Deactivated",
+          description:
+            payload.error?.message ?? "Unable to update the invitation.",
+        });
+        return;
+      }
+
       setInvitations((current) =>
         current.map((item) =>
-          item.id === invitation.id
-            ? {
-                ...item,
-                status: action === "resend" ? "SENT" : "DISABLED",
-                invitationUrl:
-                  action === "resend"
-                    ? `https://campushub.local/teachers/activate/${Date.now()}`
-                    : item.invitationUrl,
-              }
-            : item,
+          item.id === invitation.id ? payload.data!.invitation : item,
         ),
       );
       setDeactivating(null);
-      if (action === "resend") {
-        campusToast.info({
-          title: "Invitation Resent",
-          description: "Teacher invitation has been regenerated.",
-        });
-      } else {
-        campusToast.warning({
-          title: "Teacher Deactivated",
-          description: "Teacher invitation has been deactivated.",
-        });
+      if (viewing?.id === invitation.id) {
+        setViewing(payload.data.invitation);
       }
+      campusToast.info({
+        title:
+          action === "resend"
+            ? "Invitation Link Regenerated"
+            : "Invitation Deactivated",
+        description:
+          action === "resend"
+            ? "Copy and share the new one-time activation link."
+            : "The activation link can no longer be used.",
+      });
     });
   }
 
@@ -370,34 +385,33 @@ export function TeachersManagement({
     await navigator.clipboard.writeText(invitation.invitationUrl);
     campusToast.info({
       title: "Invitation Copied",
-      description: "The teacher invitation URL is ready to share.",
+      description: "The activation URL is ready to share.",
     });
   }
 
   const columns: DataTableColumn<SerializedTeacherInvitation>[] = [
     {
-      key: "photo",
-      header: "Photo",
-      className: "w-20",
+      key: "departmentName",
+      header: "Department",
+    },
+    {
+      key: "recipient",
+      header: "Recipient",
       cell: (invitation) => (
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-          {invitation.firstName.charAt(0)}
-          {invitation.lastName.charAt(0)}
-        </span>
+        <div>
+          <p className="font-medium">{getRecipientLabel(invitation)}</p>
+          <p className="text-xs text-muted-foreground">
+            {invitation.email ?? "One-time activation link"}
+          </p>
+        </div>
       ),
     },
     {
-      key: "name",
-      header: "Name",
-      cell: (invitation) => (
-        <span>
-          {invitation.firstName} {invitation.lastName}
-        </span>
-      ),
+      key: "expiresAt",
+      header: "Expires",
+      cell: (invitation) =>
+        new Date(invitation.expiresAt).toLocaleDateString(),
     },
-    { key: "email", header: "Email" },
-    { key: "phone", header: "Phone" },
-    { key: "departmentName", header: "Department" },
     {
       key: "status",
       header: "Status",
@@ -416,17 +430,12 @@ export function TeachersManagement({
               onSelect: () => setViewing(invitation),
             },
             {
-              label: "Edit",
-              icon: FiEdit,
-              onSelect: () => setEditing(invitation),
-            },
-            {
               label: "Copy Link",
               icon: FiCopy,
               onSelect: () => void copyInvitationUrl(invitation),
             },
             {
-              label: "Resend Invitation",
+              label: "Regenerate Link",
               icon: FiRefreshCw,
               onSelect: () => patchInvitation(invitation, "resend"),
             },
@@ -453,7 +462,7 @@ export function TeachersManagement({
           />
           <CampusInput
             className="pl-9"
-            placeholder="Search teachers"
+            placeholder="Search teacher invitations"
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -471,7 +480,7 @@ export function TeachersManagement({
             onClick={() => setCreateOpen(true)}
           >
             <FiPlus className="h-4 w-4" aria-hidden="true" />
-            Create Teacher
+            Generate Link
           </Button>
         </div>
       </div>
@@ -485,9 +494,8 @@ export function TeachersManagement({
                 className="flex h-full flex-col rounded-xl border border-border bg-surface p-4 transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                    {invitation.firstName.charAt(0)}
-                    {invitation.lastName.charAt(0)}
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <FiMail className="h-5 w-5" aria-hidden="true" />
                   </span>
                   <AdminActionMenu
                     items={[
@@ -497,17 +505,12 @@ export function TeachersManagement({
                         onSelect: () => setViewing(invitation),
                       },
                       {
-                        label: "Edit",
-                        icon: FiEdit,
-                        onSelect: () => setEditing(invitation),
-                      },
-                      {
                         label: "Copy Link",
                         icon: FiCopy,
                         onSelect: () => void copyInvitationUrl(invitation),
                       },
                       {
-                        label: "Resend Invitation",
+                        label: "Regenerate Link",
                         icon: FiRefreshCw,
                         onSelect: () => patchInvitation(invitation, "resend"),
                       },
@@ -522,13 +525,13 @@ export function TeachersManagement({
                   />
                 </div>
                 <h3 className="mt-4 text-base font-semibold">
-                  {invitation.firstName} {invitation.lastName}
+                  {invitation.departmentName}
                 </h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {invitation.departmentName}
+                  {getRecipientLabel(invitation)}
                 </p>
-                <p className="mt-3 text-sm text-muted-foreground">
-                  {invitation.email}
+                <p className="mt-3 line-clamp-2 break-all text-sm text-muted-foreground">
+                  {invitation.invitationUrl}
                 </p>
                 <div className="mt-auto flex items-center justify-between gap-3 pt-5">
                   <StatusBadge status={invitation.status} />
@@ -545,15 +548,15 @@ export function TeachersManagement({
                 departments.length === 0
                   ? "Create a department first"
                   : query
-                    ? "No matching teachers"
-                    : "No teachers yet"
+                    ? "No matching invitations"
+                    : "No teacher invitations yet"
               }
               description={
                 departments.length === 0
                   ? "Teachers must be invited into a department."
                   : query
                     ? "Adjust your search and try again."
-                    : "Invite the first teacher."
+                    : "Generate a one-time activation link for the first teacher."
               }
               className="mx-auto border-0 bg-transparent md:col-span-2 xl:col-span-3"
             />
@@ -571,15 +574,15 @@ export function TeachersManagement({
                   departments.length === 0
                     ? "Create a department first"
                     : query
-                      ? "No matching teachers"
-                      : "No teachers yet"
+                      ? "No matching invitations"
+                      : "No teacher invitations yet"
                 }
                 description={
                   departments.length === 0
                     ? "Teachers must be invited into a department."
                     : query
                       ? "Adjust your search and try again."
-                      : "Invite the first teacher."
+                      : "Generate a one-time activation link for the first teacher."
                 }
                 className="mx-auto border-0 bg-transparent"
               />
@@ -592,7 +595,7 @@ export function TeachersManagement({
         open={createOpen}
         onOpenChange={setCreateOpen}
         title="Create Teacher Invitation"
-        description="Invite a teacher into a department."
+        description="Generate a department-specific one-time activation link."
         className="max-h-[90vh] max-w-3xl overflow-y-auto"
       >
         <TeacherInvitationForm
@@ -602,39 +605,26 @@ export function TeachersManagement({
         />
       </Modal>
 
-      <Modal
-        open={Boolean(editing)}
-        onOpenChange={(open) => !open && setEditing(null)}
-        title="Edit Teacher Invitation"
-        description="Update teacher invitation details."
-        className="max-h-[90vh] max-w-3xl overflow-y-auto"
-      >
-        {editing ? (
-          <TeacherInvitationForm
-            key={editing.id}
-            departments={departments}
-            invitation={editing}
-            onSubmit={updateInvitation}
-            isSubmitting={isPending}
-          />
-        ) : null}
-      </Modal>
-
       <Drawer
         open={Boolean(viewing)}
         onOpenChange={(open) => !open && setViewing(null)}
         title="Teacher Invitation"
-        description="Invitation recipient, department, status, and activation link."
+        description="Department, status, expiry, and activation link."
         className="max-w-xl"
       >
-        {viewing ? <InvitationDetails invitation={viewing} /> : null}
+        {viewing ? (
+          <InvitationDetails
+            invitation={viewing}
+            onCopy={(invitation) => void copyInvitationUrl(invitation)}
+          />
+        ) : null}
       </Drawer>
 
       <ConfirmDialog
         open={Boolean(deactivating)}
         onOpenChange={(open) => !open && setDeactivating(null)}
-        title="Deactivate Teacher"
-        description={`Deactivate ${deactivating?.firstName ?? "this"} ${deactivating?.lastName ?? "teacher"}?`}
+        title="Deactivate Teacher Invitation"
+        description={`Deactivate the activation link for ${deactivating?.departmentName ?? "this department"}?`}
         confirmLabel="Deactivate"
         destructive
         onConfirm={() =>

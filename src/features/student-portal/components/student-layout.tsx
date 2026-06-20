@@ -1,17 +1,20 @@
 "use client";
 
 import { DashboardPageTransition } from "@/components/motion/dashboard-page-transition";
+import { DashboardIntroTour } from "@/components/onboarding/dashboard-intro-tour";
 import { StudentSidebar } from "@/features/student-portal/components/student-sidebar";
 import { StudentTopNavigation } from "@/features/student-portal/components/student-top-navigation";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useNavigationStore } from "@/store/navigation-store";
+import type { AuthUser } from "@/types/auth";
 
 type StudentLayoutProps = {
   children: React.ReactNode;
+  user: AuthUser;
 };
 
-export function StudentLayout({ children }: StudentLayoutProps) {
+export function StudentLayout({ children, user }: StudentLayoutProps) {
   const sidebarOpen = useNavigationStore((state) => state.sidebarOpen);
   const sidebarCollapsed = useNavigationStore(
     (state) => state.sidebarCollapsed,
@@ -26,7 +29,7 @@ export function StudentLayout({ children }: StudentLayoutProps) {
           sidebarOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <StudentSidebar />
+        <StudentSidebar user={user} />
       </div>
       {sidebarOpen ? (
         <Button
@@ -39,10 +42,14 @@ export function StudentLayout({ children }: StudentLayoutProps) {
       ) : null}
       <div className={cn("lg:p-2", sidebarCollapsed ? "lg:pl-16" : "lg:pl-64")}>
         <div className="dashboard-app-frame">
-          <StudentTopNavigation />
+          <StudentTopNavigation user={user} />
           <main className="min-h-0 flex-1 overflow-y-auto">
             <DashboardPageTransition>{children}</DashboardPageTransition>
           </main>
+          <DashboardIntroTour
+            role="Student"
+            storageKey="campushub:intro:student-dashboard"
+          />
         </div>
       </div>
     </div>

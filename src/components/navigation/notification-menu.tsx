@@ -26,7 +26,7 @@ export function NotificationMenu() {
         <div className="px-3 py-2">
           <p className="text-sm font-medium">Notifications</p>
           <p className="text-xs text-muted-foreground">
-            Notification infrastructure placeholder.
+            No notifications yet.
           </p>
         </div>
       </DropdownMenuContent>

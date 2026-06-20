@@ -1,5 +1,4 @@
 import {
-  Bell,
   BookOpen,
   BriefcaseBusiness,
   CalendarDays,
@@ -11,98 +10,48 @@ import {
   PackageSearch,
   ShoppingBag,
   UsersRound,
+  type LucideIcon,
 } from "lucide-react";
 
-export const studentProfile = {
-  name: "Amina Hassan",
-  university: "University of Dar es Salaam",
-  college: "College of Information and Communication Technologies",
-  department: "Computer Science",
-  yearOfStudy: "Year 3",
-  completion: 72,
+type AnnouncementHighlight = {
+  title: string;
+  source: string;
+  time: string;
+  priority: string;
 };
 
-export const announcementHighlights = [
-  {
-    title: "Semester registration window closes Friday",
-    source: "Academic Registry",
-    time: "2 hours ago",
-    priority: "High",
-  },
-  {
-    title: "ICT lab maintenance scheduled this weekend",
-    source: "College ICT Office",
-    time: "Yesterday",
-    priority: "Normal",
-  },
-  {
-    title: "Student leadership nomination guidelines published",
-    source: "Student Affairs",
-    time: "Jun 7",
-    priority: "Normal",
-  },
-];
+type UpcomingEvent = {
+  title: string;
+  date: string;
+  location: string;
+  category: string;
+};
 
-export const upcomingEvents = [
-  {
-    title: "Innovation and Employability Week",
-    date: "Jul 18",
-    location: "Nkrumah Hall",
-    category: "Career",
-  },
-  {
-    title: "Department research showcase",
-    date: "Jul 22",
-    location: "CoICT Auditorium",
-    category: "Academic",
-  },
-  {
-    title: "Campus wellness clinic",
-    date: "Jul 26",
-    location: "Student Centre",
-    category: "Wellbeing",
-  },
-];
+type AlmanacHighlight = {
+  title: string;
+  date: string;
+  description: string;
+};
 
-export const almanacHighlights = [
-  {
-    title: "Coursework submission period",
-    date: "Jul 10 - Jul 24",
-    description: "Departments collect mid-semester coursework assessments.",
-  },
-  {
-    title: "Final examination timetable draft",
-    date: "Aug 2",
-    description: "Draft exam timetable expected for student review.",
-  },
-  {
-    title: "Industrial practical briefing",
-    date: "Aug 14",
-    description:
-      "Briefing for students preparing field placement documentation.",
-  },
-];
+type DashboardNotification = {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+};
 
-export const notifications = [
-  {
-    title: "Your profile is 72% complete",
-    description:
-      "Add student ID verification and interests to unlock better recommendations.",
-    icon: Bell,
-  },
-  {
-    title: "New opportunity matches your department",
-    description:
-      "Graduate trainee talent pool opened for ICT and engineering students.",
-    icon: BriefcaseBusiness,
-  },
-  {
-    title: "Representative feedback window open",
-    description:
-      "Submit academic experience feedback for your college representative.",
-    icon: MessageSquareText,
-  },
-];
+export const studentProfile = {
+  name: "Student",
+  university: "",
+  college: "",
+  department: "",
+  yearOfStudy: "",
+  completion: 0,
+};
+
+export const announcementHighlights: AnnouncementHighlight[] = [];
+export const upcomingEvents: UpcomingEvent[] = [];
+export const almanacHighlights: AlmanacHighlight[] = [];
+export const notifications: DashboardNotification[] = [];
 
 export const quickActions = [
   {
@@ -114,7 +63,7 @@ export const quickActions = [
   {
     label: "Find campus office",
     description: "Map access",
-    href: "/student/campus-map",
+    href: "/student/map",
     icon: Map,
   },
   {
@@ -132,45 +81,17 @@ export const quickActions = [
 ];
 
 export const futureModules = [
-  {
-    title: "Forum",
-    description:
-      "Student communities, discussions, and moderated academic spaces.",
-    icon: MessageSquareText,
-  },
-  {
-    title: "Suggestions",
-    description:
-      "Structured feedback and improvement requests for campus leadership.",
-    icon: Lightbulb,
-  },
-  {
-    title: "Opportunities",
-    description:
-      "Internships, competitions, scholarships, and student programs.",
-    icon: BriefcaseBusiness,
-  },
-  {
-    title: "Alumni",
-    description: "Mentorship, alumni stories, and graduate network access.",
-    icon: UsersRound,
-  },
-  {
-    title: "Marketplace",
-    description: "Trusted student, campus, and partner commerce experiences.",
-    icon: ShoppingBag,
-  },
-  {
-    title: "Lost & Found",
-    description: "Report, search, and recover lost campus items.",
-    icon: PackageSearch,
-  },
+  { title: "Forum", description: "", icon: MessageSquareText },
+  { title: "Suggestions", description: "", icon: Lightbulb },
+  { title: "Opportunities", description: "", icon: BriefcaseBusiness },
+  { title: "Alumni", description: "", icon: UsersRound },
+  { title: "Marketplace", description: "", icon: ShoppingBag },
+  { title: "Lost & Found", description: "", icon: PackageSearch },
 ];
 
 export const campusMapQuickAccess = {
   title: "Campus Map",
-  description:
-    "Quickly locate lecture halls, libraries, registrar offices, hostels, clinics, labs, and student service points.",
-  landmarks: ["Library", "CoICT Block", "Student Centre", "Health Clinic"],
+  description: "Campus locations will appear when real map records exist.",
+  landmarks: [] as string[],
   icon: Compass,
 };

@@ -1,10 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { Suspense } from "react";
 import { FiBookOpen, FiHome, FiShield } from "react-icons/fi";
 
-import { DevelopmentRoleSwitcher } from "@/components/navigation/development-role-switcher";
 import { cn } from "@/lib/utils";
 
 type SidebarItem = {
@@ -43,11 +41,8 @@ export function Sidebar({ items = defaultItems, className }: SidebarProps) {
             priority
           />
         </span>
-        <span>CampusHub</span>
+        <span className="campushub-logo-text">CampusHub</span>
       </div>
-      <Suspense fallback={null}>
-        <DevelopmentRoleSwitcher />
-      </Suspense>
       <nav className="space-y-1">
         {items.map((item) => {
           const Icon = item.icon;

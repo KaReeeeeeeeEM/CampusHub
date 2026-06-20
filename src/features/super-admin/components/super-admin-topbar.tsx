@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { FiSidebar } from "react-icons/fi";
 
 import { AppearanceDrawer } from "@/components/navigation/appearance-drawer";
@@ -49,9 +48,6 @@ export function SuperAdminTopbar({ user }: SuperAdminTopbarProps) {
         <AppearanceDrawer />
         <DashboardThemeToggle />
         <NotificationMenu />
-        <Button asChild className="hidden sm:inline-flex" variant="default">
-          <Link href="/super-admin/universities">Manage Universities</Link>
-        </Button>
         <UserMenu name={user.name} email={user.email} />
       </div>
     </header>

@@ -99,16 +99,16 @@ export function CampusAdminSettings() {
               <div className="grid gap-4 md:grid-cols-2">
                 <SettingValue
                   label="University Name"
-                  value="University of Dar es Salaam"
+                  value="Not configured"
                 />
                 <SettingValue
                   label="Administrative Email"
-                  value="admin@udsm.ac.tz"
+                  value="Not configured"
                 />
                 <SettingValue
                   className="md:col-span-2"
                   label="Overview"
-                  value="A leading public university coordinating colleges, departments, representatives, and academic operations through CampusHub."
+                  value="University settings will appear after real records are configured."
                 />
               </div>
               <Button onClick={() => saveSettings("University Settings Saved")}>

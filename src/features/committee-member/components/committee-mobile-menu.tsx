@@ -3,14 +3,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Suspense, useState } from "react";
+import { useState } from "react";
 import { FiCpu, FiSidebar } from "react-icons/fi";
 
-import { DevelopmentRoleSwitcher } from "@/components/navigation/development-role-switcher";
 import { Drawer } from "@/components/shared/drawer";
 import { Button } from "@/components/ui/button";
 import { committeeNavItems } from "@/features/committee-member/components/committee-navigation";
-import { committeeCategory } from "@/features/committee-member/lib/mock-data";
 import { cn } from "@/lib/utils";
 
 export function CommitteeMobileMenu() {
@@ -33,7 +31,7 @@ export function CommitteeMobileMenu() {
         open={open}
         onOpenChange={setOpen}
         title="Committee Member"
-        description={committeeCategory}
+        description="Live records only"
         direction="left"
         className="max-w-80"
       >
@@ -53,16 +51,12 @@ export function CommitteeMobileMenu() {
             />
           </span>
           <span className="min-w-0 text-sm font-semibold leading-5">
-            CampusHub
+            <span className="campushub-logo-text">CampusHub</span>
             <span className="block text-xs font-normal text-muted-foreground">
               Committee Member
             </span>
           </span>
         </Link>
-
-        <Suspense fallback={null}>
-          <DevelopmentRoleSwitcher />
-        </Suspense>
 
         <div className="mb-4 rounded-lg border border-primary/20 bg-primary/5 p-3">
           <div className="flex items-center gap-3">
@@ -70,8 +64,8 @@ export function CommitteeMobileMenu() {
               <FiCpu className="h-4 w-4" aria-hidden="true" />
             </span>
             <div>
-              <p className="text-sm font-medium">{committeeCategory}</p>
-              <p className="text-xs text-muted-foreground">Assigned category</p>
+              <p className="text-sm font-medium">Committee</p>
+              <p className="text-xs text-muted-foreground">Live records only</p>
             </div>
           </div>
         </div>

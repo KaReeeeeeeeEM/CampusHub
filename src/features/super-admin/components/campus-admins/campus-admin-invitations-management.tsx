@@ -81,7 +81,6 @@ function InvitationForm({
   isSubmitting: boolean;
 }) {
   const {
-    register,
     handleSubmit,
     watch,
     setValue,
@@ -94,10 +93,6 @@ function InvitationForm({
     resolver: zodResolver(campusAdminInvitationInputSchema),
     defaultValues: {
       universityId: "",
-      firstName: "",
-      lastName: "",
-      email: "",
-      phone: "",
       expiresInDays: 14,
     },
   });
@@ -136,89 +131,37 @@ function InvitationForm({
         ) : null}
       </label>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className="space-y-2">
-          <span className="text-sm font-medium">First Name</span>
-          <CampusInput
-            {...register("firstName")}
-            invalid={Boolean(errors.firstName)}
-            placeholder="Asha"
-            autoComplete="given-name"
-          />
-          {errors.firstName ? (
-            <p className="text-xs text-destructive">
-              {errors.firstName.message}
-            </p>
-          ) : null}
-        </label>
-        <label className="space-y-2">
-          <span className="text-sm font-medium">Last Name</span>
-          <CampusInput
-            {...register("lastName")}
-            invalid={Boolean(errors.lastName)}
-            placeholder="Mollel"
-            autoComplete="family-name"
-          />
-          {errors.lastName ? (
-            <p className="text-xs text-destructive">
-              {errors.lastName.message}
-            </p>
-          ) : null}
-        </label>
-        <label className="space-y-2">
-          <span className="text-sm font-medium">Email</span>
-          <CampusInput
-            {...register("email")}
-            invalid={Boolean(errors.email)}
-            placeholder="admin@university.edu"
-            type="email"
-            autoComplete="email"
-          />
-          {errors.email ? (
-            <p className="text-xs text-destructive">{errors.email.message}</p>
-          ) : null}
-        </label>
-        <label className="space-y-2">
-          <span className="text-sm font-medium">Phone</span>
-          <CampusInput
-            {...register("phone")}
-            invalid={Boolean(errors.phone)}
-            placeholder="+255 000 000 000"
-            autoComplete="tel"
-          />
-        </label>
-        <label className="space-y-2">
-          <span className="text-sm font-medium">Expiry</span>
-          <Select
-            value={expiresInDays}
-            onValueChange={(value) =>
-              setValue("expiresInDays", Number(value), {
-                shouldDirty: true,
-                shouldValidate: true,
-              })
-            }
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select expiry" />
-            </SelectTrigger>
-            <SelectContent>
-              {expiryOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </label>
-      </div>
+      <label className="block space-y-2">
+        <span className="text-sm font-medium">Expiry</span>
+        <Select
+          value={expiresInDays}
+          onValueChange={(value) =>
+            setValue("expiresInDays", Number(value), {
+              shouldDirty: true,
+              shouldValidate: true,
+            })
+          }
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select expiry" />
+          </SelectTrigger>
+          <SelectContent>
+            {expiryOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </label>
 
       <Button className="w-full" disabled={isSubmitting} type="submit">
         {isSubmitting ? (
           <FiLoader className="h-4 w-4 animate-spin" aria-hidden="true" />
         ) : (
-          <FiMail className="h-4 w-4" aria-hidden="true" />
+          <FiCopy className="h-4 w-4" aria-hidden="true" />
         )}
-        Generate and Send Invitation
+        Generate Invitation Link
       </Button>
     </form>
   );
@@ -226,37 +169,53 @@ function InvitationForm({
 
 function InvitationDetails({
   invitation,
+  onCopy,
 }: {
   invitation: SerializedCampusAdminInvitation;
+  onCopy: (invitation: SerializedCampusAdminInvitation) => void;
 }) {
-  const rows = [
-    ["Name", `${invitation.firstName} ${invitation.lastName}`],
-    ["Email", invitation.email],
-    ["Phone", invitation.phone],
-    ["University", invitation.universityName],
-    ["Status", invitation.status],
-    ["Expires", new Date(invitation.expiresAt).toLocaleDateString()],
-  ];
+  const expiresAt = new Date(invitation.expiresAt).toLocaleDateString();
+  const shareSubject = encodeURIComponent("CampusHub Campus Admin invitation");
+  const shareBody = encodeURIComponent(
+    `Use this one-time CampusHub activation link for ${invitation.universityName}: ${invitation.invitationUrl}`,
+  );
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-md border border-border bg-background p-3">
-        <p className="text-xs uppercase tracking-normal text-muted-foreground">
-          Activation URL
-        </p>
-        <p className="mt-2 break-all text-sm font-medium">
+    <div className="space-y-6">
+      <div className="rounded-md border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-primary">
+        One-time activation link for {invitation.universityName}. Expires on{" "}
+        {expiresAt}.
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-md border border-border bg-background px-4 py-3 sm:flex-row sm:items-center">
+        <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
           {invitation.invitationUrl}
         </p>
+        <Button
+          type="button"
+          variant="ghost"
+          className="justify-start gap-2 text-primary hover:text-primary sm:justify-center"
+          onClick={() => onCopy(invitation)}
+        >
+          <FiCopy className="h-4 w-4" aria-hidden="true" />
+          Copy link
+        </Button>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {rows.map(([label, value]) => (
-          <div key={label} className="rounded-md border border-border p-3">
-            <p className="text-xs uppercase tracking-normal text-muted-foreground">
-              {label}
-            </p>
-            <p className="mt-1 text-sm font-medium">{value || "Not set"}</p>
-          </div>
-        ))}
+
+      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+        <span>Share via</span>
+        <Button
+          asChild
+          size="icon"
+          type="button"
+          variant="secondary"
+          aria-label="Share invitation by email"
+          className="rounded-full"
+        >
+          <a href={`mailto:?subject=${shareSubject}&body=${shareBody}`}>
+            <FiMail className="h-4 w-4" aria-hidden="true" />
+          </a>
+        </Button>
       </div>
     </div>
   );
@@ -334,10 +293,10 @@ export function CampusAdminInvitationsManagement({
 
       setCreateOpen(false);
       await refreshInvitations();
+      setViewing(payload.data.invitation);
       campusToast.info({
-        title: "Invitation Sent",
-        description:
-          "Campus administrator invitation has been sent successfully.",
+        title: "Invitation Link Generated",
+        description: "Copy and share this one-time activation link.",
       });
     });
   }
@@ -355,13 +314,19 @@ export function CampusAdminInvitationsManagement({
   const columns: DataTableColumn<SerializedCampusAdminInvitation>[] = [
     {
       key: "name",
-      header: "Campus Admin",
+      header: "Recipient",
       cell: (invitation) => (
         <div>
           <p className="font-medium">
-            {invitation.firstName} {invitation.lastName}
+            {invitation.email
+              ? [invitation.firstName, invitation.lastName]
+                  .filter(Boolean)
+                  .join(" ") || invitation.email
+              : "Not redeemed yet"}
           </p>
-          <p className="text-xs text-muted-foreground">{invitation.email}</p>
+          <p className="text-xs text-muted-foreground">
+            {invitation.email ?? "One-time activation link"}
+          </p>
         </div>
       ),
     },
@@ -456,7 +421,7 @@ export function CampusAdminInvitationsManagement({
         open={createOpen}
         onOpenChange={setCreateOpen}
         title="Create Campus Admin Invitation"
-        description="Generate a university-specific activation invitation."
+        description="Generate a university-specific one-time activation link."
         className="max-h-[90vh] max-w-3xl overflow-y-auto"
       >
         <InvitationForm
@@ -469,11 +434,12 @@ export function CampusAdminInvitationsManagement({
       <Modal
         open={Boolean(viewing)}
         onOpenChange={(open) => !open && setViewing(null)}
-        title="Campus Admin Invitation"
-        description="Invitation status, recipient, and activation URL."
-        className="max-w-3xl"
+        title="Campus Admin Invitation Link"
+        className="max-w-2xl"
       >
-        {viewing ? <InvitationDetails invitation={viewing} /> : null}
+        {viewing ? (
+          <InvitationDetails invitation={viewing} onCopy={copyInvitationUrl} />
+        ) : null}
       </Modal>
     </>
   );

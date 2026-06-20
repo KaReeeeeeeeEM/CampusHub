@@ -1,4 +1,4 @@
-export type TenantStatus = "ACTIVE" | "SUSPENDED" | "ARCHIVED";
+export type TenantStatus = "ACTIVE" | "INACTIVE" | "PENDING";
 
 export type Tenant = {
   id: string;

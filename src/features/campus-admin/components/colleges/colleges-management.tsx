@@ -48,6 +48,13 @@ type CollegesManagementProps = {
   initialColleges: SerializedCollege[];
 };
 
+type ApiEnvelope<T> = {
+  data: T | null;
+  error: {
+    message: string;
+  } | null;
+};
+
 const statusOptions = [
   { label: "Active", value: "ACTIVE" },
   { label: "Inactive", value: "INACTIVE" },
@@ -81,10 +88,32 @@ function getDefaultValues(college?: SerializedCollege): CollegeInput {
   return {
     name: college?.name ?? "",
     shortName: college?.shortName ?? "",
+    code: college?.code ?? college?.shortName ?? "",
     description: college?.description ?? "",
     logo: college?.logo ?? "",
     status: college?.status ?? "ACTIVE",
   };
+}
+
+async function getApiError(response: Response) {
+  try {
+    const payload = (await response.json()) as ApiEnvelope<unknown>;
+    return payload.error?.message || "The request could not be completed.";
+  } catch {
+    return "The request could not be completed.";
+  }
+}
+
+async function readCollegeResponse(response: Response) {
+  const payload = (await response.json()) as ApiEnvelope<{
+    college: SerializedCollege;
+  }>;
+
+  if (!payload.data?.college) {
+    throw new Error("College response was empty.");
+  }
+
+  return payload.data.college;
 }
 
 function CollegeForm({
@@ -276,23 +305,35 @@ export function CollegesManagement({
 
   function createCollege(values: CollegeInput) {
     startTransition(async () => {
-      const createdAt = new Date().toISOString();
-      setColleges((current) => [
-        {
-          id: `college-${Date.now()}`,
-          universityId: "udsm",
-          slug: values.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-          createdAt,
-          updatedAt: createdAt,
-          ...values,
-        },
-        ...current,
-      ]);
-      setCreateOpen(false);
-      campusToast.success({
-        title: "College Created",
-        description: "The college was created successfully.",
-      });
+      try {
+        const response = await fetch("/api/campus-admin/colleges", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(values),
+        });
+
+        if (!response.ok) {
+          campusToast.error({
+            title: "College Not Created",
+            description: await getApiError(response),
+          });
+          return;
+        }
+
+        const college = await readCollegeResponse(response);
+        setColleges((current) => [college, ...current]);
+        setCreateOpen(false);
+        campusToast.success({
+          title: "College Created",
+          description: "The college was created successfully.",
+        });
+      } catch {
+        campusToast.error({
+          title: "College Not Created",
+          description: "Unable to save the college. Please try again.",
+        });
+      }
     });
   }
 
@@ -302,18 +343,39 @@ export function CollegesManagement({
     }
 
     startTransition(async () => {
-      setColleges((current) =>
-        current.map((college) =>
-          college.id === editing.id
-            ? { ...college, ...values, updatedAt: new Date().toISOString() }
-            : college,
-        ),
-      );
-      setEditing(null);
-      campusToast.success({
-        title: "College Updated",
-        description: "College information updated successfully.",
-      });
+      try {
+        const response = await fetch(`/api/campus-admin/colleges/${editing.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(values),
+        });
+
+        if (!response.ok) {
+          campusToast.error({
+            title: "College Not Updated",
+            description: await getApiError(response),
+          });
+          return;
+        }
+
+        const updatedCollege = await readCollegeResponse(response);
+        setColleges((current) =>
+          current.map((college) =>
+            college.id === editing.id ? updatedCollege : college,
+          ),
+        );
+        setEditing(null);
+        campusToast.success({
+          title: "College Updated",
+          description: "College information updated successfully.",
+        });
+      } catch {
+        campusToast.error({
+          title: "College Not Updated",
+          description: "Unable to save the college. Please try again.",
+        });
+      }
     });
   }
 
@@ -323,22 +385,42 @@ export function CollegesManagement({
     }
 
     startTransition(async () => {
-      setColleges((current) =>
-        current.map((college) =>
-          college.id === deactivating.id
-            ? {
-                ...college,
-                status: "INACTIVE",
-                updatedAt: new Date().toISOString(),
-              }
-            : college,
-        ),
-      );
-      setDeactivating(null);
-      campusToast.warning({
-        title: "College Deactivated",
-        description: "The college has been deactivated successfully.",
-      });
+      try {
+        const response = await fetch(
+          `/api/campus-admin/colleges/${deactivating.id}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ action: "deactivate" }),
+          },
+        );
+
+        if (!response.ok) {
+          campusToast.error({
+            title: "College Not Deactivated",
+            description: await getApiError(response),
+          });
+          return;
+        }
+
+        const updatedCollege = await readCollegeResponse(response);
+        setColleges((current) =>
+          current.map((college) =>
+            college.id === deactivating.id ? updatedCollege : college,
+          ),
+        );
+        setDeactivating(null);
+        campusToast.warning({
+          title: "College Deactivated",
+          description: "The college has been deactivated successfully.",
+        });
+      } catch {
+        campusToast.error({
+          title: "College Not Deactivated",
+          description: "Unable to deactivate the college. Please try again.",
+        });
+      }
     });
   }
 
@@ -367,20 +449,12 @@ export function CollegesManagement({
     {
       key: "departments",
       header: "Departments",
-      cell: (college) =>
-        college.id === "college-ict"
-          ? "2"
-          : college.id === "college-engineering"
-            ? "1"
-            : "0",
+      cell: () => "0",
     },
     {
       key: "representatives",
       header: "Representatives",
-      cell: (college) =>
-        college.id === "college-ict" || college.id === "college-engineering"
-          ? "1"
-          : "0",
+      cell: () => "0",
     },
     {
       key: "status",

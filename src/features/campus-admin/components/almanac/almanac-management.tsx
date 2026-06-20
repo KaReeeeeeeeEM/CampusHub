@@ -48,28 +48,77 @@ import {
   SelectValue,
 } from "@/components/ui/radix-select";
 import { AdminActionMenu } from "@/features/administration/components/admin-action-menu";
-import type { AlmanacEvent } from "@/features/campus-admin/lib/mock-data";
 import type { DataTableColumn } from "@/components/shared/data-table";
 
 const eventTypes = [
-  "Academic Date",
-  "Deadline",
-  "Event",
-  "Examination",
+  "SEMESTER_START",
+  "SEMESTER_END",
+  "REGISTRATION",
+  "EXAMINATION",
+  "GRADUATION",
+  "ORIENTATION",
+  "HOLIDAY",
+  "WORKSHOP",
+  "GENERAL",
 ] as const;
-const statuses = ["UPCOMING", "PUBLISHED", "DRAFT"] as const;
+const statuses = ["ACTIVE", "ARCHIVED", "CANCELLED"] as const;
+const visibilityOptions = [
+  "ALL_USERS",
+  "STUDENTS",
+  "TEACHERS",
+  "SPECIFIC_COLLEGES",
+] as const;
+
+type AlmanacEvent = {
+  id: string;
+  title: string;
+  description: string | null;
+  eventType: string;
+  startDate: string | null;
+  endDate: string | null;
+  isAllDay: boolean;
+  visibility: string;
+  color: string;
+  status: string;
+  image?: string | null;
+};
 
 const eventSchema = z.object({
   title: z.string().min(2, "Title is required."),
   type: z.enum(eventTypes),
   date: z.string().min(1, "Date is required."),
-  audience: z.string().min(2, "Audience is required."),
+  audience: z.enum(visibilityOptions),
   status: z.enum(statuses),
   description: z.string().min(10, "Description is required."),
   image: z.string().optional(),
 });
 
 type EventInput = z.infer<typeof eventSchema>;
+
+function getEventDate(event: AlmanacEvent) {
+  return event.startDate ?? event.endDate ?? "";
+}
+
+function getEventPayload(values: EventInput) {
+  return {
+    title: values.title,
+    description: values.description,
+    eventType: values.type,
+    startDate: values.date,
+    endDate: values.date,
+    isAllDay: true,
+    visibility: values.audience,
+    status: values.status,
+  };
+}
+
+function normalizeEvent(event: AlmanacEvent): AlmanacEvent {
+  return {
+    ...event,
+    description: event.description ?? "",
+    endDate: event.endDate ?? event.startDate,
+  };
+}
 
 function AlmanacForm({
   event,
@@ -92,10 +141,10 @@ function AlmanacForm({
     resolver: zodResolver(eventSchema),
     defaultValues: {
       title: event?.title ?? "",
-      type: event?.type ?? "Academic Date",
-      date: lockedDate ?? (event?.date ? event.date.slice(0, 10) : ""),
-      audience: event?.audience ?? "",
-      status: event?.status ?? "DRAFT",
+      type: (event?.eventType as EventInput["type"]) ?? "GENERAL",
+      date: lockedDate ?? (event ? getEventDate(event).slice(0, 10) : ""),
+      audience: (event?.visibility as EventInput["audience"]) ?? "ALL_USERS",
+      status: (event?.status as EventInput["status"]) ?? "ACTIVE",
       description: event?.description ?? "",
       image: event?.image ?? "",
     },
@@ -146,12 +195,26 @@ function AlmanacForm({
           />
         </label>
         <label className="space-y-2">
-          <span className="text-sm font-medium">Audience</span>
-          <CampusInput
-            {...register("audience")}
-            invalid={Boolean(errors.audience)}
-            placeholder="All students, CoICT, final year students"
-          />
+          <span className="text-sm font-medium">Visibility</span>
+          <Select
+            value={watch("audience")}
+            onValueChange={(value) =>
+              setValue("audience", value as EventInput["audience"], {
+                shouldDirty: true,
+              })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {visibilityOptions.map((visibility) => (
+                <SelectItem key={visibility} value={visibility}>
+                  {visibility}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </label>
         <label className="space-y-2">
           <span className="text-sm font-medium">Status</span>
@@ -256,15 +319,15 @@ function AlmanacEventCard({
         />
       </div>
       <p className="mt-4 text-xs font-semibold uppercase tracking-[0.12em] text-primary">
-        {event.type}
+        {event.eventType}
       </p>
       <h3 className="mt-2 text-base font-semibold">{event.title}</h3>
       <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
         {event.description}
       </p>
       <div className="mt-auto pt-5 text-sm text-muted-foreground">
-        <p>{new Date(event.date).toLocaleDateString()}</p>
-        <p>{event.audience}</p>
+        <p>{new Date(getEventDate(event)).toLocaleDateString()}</p>
+        <p>{event.visibility}</p>
       </div>
     </article>
   );
@@ -275,7 +338,7 @@ export function AlmanacManagement({
 }: {
   initialEvents: AlmanacEvent[];
 }) {
-  const [events, setEvents] = useState(initialEvents);
+  const [events, setEvents] = useState(() => initialEvents.map(normalizeEvent));
   const [query, setQuery] = useState("");
   const [viewMode, setViewMode] = useState<AlmanacViewMode>("table");
   const [createOpen, setCreateOpen] = useState(false);
@@ -289,7 +352,7 @@ export function AlmanacManagement({
     const normalized = query.toLowerCase().trim();
     if (!normalized) return events;
     return events.filter((event) =>
-      [event.title, event.type, event.audience, event.status]
+      [event.title, event.eventType, event.visibility, event.status]
         .join(" ")
         .toLowerCase()
         .includes(normalized),
@@ -301,19 +364,19 @@ export function AlmanacManagement({
       filtered.map((event) => ({
         id: event.id,
         title: event.title,
-        start: event.date.slice(0, 10),
+        start: getEventDate(event).slice(0, 10),
         allDay: true,
         extendedProps: {
-          type: event.type,
+          type: event.eventType,
           status: event.status,
-          audience: event.audience,
+          audience: event.visibility,
         },
         classNames: [
-          event.status === "DRAFT"
+          event.status === "CANCELLED"
             ? "campushub-calendar-event-draft"
-            : event.type === "Deadline"
+            : event.eventType === "REGISTRATION"
               ? "campushub-calendar-event-deadline"
-              : event.type === "Examination"
+              : event.eventType === "EXAMINATION"
                 ? "campushub-calendar-event-exam"
                 : "campushub-calendar-event-default",
         ],
@@ -321,10 +384,10 @@ export function AlmanacManagement({
     [filtered],
   );
   const selectedDateEvents = selectedDate
-    ? events.filter((event) => sameCalendarDay(event.date, selectedDate))
+    ? events.filter((event) => sameCalendarDay(getEventDate(event), selectedDate))
     : [];
   const timelineEvents = [...filtered].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+    (a, b) => new Date(getEventDate(a)).getTime() - new Date(getEventDate(b)).getTime(),
   );
 
   function openCalendarDate(arg: DateClickArg) {
@@ -340,14 +403,26 @@ export function AlmanacManagement({
 
   function createEvent(values: EventInput) {
     startTransition(async () => {
-      setEvents((current) => [
-        { id: `event-${Date.now()}`, ...values },
-        ...current,
-      ]);
+      const response = await fetch("/api/almanac", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(getEventPayload(values)),
+      });
+
+      if (!response.ok) {
+        campusToast.error({
+          title: "Event Not Created",
+          description: "The almanac event could not be saved.",
+        });
+        return;
+      }
+
+      const event = normalizeEvent(await response.json());
+      setEvents((current) => [event, ...current]);
       setCreateOpen(false);
       campusToast.success({
         title: "Almanac Event Created",
-        description: "The academic calendar event was created.",
+        description: "The academic calendar event was saved.",
       });
     });
   }
@@ -355,9 +430,24 @@ export function AlmanacManagement({
   function updateEvent(values: EventInput) {
     if (!editing) return;
     startTransition(async () => {
+      const response = await fetch(`/api/almanac/${editing.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(getEventPayload(values)),
+      });
+
+      if (!response.ok) {
+        campusToast.error({
+          title: "Event Not Updated",
+          description: "The almanac event could not be saved.",
+        });
+        return;
+      }
+
+      const updatedEvent = normalizeEvent(await response.json());
       setEvents((current) =>
         current.map((event) =>
-          event.id === editing.id ? { ...event, ...values } : event,
+          event.id === editing.id ? updatedEvent : event,
         ),
       );
       setEditing(null);
@@ -374,9 +464,9 @@ export function AlmanacManagement({
     {
       key: "date",
       header: "Date",
-      cell: (event) => new Date(event.date).toLocaleDateString(),
+      cell: (event) => new Date(getEventDate(event)).toLocaleDateString(),
     },
-    { key: "audience", header: "Audience" },
+    { key: "visibility", header: "Visibility" },
     { key: "status", header: "Status" },
     {
       key: "actions",
@@ -468,7 +558,8 @@ export function AlmanacManagement({
                     onClick={() => setViewing(event)}
                   >
                     <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">
-                      {new Date(event.date).toLocaleDateString()} · {event.type}
+                      {new Date(getEventDate(event)).toLocaleDateString()} ·{" "}
+                      {event.eventType}
                     </p>
                     <h3 className="mt-2 font-semibold">{event.title}</h3>
                     <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -557,13 +648,13 @@ export function AlmanacManagement({
                     onClick={() => setViewing(event)}
                   >
                     <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">
-                      {event.type}
+                      {event.eventType}
                     </p>
                     <h3 className="mt-2 text-sm font-semibold">
                       {event.title}
                     </h3>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {event.audience}
+                      {event.visibility}
                     </p>
                   </button>
                 ))
@@ -620,12 +711,27 @@ export function AlmanacManagement({
         destructive
         onConfirm={() => {
           if (deleting) {
-            setEvents((current) =>
-              current.filter((event) => event.id !== deleting.id),
-            );
-            campusToast.warning({
-              title: "Almanac Event Removed",
-              description: "The mock almanac event was removed.",
+            startTransition(async () => {
+              const response = await fetch(`/api/almanac/${deleting.id}`, {
+                method: "DELETE",
+              });
+
+              if (!response.ok) {
+                campusToast.error({
+                  title: "Event Not Removed",
+                  description: "The almanac event could not be removed.",
+                });
+                return;
+              }
+
+              setEvents((current) =>
+                current.filter((event) => event.id !== deleting.id),
+              );
+              setDeleting(null);
+              campusToast.warning({
+                title: "Almanac Event Removed",
+                description: "The almanac event was removed.",
+              });
             });
           }
         }}

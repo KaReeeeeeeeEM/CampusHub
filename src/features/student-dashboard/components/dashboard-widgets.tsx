@@ -21,6 +21,13 @@ import {
 } from "@/features/student-dashboard/lib/mock-data";
 
 export function WelcomeWidget() {
+  const hasProfileContext = Boolean(
+    studentProfile.university ||
+      studentProfile.college ||
+      studentProfile.department ||
+      studentProfile.yearOfStudy,
+  );
+
   return (
     <section className="overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
       <div className="grid gap-6 p-6 lg:grid-cols-[1.25fr_0.75fr] lg:p-8">
@@ -31,10 +38,23 @@ export function WelcomeWidget() {
           <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-normal">
             Welcome back, {studentProfile.name}.
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-            {studentProfile.university} · {studentProfile.college} ·{" "}
-            {studentProfile.department} · {studentProfile.yearOfStudy}
-          </p>
+          {hasProfileContext ? (
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
+              {[
+                studentProfile.university,
+                studentProfile.college,
+                studentProfile.department,
+                studentProfile.yearOfStudy,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          ) : (
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
+              Complete your profile and university assignment to personalize
+              this dashboard.
+            </p>
+          )}
           <div className="mt-6 max-w-md">
             <div className="mb-2 flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Profile readiness</span>
@@ -126,28 +146,35 @@ export function UpcomingEventsWidget() {
         </Button>
       }
     >
-      <div className="grid gap-3">
-        {upcomingEvents.map((event) => (
-          <article
-            key={event.title}
-            className="rounded-md border border-border bg-background p-4"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <span className="rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
-                {event.category}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {event.date}
-              </span>
-            </div>
-            <h3 className="mt-3 text-sm font-semibold">{event.title}</h3>
-            <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-              <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-              {event.location}
-            </p>
-          </article>
-        ))}
-      </div>
+      {upcomingEvents.length > 0 ? (
+        <div className="grid gap-3">
+          {upcomingEvents.map((event) => (
+            <article
+              key={event.title}
+              className="rounded-md border border-border bg-background p-4"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+                  {event.category}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {event.date}
+                </span>
+              </div>
+              <h3 className="mt-3 text-sm font-semibold">{event.title}</h3>
+              <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+                {event.location}
+              </p>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          title="No upcoming events"
+          description="Events from your university will appear here after they are published."
+        />
+      )}
     </DashboardWidget>
   );
 }
@@ -163,23 +190,30 @@ export function AlmanacHighlightsWidget() {
         </Button>
       }
     >
-      <div className="grid gap-3">
-        {almanacHighlights.map((item) => (
-          <article
-            key={item.title}
-            className="rounded-md border border-border bg-background p-4"
-          >
-            <p className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
-              {item.date}
-            </p>
-            <h3 className="mt-3 text-sm font-semibold">{item.title}</h3>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              {item.description}
-            </p>
-          </article>
-        ))}
-      </div>
+      {almanacHighlights.length > 0 ? (
+        <div className="grid gap-3">
+          {almanacHighlights.map((item) => (
+            <article
+              key={item.title}
+              className="rounded-md border border-border bg-background p-4"
+            >
+              <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
+                {item.date}
+              </p>
+              <h3 className="mt-3 text-sm font-semibold">{item.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {item.description}
+              </p>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          title="No almanac entries"
+          description="Academic calendar items will appear after your university publishes them."
+        />
+      )}
     </DashboardWidget>
   );
 }
@@ -205,16 +239,22 @@ export function CampusMapPreviewWidget() {
         </div>
         <div className="border-t border-border p-4">
           <p className="text-sm font-medium">Quick landmarks</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {campusMapQuickAccess.landmarks.map((landmark) => (
-              <span
-                key={landmark}
-                className="rounded-md border border-border bg-surface px-2 py-1 text-xs text-muted-foreground"
-              >
-                {landmark}
-              </span>
-            ))}
-          </div>
+          {campusMapQuickAccess.landmarks.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {campusMapQuickAccess.landmarks.map((landmark) => (
+                <span
+                  key={landmark}
+                  className="rounded-md border border-border bg-surface px-2 py-1 text-xs text-muted-foreground"
+                >
+                  {landmark}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-muted-foreground">
+              No campus locations have been published yet.
+            </p>
+          )}
         </div>
       </div>
     </DashboardWidget>
@@ -309,15 +349,16 @@ export function DashboardSyncStatusWidget() {
           <BellRing className="h-4 w-4" aria-hidden="true" />
         </div>
         <div>
-          <p className="font-medium">Dashboard composition ready</p>
+          <p className="font-medium">Dashboard waiting for live records</p>
           <p className="text-xs text-muted-foreground">
-            Mock data widgets can be replaced by module services later.
+            Empty sections will populate from CampusHub modules as real records
+            are created.
           </p>
         </div>
       </div>
       <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
         <CalendarClock className="h-4 w-4 text-primary" aria-hidden="true" />
-        Future module sync
+        Live data only
       </div>
     </div>
   );

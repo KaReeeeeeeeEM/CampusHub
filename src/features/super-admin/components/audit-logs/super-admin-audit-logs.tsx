@@ -40,12 +40,7 @@ import {
   SelectValue,
 } from "@/components/ui/radix-select";
 import { AdminActionMenu } from "@/features/administration/components/admin-action-menu";
-import {
-  activityDistribution,
-  activityTrend,
-  superAdminAuditLogs,
-  type SuperAdminAuditLog,
-} from "@/features/super-admin/lib/admin-mock-data";
+import type { SerializedSuperAdminAuditLog } from "@/features/super-admin/lib/super-admin-service";
 import type { DataTableColumn } from "@/components/shared/data-table";
 import { cn } from "@/lib/utils";
 
@@ -60,26 +55,10 @@ const ranges = [
   "Custom Range",
 ];
 
-const overviewCards = [
-  { label: "Total Actions", value: 842, icon: FiActivity, tone: "text-primary" },
-  { label: "Total Logins", value: 391, icon: FiLogIn, tone: "text-info" },
-  { label: "Projects Created", value: 48, icon: FiBox, tone: "text-success" },
-  { label: "Products Created", value: 61, icon: FiShoppingBag, tone: "text-warning" },
-  { label: "Events Created", value: 27, icon: FiCalendar, tone: "text-primary" },
-  { label: "Announcements", value: 39, icon: FiFileText, tone: "text-destructive" },
-];
+type SuperAdminAuditLog = SerializedSuperAdminAuditLog;
 
-function uniqueLogOptions(key: keyof SuperAdminAuditLog) {
-  return Array.from(new Set(superAdminAuditLogs.map((log) => String(log[key]))));
-}
-
-function getHeatmap(range: string) {
-  const multiplier = ranges.indexOf(range) + 1;
-
-  return Array.from({ length: 84 }, (_, index) => {
-    const seed = (index * 7 + multiplier * 11) % 9;
-    return seed;
-  });
+function uniqueLogOptions(logs: SuperAdminAuditLog[], key: keyof SuperAdminAuditLog) {
+  return Array.from(new Set(logs.map((log) => String(log[key]))));
 }
 
 function HeatmapCell({ value }: { value: number }) {
@@ -112,7 +91,11 @@ function StatusBadge({ status }: { status: SuperAdminAuditLog["status"] }) {
   );
 }
 
-export function SuperAdminAuditLogs() {
+export function SuperAdminAuditLogs({
+  initialLogs,
+}: {
+  initialLogs: SuperAdminAuditLog[];
+}) {
   const [range, setRange] = useState("Last Week");
   const [search, setSearch] = useState("");
   const [role, setRole] = useState(allValue);
@@ -120,12 +103,52 @@ export function SuperAdminAuditLogs() {
   const [category, setCategory] = useState(allValue);
   const [status, setStatus] = useState(allValue);
   const [viewing, setViewing] = useState<SuperAdminAuditLog | null>(null);
-  const heatmap = useMemo(() => getHeatmap(range), [range]);
+  const heatmap = useMemo<number[]>(() => [], []);
+  const activityTrend: Array<{ label: string; actions: number; logins: number }> = [];
+  const activityDistribution: Array<{ name: string; value: number; color: string }> = [];
+  const overviewCards = [
+    {
+      label: "Total Actions",
+      value: initialLogs.length,
+      icon: FiActivity,
+      tone: "text-primary",
+    },
+    {
+      label: "Total Logins",
+      value: initialLogs.filter((log) => log.action.includes("LOGIN")).length,
+      icon: FiLogIn,
+      tone: "text-info",
+    },
+    {
+      label: "Projects Created",
+      value: initialLogs.filter((log) => log.action.includes("PROJECT")).length,
+      icon: FiBox,
+      tone: "text-success",
+    },
+    {
+      label: "Products Created",
+      value: initialLogs.filter((log) => log.action.includes("PRODUCT")).length,
+      icon: FiShoppingBag,
+      tone: "text-warning",
+    },
+    {
+      label: "Events Created",
+      value: initialLogs.filter((log) => log.action.includes("EVENT")).length,
+      icon: FiCalendar,
+      tone: "text-primary",
+    },
+    {
+      label: "Announcements",
+      value: initialLogs.filter((log) => log.action.includes("ANNOUNCEMENT")).length,
+      icon: FiFileText,
+      tone: "text-destructive",
+    },
+  ];
 
   const filteredLogs = useMemo(() => {
     const normalized = search.trim().toLowerCase();
 
-    return superAdminAuditLogs.filter((log) => {
+    return initialLogs.filter((log) => {
       const matchesSearch =
         !normalized ||
         [
@@ -149,7 +172,7 @@ export function SuperAdminAuditLogs() {
         (status === allValue || log.status === status)
       );
     });
-  }, [category, role, search, status, university]);
+  }, [category, initialLogs, role, search, status, university]);
 
   const columns: DataTableColumn<SuperAdminAuditLog>[] = [
     { key: "timestamp", header: "Timestamp" },
@@ -239,7 +262,7 @@ export function SuperAdminAuditLogs() {
               ))}
             </div>
             <p className="mt-4 text-xs text-muted-foreground">
-              Darker cells represent higher activity density for {range.toLowerCase()}.
+              Activity heatmap aggregation is not available yet.
             </p>
           </CardContent>
         </Card>
@@ -310,10 +333,10 @@ export function SuperAdminAuditLogs() {
           />
         </div>
         {[
-          ["Role", role, setRole, uniqueLogOptions("role")],
-          ["University", university, setUniversity, uniqueLogOptions("university")],
-          ["Category", category, setCategory, uniqueLogOptions("category")],
-          ["Status", status, setStatus, uniqueLogOptions("status")],
+          ["Role", role, setRole, uniqueLogOptions(initialLogs, "role")],
+          ["University", university, setUniversity, uniqueLogOptions(initialLogs, "university")],
+          ["Category", category, setCategory, uniqueLogOptions(initialLogs, "category")],
+          ["Status", status, setStatus, uniqueLogOptions(initialLogs, "status")],
         ].map(([label, value, setter, options]) => (
           <Select
             key={label as string}

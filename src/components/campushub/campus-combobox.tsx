@@ -15,9 +15,11 @@ export type CampusComboboxOption = {
 type CampusComboboxProps = {
   value: string;
   options: CampusComboboxOption[];
+  className?: string;
   placeholder?: string;
   searchPlaceholder?: string;
   emptyMessage?: string;
+  disabled?: boolean;
   invalid?: boolean;
   onChange: (value: string) => void;
 };
@@ -25,9 +27,11 @@ type CampusComboboxProps = {
 export function CampusCombobox({
   value,
   options,
+  className,
   placeholder = "Select option",
-  searchPlaceholder = "Search",
+  searchPlaceholder,
   emptyMessage = "No results found.",
+  disabled,
   invalid,
   onChange,
 }: CampusComboboxProps) {
@@ -35,6 +39,7 @@ export function CampusCombobox({
   const [query, setQuery] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
   const selected = options.find((option) => option.value === value) ?? null;
+  const searchSubject = inferSearchSubject(options);
 
   const filteredOptions = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -56,7 +61,7 @@ export function CampusCombobox({
   return (
     <div
       ref={containerRef}
-      className="relative"
+      className={cn("relative", className)}
       onBlur={(event) => {
         if (!containerRef.current?.contains(event.relatedTarget)) {
           close();
@@ -73,6 +78,7 @@ export function CampusCombobox({
         )}
         type="button"
         variant="secondary"
+        disabled={disabled}
         onClick={() => setOpen((current) => !current)}
       >
         <span className="truncate">{selected?.label ?? placeholder}</span>
@@ -89,7 +95,7 @@ export function CampusCombobox({
             <CampusInput
               autoFocus
               className="h-full border-0 px-0 focus:ring-0"
-              placeholder={searchPlaceholder}
+              placeholder={searchPlaceholder ?? `Search ${searchSubject}`}
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -136,7 +142,9 @@ export function CampusCombobox({
               })
             ) : (
               <p className="px-3 py-6 text-center text-sm text-muted-foreground">
-                {emptyMessage}
+                {query.trim()
+                  ? `No search results for "${query.trim()}".`
+                  : emptyMessage}
               </p>
             )}
           </div>
@@ -144,4 +152,33 @@ export function CampusCombobox({
       ) : null}
     </div>
   );
+}
+
+function inferSearchSubject(options: CampusComboboxOption[]) {
+  const text = options.map((option) => option.label).join(" ").toLowerCase();
+  const rules: Array<[RegExp, string]> = [
+    [/universit/, "universities"],
+    [/college/, "colleges"],
+    [/department/, "departments"],
+    [/campus admin/, "campus admins"],
+    [/student/, "students"],
+    [/teacher/, "teachers"],
+    [/employer/, "employers"],
+    [/alumni/, "alumni"],
+    [/committee/, "committees"],
+    [/announcement/, "announcements"],
+    [/event/, "events"],
+    [/poll/, "polls"],
+    [/suggestion/, "suggestions"],
+    [/project/, "projects"],
+    [/market|product|shop/, "marketplace records"],
+    [/report/, "reports"],
+    [/role/, "roles"],
+    [/status|active|inactive|pending|published|draft/, "statuses"],
+    [/categor/, "categories"],
+    [/type|public|private/, "types"],
+    [/range|today|days|year|custom/, "date ranges"],
+  ];
+
+  return rules.find(([pattern]) => pattern.test(text))?.[1] ?? "options";
 }

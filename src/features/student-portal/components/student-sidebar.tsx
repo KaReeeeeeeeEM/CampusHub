@@ -3,23 +3,16 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 
-import { DevelopmentRoleSwitcher } from "@/components/navigation/development-role-switcher";
 import { SidebarNavTooltip } from "@/components/navigation/sidebar-nav-tooltip";
 import { SidebarFooterCard } from "@/components/navigation/sidebar-footer-card";
 import {
   isLegacyStudentLeadershipRoleKey,
-  isRoleKey,
   isStudentLeadershipPosition,
   type StudentLeadershipPosition,
 } from "@/features/authorization/roles";
 import { useAuth } from "@/features/auth/auth-provider";
-import {
-  DEV_ROLE_PREVIEW_COOKIE,
-  isRolePreviewKey,
-  type RolePreviewKey,
-} from "@/features/development/role-preview";
 import {
   getVisibleStudentLeadershipNavigationItems,
   studentNavigationItems,
@@ -28,6 +21,7 @@ import {
 } from "@/features/student-portal/lib/navigation";
 import { cn } from "@/lib/utils";
 import { useNavigationStore } from "@/store/navigation-store";
+import type { AuthUser } from "@/types/auth";
 
 function isActive(
   pathname: string,
@@ -46,65 +40,35 @@ function getLeadershipPositions(positions?: string[], roles?: string[]) {
   return Array.from(new Set([...explicit, ...legacy]));
 }
 
-function readDevelopmentPreviewRole() {
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  const value = document.cookie
-    .split("; ")
-    .find((item) => item.startsWith(`${DEV_ROLE_PREVIEW_COOKIE}=`))
-    ?.split("=")[1];
-  const decoded = value ? decodeURIComponent(value) : null;
-
-  return isRolePreviewKey(decoded) ? decoded : null;
-}
-
 type StudentSidebarProps = {
   className?: string;
+  user: AuthUser;
 };
 
-export function StudentSidebar({ className }: StudentSidebarProps) {
-  const pathname = usePathname();
-  const { user } = useAuth();
-  const collapsed = useNavigationStore((state) => state.sidebarCollapsed);
-  const [previewRole, setPreviewRole] = useState<RolePreviewKey | null>(null);
-  const userRoles = useMemo(
-    () => (user?.roles?.length ? user.roles : user?.role ? [user.role] : []),
-    [user?.role, user?.roles],
+function getUserName(user: AuthUser | null | undefined) {
+  return (
+    user?.name ||
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
+    user?.email ||
+    "CampusHub User"
   );
-  const canUsePreview =
-    process.env.NODE_ENV !== "production" &&
-    userRoles.some(isRoleKey) &&
-    userRoles.includes("SUPER_ADMIN");
-  const leadershipPositions = useMemo<StudentLeadershipPosition[]>(() => {
-    if (
-      canUsePreview &&
-      previewRole &&
-      isStudentLeadershipPosition(previewRole)
-    ) {
-      return [previewRole];
-    }
+}
 
+export function StudentSidebar({
+  className,
+  user: initialUser,
+}: StudentSidebarProps) {
+  const pathname = usePathname();
+  const { user: authUser } = useAuth();
+  const user = authUser ?? initialUser;
+  const collapsed = useNavigationStore((state) => state.sidebarCollapsed);
+  const leadershipPositions = useMemo<StudentLeadershipPosition[]>(() => {
     return getLeadershipPositions(user?.studentLeadershipPositions, user?.roles);
-  }, [canUsePreview, previewRole, user?.roles, user?.studentLeadershipPositions]);
+  }, [user?.roles, user?.studentLeadershipPositions]);
   const leadershipItems = getVisibleStudentLeadershipNavigationItems(
     leadershipPositions,
   );
   const leadershipSections = ["Leadership", "My Committee"] as const;
-
-  useEffect(() => {
-    const syncPreviewRole = () => setPreviewRole(readDevelopmentPreviewRole());
-
-    syncPreviewRole();
-    window.addEventListener("campushub:dev-role-preview", syncPreviewRole);
-
-    return () =>
-      window.removeEventListener(
-        "campushub:dev-role-preview",
-        syncPreviewRole,
-      );
-  }, []);
 
   return (
     <aside
@@ -133,7 +97,7 @@ export function StudentSidebar({ className }: StudentSidebarProps) {
             />
           </span>
           <span className={cn(collapsed && "lg:hidden")}>
-            <span className="block text-sm font-semibold leading-tight">
+            <span className="campushub-logo-text block text-sm font-semibold leading-tight">
               CampusHub
             </span>
             <span className="block text-[11px] leading-tight text-muted-foreground">
@@ -141,11 +105,6 @@ export function StudentSidebar({ className }: StudentSidebarProps) {
             </span>
           </span>
         </Link>
-        <div className={cn("mt-3", collapsed && "lg:hidden")}>
-          <Suspense fallback={null}>
-            <DevelopmentRoleSwitcher />
-          </Suspense>
-        </div>
       </div>
       <nav className="flex-1 space-y-1 overflow-y-auto">
         <p
@@ -243,8 +202,8 @@ export function StudentSidebar({ className }: StudentSidebarProps) {
       </nav>
       <SidebarFooterCard
         className={cn("mt-4", collapsed && "lg:hidden")}
-        email={user?.email ?? "student@campushub.com"}
-        name={user?.name ?? "Faith Mollel"}
+        email={user.email}
+        name={getUserName(user)}
         profileHref="/student/profile"
         streakLabel="Campus Streak"
       />

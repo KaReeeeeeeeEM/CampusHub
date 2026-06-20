@@ -1,9 +1,11 @@
 import { model, models, Schema, type InferSchemaType } from "mongoose";
 
+import { STUDENT_LEADERSHIP_POSITIONS } from "@/features/authorization/roles";
 import {
-  ROLES,
-  STUDENT_LEADERSHIP_POSITIONS,
-} from "@/features/authorization/roles";
+  userPositionSchema,
+  userStatusSchema,
+} from "@/features/auth/lib/schemas";
+import { tenantLifecycleFields } from "@/lib/db/models/model-helpers";
 
 function hasEmployerRoleConflict(roles: string[]) {
   return (
@@ -39,19 +41,107 @@ const userSchema = new Schema(
       type: String,
       default: null,
     },
+    username: {
+      type: String,
+      required: true,
+      lowercase: true,
+      trim: true,
+      unique: true,
+      index: true,
+    },
+    firstName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    lastName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    otherNames: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    nickname: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    avatar: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    phone: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    phoneNumber: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    gender: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    dateOfBirth: {
+      type: Date,
+      default: null,
+    },
+    bio: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    studentId: {
+      type: String,
+      default: null,
+      trim: true,
+      index: true,
+    },
+    staffId: {
+      type: String,
+      default: null,
+      trim: true,
+      index: true,
+    },
+    title: {
+      type: String,
+      default: null,
+      trim: true,
+      index: true,
+    },
+    primaryUniversityId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    primaryDepartmentId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    userType: {
+      type: String,
+      enum: ["STUDENT", "STAFF", "ADMIN", "EMPLOYER", "ALUMNI"],
+      default: "STUDENT",
+      index: true,
+    },
     intendedRole: {
       type: String,
-      enum: Object.values(ROLES),
       default: "STUDENT",
     },
     role: {
       type: String,
-      enum: Object.values(ROLES),
       default: "STUDENT",
     },
     roles: {
       type: [String],
-      enum: Object.values(ROLES),
       default: ["STUDENT"],
       index: true,
       validate: {
@@ -59,10 +149,21 @@ const userSchema = new Schema(
         message: "Employer accounts cannot hold any other CampusHub role.",
       },
     },
+    permissions: {
+      type: [String],
+      default: [],
+      index: true,
+    },
     studentLeadershipPositions: {
       type: [String],
       enum: Object.values(STUDENT_LEADERSHIP_POSITIONS),
       default: [],
+      index: true,
+    },
+    position: {
+      type: String,
+      enum: userPositionSchema.options,
+      default: "NONE",
       index: true,
     },
     universityId: {
@@ -75,9 +176,21 @@ const userSchema = new Schema(
       default: null,
       index: true,
     },
+    departmentId: {
+      type: String,
+      default: null,
+      index: true,
+    },
     onboardingCompleted: {
       type: Boolean,
       default: false,
+      index: true,
+    },
+    profileCompletionPercentage: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
       index: true,
     },
     lastLoginAt: {
@@ -88,12 +201,40 @@ const userSchema = new Schema(
       type: String,
       default: null,
     },
+    status: {
+      type: String,
+      enum: userStatusSchema.options,
+      default: "PENDING",
+      index: true,
+    },
+    isVerified: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    ...tenantLifecycleFields,
   },
   {
     collection: "user",
     timestamps: true,
   },
 );
+
+userSchema.index({
+  name: "text",
+  email: "text",
+  username: "text",
+  firstName: "text",
+  lastName: "text",
+  studentId: "text",
+  staffId: "text",
+});
+userSchema.index({
+  universityId: 1,
+  collegeId: 1,
+  departmentId: 1,
+  status: 1,
+});
 
 userSchema.pre("validate", function validateEmployerRoleExclusivity() {
   if (hasEmployerRoleConflict(this.roles ?? [])) {

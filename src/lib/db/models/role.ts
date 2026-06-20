@@ -1,7 +1,5 @@
 import { model, models, Schema, type InferSchemaType } from "mongoose";
 
-import { ROLES } from "@/features/authorization/roles";
-
 const roleSchema = new Schema(
   {
     _id: {
@@ -10,7 +8,6 @@ const roleSchema = new Schema(
     },
     key: {
       type: String,
-      enum: Object.values(ROLES),
       required: true,
       unique: true,
       index: true,

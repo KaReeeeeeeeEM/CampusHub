@@ -18,6 +18,7 @@ import {
   CampusInput,
   CampusSelect,
 } from "@/components/campushub";
+import { MultiStepProgress } from "@/components/shared/multi-step-progress";
 import { Button } from "@/components/ui/button";
 import { AuthAlert } from "@/features/auth/components/auth-alert";
 import {
@@ -33,7 +34,6 @@ import {
   type OnboardingRole,
   roleLabels,
 } from "@/features/onboarding/lib/types";
-import { cn } from "@/lib/utils";
 import { useOnboardingStore } from "@/store/onboarding-store";
 
 const steps = [
@@ -529,7 +529,7 @@ export function OnboardingFlow() {
 
       hydrate(payload.onboarding);
       complete();
-      router.push("/portal-selection");
+      router.push("/dashboard");
       router.refresh();
     } catch (error) {
       setLoadError(
@@ -596,37 +596,14 @@ export function OnboardingFlow() {
         </div>
       ) : null}
 
-      <div className="mb-8 grid gap-3 sm:grid-cols-4">
-        {steps.map((step, index) => (
-          <div
-            key={step.key}
-            className={cn(
-              "rounded-lg border p-4",
-              index <= activeStepIndex
-                ? "border-primary bg-primary/10"
-                : "border-border bg-surface",
-            )}
-          >
-            <div className="flex items-center gap-3">
-              <span
-                className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-md text-sm font-semibold",
-                  index <= activeStepIndex
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-background text-muted-foreground",
-                )}
-              >
-                {index < activeStepIndex || currentStep === "complete" ? (
-                  <Check className="h-4 w-4" aria-hidden="true" />
-                ) : (
-                  index + 1
-                )}
-              </span>
-              <span className="text-sm font-medium">{step.label}</span>
-            </div>
-          </div>
-        ))}
-      </div>
+      <MultiStepProgress
+        activeIndex={activeStepIndex}
+        className="mb-8"
+        steps={steps.map((step) => ({
+          label: step.label,
+          icon: Check,
+        }))}
+      />
 
       <div className="rounded-lg border border-border bg-surface p-6 shadow-sm">
         {currentStep === "role" ? (
@@ -768,7 +745,7 @@ export function OnboardingFlow() {
               </Button>
               <Button
                 type="button"
-                onClick={() => router.push("/portal-selection")}
+                onClick={() => router.push("/dashboard")}
               >
                 Enter CampusHub
               </Button>

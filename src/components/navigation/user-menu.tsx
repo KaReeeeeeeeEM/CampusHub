@@ -13,6 +13,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { authClient } from "@/lib/auth/client";
+import { usePortalSelectionStore } from "@/store/portal-selection-store";
+import { useUserStore } from "@/store/user-store";
 
 type UserMenuProps = {
   name?: string | null;
@@ -21,6 +23,10 @@ type UserMenuProps = {
 
 export function UserMenu({ name, email }: UserMenuProps) {
   const router = useRouter();
+  const clearUser = useUserStore((state) => state.clearUser);
+  const resetPortalSelection = usePortalSelectionStore(
+    (state) => state.resetPortalSelection,
+  );
   const initials = name
     ?.split(" ")
     .map((part) => part[0])
@@ -28,15 +34,21 @@ export function UserMenu({ name, email }: UserMenuProps) {
     .slice(0, 2)
     .toUpperCase();
 
+  function clearClientSessionState() {
+    clearUser();
+    resetPortalSelection();
+    usePortalSelectionStore.persist.clearStorage();
+    document.cookie = "campushub-dev-role-preview=; Max-Age=0; path=/; SameSite=Lax";
+  }
+
   async function handleSignOut() {
-    await authClient.signOut({
-      fetchOptions: {
-        onSuccess: () => {
-          router.replace("/");
-          router.refresh();
-        },
-      },
-    });
+    try {
+      await authClient.signOut();
+    } finally {
+      clearClientSessionState();
+      router.replace("/");
+      router.refresh();
+    }
   }
 
   return (

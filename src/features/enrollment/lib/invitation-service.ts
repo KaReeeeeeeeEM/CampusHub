@@ -11,6 +11,7 @@ import {
 import { connectMongo } from "@/lib/db/mongodb";
 import {
   CollegeModel,
+  InvitationModel,
   JoinInvitationModel,
   RepresentativeModel,
   StudentModel,
@@ -22,6 +23,8 @@ import type {
   StudentInvitationRegistrationInput,
 } from "@/features/enrollment/lib/schemas";
 import type { AuthSession } from "@/types/auth";
+import { writeAuditLog } from "@/lib/audit/audit-log-service";
+import { emitNotificationEvent } from "@/lib/notifications/notification-events";
 
 export type InvitationResolutionStatus =
   | "valid"
@@ -142,6 +145,41 @@ export async function createStudentInvitation(input: CreateInvitationInput) {
     usageCount: 0,
     status: "ACTIVE",
   });
+  await InvitationModel.create({
+    _id: randomUUID(),
+    token: invitation.token,
+    type: "STUDENT_INVITATION",
+    email: null,
+    universityId: input.universityId,
+    collegeId: input.collegeId,
+    departmentId: null,
+    representativeId: String(representative._id),
+    role: "STUDENT",
+    position: "NONE",
+    createdBy: session.user.id,
+    expiresAt:
+      invitation.expiresAt ?? new Date(Date.now() + 14 * 1000 * 60 * 60 * 24),
+    status: "PENDING",
+    metadata: {
+      legacyInvitationId: invitation._id,
+      maxUsageCount: invitation.maxUsageCount ?? null,
+    },
+  });
+  await writeAuditLog({
+    actorId: session.user.id,
+    universityId: input.universityId,
+    action: "INVITATION_CREATED",
+    entityType: "invitation",
+    entityId: String(invitation._id),
+    after: invitation.toObject(),
+  });
+  await emitNotificationEvent({
+    type: "INVITATION_CREATED",
+    universityId: input.universityId,
+    actorId: session.user.id,
+    entityType: "invitation",
+    entityId: String(invitation._id),
+  });
 
   return invitation.toObject();
 }
@@ -168,6 +206,28 @@ export async function disableInvitation(invitationId: string) {
   if (!invitation) {
     throw new Error("Invitation not found.");
   }
+
+  await InvitationModel.updateOne(
+    {
+      token: invitation.token,
+      type: "STUDENT_INVITATION",
+      status: "PENDING",
+    },
+    {
+      $set: {
+        status: "REVOKED",
+        revokedAt: new Date(),
+        revokedBy: session.user.id,
+      },
+    },
+  );
+  await writeAuditLog({
+    actorId: session.user.id,
+    universityId: String(invitation.universityId),
+    action: "INVITATION_REVOKED",
+    entityType: "invitation",
+    entityId: String(invitation._id),
+  });
 
   return invitation;
 }
@@ -378,7 +438,36 @@ export async function enrollStudentFromInvitation(
         $set: { lastUsedAt: new Date() },
       },
     ),
+    InvitationModel.updateOne(
+      {
+        token: resolution.invitation.token,
+        status: "PENDING",
+      },
+      {
+        $set: {
+          acceptedAt: new Date(),
+          acceptedBy: userId,
+          email: input.email.toLowerCase(),
+          status: "ACCEPTED",
+        },
+      },
+    ),
   ]);
+
+  await writeAuditLog({
+    actorId: userId,
+    universityId: String(resolution.university._id),
+    action: "INVITATION_ACCEPTED",
+    entityType: "invitation",
+    entityId: String(resolution.invitation._id),
+  });
+  await emitNotificationEvent({
+    type: "INVITATION_ACCEPTED",
+    universityId: String(resolution.university._id),
+    actorId: userId,
+    entityType: "invitation",
+    entityId: String(resolution.invitation._id),
+  });
 
   return {
     ok: true as const,

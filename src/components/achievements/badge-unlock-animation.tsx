@@ -71,7 +71,7 @@ export function BadgeUnlockAnimation({
         </span>
       </motion.div>
       <motion.p
-        className="mt-8 text-center text-xs font-bold uppercase tracking-[0.18em]"
+        className="campushub-badge-display mt-8 text-center text-xs font-bold uppercase tracking-normal"
         style={{ color }}
         initial={reducedMotion ? false : { opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}

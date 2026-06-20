@@ -1,28 +1,8 @@
-export const universityOptions = [
-  "University of Dar es Salaam",
-  "Sokoine University of Agriculture",
-  "Muhimbili University of Health and Allied Sciences",
-  "Arden University College"
-];
+export const universityOptions: string[] = [];
 
-export const collegeOptions = [
-  "College of Engineering and Technology",
-  "College of Information and Communication Technologies",
-  "College of Natural and Applied Sciences",
-  "College of Social Sciences",
-  "Business School",
-  "School of Medicine"
-];
+export const collegeOptions: string[] = [];
 
-export const departmentOptions = [
-  "Computer Science",
-  "Business Administration",
-  "Electrical Engineering",
-  "Public Health",
-  "Education",
-  "Agricultural Economics",
-  "Law and Governance"
-];
+export const departmentOptions: string[] = [];
 
 export const yearOfStudyOptions = [
   "Year 1",

@@ -1,5 +1,6 @@
 import {
   FiArchive,
+  FiBarChart2,
   FiBookOpen,
   FiCalendar,
   FiGrid,
@@ -50,6 +51,11 @@ export const campusAdminNavItems = [
     label: "Lost & Found",
     href: "/campus-admin/lost-found",
     icon: FiArchive,
+  },
+  {
+    label: "Reports",
+    href: "/campus-admin/reports",
+    icon: FiBarChart2,
   },
   {
     label: "Settings",

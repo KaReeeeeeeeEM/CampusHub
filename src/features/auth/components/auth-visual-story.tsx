@@ -42,16 +42,16 @@ export function AuthVisualStory() {
   return (
     <section className="relative hidden min-h-screen overflow-hidden border-l border-border bg-black lg:block">
       <div className="absolute inset-0">
-        {heroSlides.map((story, index) => (
+        <AnimatePresence initial={false}>
           <motion.div
-            key={story.audience}
-            aria-hidden={index !== activeIndex}
+            key={activeStory.audience}
             className="absolute inset-0"
-            initial={false}
+            initial={reducedMotion ? false : { opacity: 0, scale: 1.04 }}
             animate={{
-              opacity: index === activeIndex ? 1 : 0,
-              scale: index === activeIndex ? 1 : 1.04,
+              opacity: 1,
+              scale: 1,
             }}
+            exit={reducedMotion ? undefined : { opacity: 0, scale: 1.02 }}
             transition={{
               duration: reducedMotion ? 0 : 1,
               ease: [0.22, 1, 0.36, 1],
@@ -61,12 +61,12 @@ export function AuthVisualStory() {
               alt=""
               className="h-full w-full object-cover"
               fill
-              priority={index === 0}
-              src={story.image}
+              priority={activeIndex === 0}
+              src={activeStory.image}
               sizes="45vw"
             />
           </motion.div>
-        ))}
+        </AnimatePresence>
       </div>
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.2)_0%,rgba(0,0,0,0.62)_54%,rgba(0,0,0,0.9)_100%)]" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_24%_24%,rgba(79,70,229,0.28),transparent_34%)]" />

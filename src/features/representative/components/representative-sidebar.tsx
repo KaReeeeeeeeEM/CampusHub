@@ -3,9 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Suspense } from "react";
 
-import { DevelopmentRoleSwitcher } from "@/components/navigation/development-role-switcher";
 import {
   representativeNavItems,
   representativeWorkspace,
@@ -33,16 +31,12 @@ export function RepresentativeSidebar() {
           />
         </span>
         <span className="min-w-0 text-sm font-semibold leading-5">
-          CampusHub
+          <span className="campushub-logo-text">CampusHub</span>
           <span className="block text-xs font-normal text-muted-foreground">
             Representative
           </span>
         </span>
       </Link>
-
-      <Suspense fallback={null}>
-        <DevelopmentRoleSwitcher />
-      </Suspense>
 
       <div className="mb-4 rounded-lg border border-border bg-background p-3">
         <div className="flex items-center gap-3">

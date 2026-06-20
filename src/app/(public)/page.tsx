@@ -12,13 +12,16 @@ import {
 import { StatGrid } from "@/components/public/stat-grid";
 import { UniversityNetworkGlobe } from "@/components/public/university-network-globe";
 import { Button } from "@/components/ui/button";
+import { listPublicUniversities } from "@/features/universities/lib/university-directory-service";
 import {
   audienceBenefits,
   keyBenefits,
   testimonials,
 } from "@/features/public-site/content";
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const universities = await listPublicUniversities();
+
   return (
     <>
       <ImmersiveStoryHero />
@@ -127,7 +130,7 @@ export default function LandingPage() {
 
       <Section>
         <SectionInner>
-          <UniversityNetworkGlobe />
+          <UniversityNetworkGlobe universities={universities} />
         </SectionInner>
       </Section>
 

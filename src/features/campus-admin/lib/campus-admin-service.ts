@@ -16,22 +16,29 @@ import {
   teacherInvitationInputSchema,
 } from "@/features/campus-admin/lib/schemas";
 import { auth } from "@/lib/auth/auth";
+import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, unauthorized } from "@/lib/api/response";
 import { connectMongo } from "@/lib/db/mongodb";
 import {
   CollegeModel,
   DepartmentModel,
+  InvitationModel,
   RepresentativeInvitationModel,
   TeacherInvitationModel,
 } from "@/lib/db/models";
 import type { AuthSession } from "@/types/auth";
+import { withUniversityFilter } from "@/lib/tenant/tenant-query";
+import { emitNotificationEvent } from "@/lib/notifications/notification-events";
+import { ApiError } from "@/lib/errors/api-error";
 
 const invitationTtlMs = 1000 * 60 * 60 * 24;
+const deletedFilter = { deletedAt: null };
 
 export type SerializedCollege = {
   id: string;
   universityId: string;
   name: string;
+  code: string;
   shortName: string | null;
   slug: string;
   description: string | null;
@@ -59,9 +66,9 @@ export type SerializedRepresentativeInvitation = {
   universityId: string;
   collegeId: string;
   collegeName: string;
-  firstName: string;
-  lastName: string;
-  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
   phone: string | null;
   status: "SENT" | "ACCEPTED" | "EXPIRED" | "DISABLED";
   invitationUrl: string;
@@ -74,9 +81,9 @@ export type SerializedTeacherInvitation = {
   universityId: string;
   departmentId: string;
   departmentName: string;
-  firstName: string;
-  lastName: string;
-  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
   phone: string | null;
   status: "SENT" | "ACCEPTED" | "EXPIRED" | "DISABLED";
   invitationUrl: string;
@@ -98,6 +105,18 @@ function slugify(value: string) {
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
+}
+
+function normalizeCode(value: string) {
+  return value
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "");
+}
+
+function resolveCollegeCode(payload: CollegeInput) {
+  return normalizeCode(payload.code || payload.shortName || payload.name);
 }
 
 function serializeDate(value: unknown) {
@@ -138,6 +157,7 @@ function serializeCollege(college: Record<string, unknown>) {
     id: String(college._id),
     universityId: String(college.universityId),
     name: String(college.name),
+    code: String(college.code),
     shortName: (college.shortName as string | null) ?? null,
     slug: String(college.slug),
     description: (college.description as string | null) ?? null,
@@ -177,9 +197,11 @@ function serializeRepresentativeInvitation(
     universityId: String(invitation.universityId),
     collegeId: String(invitation.collegeId),
     collegeName,
-    firstName: String(invitation.firstName),
-    lastName: String(invitation.lastName),
-    email: String(invitation.email),
+    firstName:
+      typeof invitation.firstName === "string" ? invitation.firstName : null,
+    lastName:
+      typeof invitation.lastName === "string" ? invitation.lastName : null,
+    email: typeof invitation.email === "string" ? invitation.email : null,
     phone: (invitation.phone as string | null) ?? null,
     status:
       (invitation.status as SerializedRepresentativeInvitation["status"]) ??
@@ -207,9 +229,11 @@ function serializeTeacherInvitation(
     universityId: String(invitation.universityId),
     departmentId: String(invitation.departmentId),
     departmentName,
-    firstName: String(invitation.firstName),
-    lastName: String(invitation.lastName),
-    email: String(invitation.email),
+    firstName:
+      typeof invitation.firstName === "string" ? invitation.firstName : null,
+    lastName:
+      typeof invitation.lastName === "string" ? invitation.lastName : null,
+    email: typeof invitation.email === "string" ? invitation.email : null,
     phone: (invitation.phone as string | null) ?? null,
     status:
       (invitation.status as SerializedTeacherInvitation["status"]) ?? "SENT",
@@ -299,9 +323,9 @@ export async function getColleges() {
   const session = await requireCampusAdminSession();
   await connectMongo();
 
-  const colleges = await CollegeModel.find({
-    universityId: session.user.universityId,
-  })
+  const colleges = await CollegeModel.find(
+    withUniversityFilter(String(session.user.universityId)),
+  )
     .sort({ createdAt: -1 })
     .lean();
 
@@ -316,10 +340,19 @@ export async function createCollege(input: CollegeInput) {
   const payload = collegeInputSchema.parse(input);
   const universityId = session.user.universityId as string;
   const slug = slugify(payload.name);
-  const existing = await CollegeModel.findOne({ universityId, slug }).lean();
+  const code = resolveCollegeCode(payload);
+  const existing = await CollegeModel.findOne({
+    universityId,
+    ...deletedFilter,
+    $or: [{ slug }, { code }],
+  }).lean();
 
   if (existing) {
-    throw new Error("A college with this name already exists.");
+    throw new ApiError({
+      statusCode: 409,
+      code: "COLLEGE_ALREADY_EXISTS",
+      message: "A college with this name or code already exists.",
+    });
   }
 
   const college = await CollegeModel.create({
@@ -327,10 +360,20 @@ export async function createCollege(input: CollegeInput) {
     universityId,
     name: payload.name,
     slug,
+    code,
     shortName: payload.shortName,
     description: payload.description,
     logo: payload.logo || null,
     status: payload.status,
+  });
+
+  await writeAuditLog({
+    actorId: session.user.id,
+    universityId,
+    action: "COLLEGE_CREATE",
+    entityType: "college",
+    entityId: String(college._id),
+    after: serializeCollege(college.toObject()),
   });
 
   return serializeCollege(college.toObject());
@@ -342,22 +385,35 @@ export async function updateCollege(collegeId: string, input: CollegeInput) {
   const payload = collegeInputSchema.parse(input);
   const universityId = session.user.universityId as string;
   const slug = slugify(payload.name);
+  const code = resolveCollegeCode(payload);
   const duplicate = await CollegeModel.findOne({
     _id: { $ne: collegeId },
     universityId,
-    slug,
+    ...deletedFilter,
+    $or: [{ slug }, { code }],
   }).lean();
 
   if (duplicate) {
-    throw new Error("A college with this name already exists.");
+    throw new ApiError({
+      statusCode: 409,
+      code: "COLLEGE_ALREADY_EXISTS",
+      message: "A college with this name or code already exists.",
+    });
   }
 
+  const before = await CollegeModel.findOne({
+    _id: collegeId,
+    universityId,
+    ...deletedFilter,
+  });
+
   const college = await CollegeModel.findOneAndUpdate(
-    { _id: collegeId, universityId },
+    { _id: collegeId, universityId, ...deletedFilter },
     {
       $set: {
         name: payload.name,
         slug,
+        code,
         shortName: payload.shortName,
         description: payload.description,
         logo: payload.logo || null,
@@ -368,8 +424,22 @@ export async function updateCollege(collegeId: string, input: CollegeInput) {
   ).lean();
 
   if (!college) {
-    throw new Error("College not found.");
+    throw new ApiError({
+      statusCode: 404,
+      code: "COLLEGE_NOT_FOUND",
+      message: "College not found.",
+    });
   }
+
+  await writeAuditLog({
+    actorId: session.user.id,
+    universityId,
+    action: "COLLEGE_UPDATE",
+    entityType: "college",
+    entityId: collegeId,
+    before: before ? serializeCollege(before.toObject()) : null,
+    after: serializeCollege(college as Record<string, unknown>),
+  });
 
   return serializeCollege(college as Record<string, unknown>);
 }
@@ -377,16 +447,36 @@ export async function updateCollege(collegeId: string, input: CollegeInput) {
 export async function deactivateCollege(collegeId: string) {
   const session = await requireCampusAdminSession();
   await connectMongo();
+  const universityId = session.user.universityId as string;
+  const before = await CollegeModel.findOne({
+    _id: collegeId,
+    universityId,
+    ...deletedFilter,
+  }).lean();
 
   const college = await CollegeModel.findOneAndUpdate(
-    { _id: collegeId, universityId: session.user.universityId },
+    { _id: collegeId, universityId, ...deletedFilter },
     { $set: { status: "INACTIVE" } },
     { new: true },
   ).lean();
 
   if (!college) {
-    throw new Error("College not found.");
+    throw new ApiError({
+      statusCode: 404,
+      code: "COLLEGE_NOT_FOUND",
+      message: "College not found.",
+    });
   }
+
+  await writeAuditLog({
+    actorId: session.user.id,
+    universityId,
+    action: "COLLEGE_UPDATE",
+    entityType: "college",
+    entityId: collegeId,
+    before: before ? serializeCollege(before as Record<string, unknown>) : null,
+    after: serializeCollege(college as Record<string, unknown>),
+  });
 
   return serializeCollege(college as Record<string, unknown>);
 }
@@ -413,13 +503,29 @@ export async function createDepartment(input: DepartmentInput) {
   await connectMongo();
   const payload = departmentInputSchema.parse(input);
   const universityId = session.user.universityId as string;
+  const code = normalizeCode(payload.code);
   const college = await CollegeModel.findOne({
     _id: payload.collegeId,
     universityId,
+    ...deletedFilter,
   }).lean();
 
   if (!college) {
     throw new Error("Selected college does not exist.");
+  }
+
+  const existing = await DepartmentModel.findOne({
+    universityId,
+    ...deletedFilter,
+    code,
+  }).lean();
+
+  if (existing) {
+    throw new ApiError({
+      statusCode: 409,
+      code: "DEPARTMENT_ALREADY_EXISTS",
+      message: "A department with this code already exists.",
+    });
   }
 
   const department = await DepartmentModel.create({
@@ -427,9 +533,19 @@ export async function createDepartment(input: DepartmentInput) {
     universityId,
     collegeId: payload.collegeId,
     name: payload.name,
-    code: payload.code.toUpperCase(),
+    code,
+    slug: slugify(payload.name),
     description: payload.description,
     status: payload.status,
+  });
+
+  await writeAuditLog({
+    actorId: session.user.id,
+    universityId,
+    action: "DEPARTMENT_CREATE",
+    entityType: "department",
+    entityId: String(department._id),
+    after: serializeDepartment(department.toObject(), String(college.name)),
   });
 
   return serializeDepartment(department.toObject(), String(college.name));
@@ -443,22 +559,46 @@ export async function updateDepartment(
   await connectMongo();
   const payload = departmentInputSchema.parse(input);
   const universityId = session.user.universityId as string;
+  const code = normalizeCode(payload.code);
   const college = await CollegeModel.findOne({
     _id: payload.collegeId,
     universityId,
+    ...deletedFilter,
   }).lean();
 
   if (!college) {
     throw new Error("Selected college does not exist.");
   }
 
+  const duplicate = await DepartmentModel.findOne({
+    _id: { $ne: departmentId },
+    universityId,
+    ...deletedFilter,
+    code,
+  }).lean();
+
+  if (duplicate) {
+    throw new ApiError({
+      statusCode: 409,
+      code: "DEPARTMENT_ALREADY_EXISTS",
+      message: "A department with this code already exists.",
+    });
+  }
+
+  const before = await DepartmentModel.findOne({
+    _id: departmentId,
+    universityId,
+    ...deletedFilter,
+  }).lean();
+
   const department = await DepartmentModel.findOneAndUpdate(
-    { _id: departmentId, universityId },
+    { _id: departmentId, universityId, ...deletedFilter },
     {
       $set: {
         collegeId: payload.collegeId,
         name: payload.name,
-        code: payload.code.toUpperCase(),
+        code,
+        slug: slugify(payload.name),
         description: payload.description,
         status: payload.status,
       },
@@ -467,8 +607,30 @@ export async function updateDepartment(
   ).lean();
 
   if (!department) {
-    throw new Error("Department not found.");
+    throw new ApiError({
+      statusCode: 404,
+      code: "DEPARTMENT_NOT_FOUND",
+      message: "Department not found.",
+    });
   }
+
+  await writeAuditLog({
+    actorId: session.user.id,
+    universityId,
+    action: "DEPARTMENT_UPDATE",
+    entityType: "department",
+    entityId: departmentId,
+    before: before
+      ? serializeDepartment(
+          before as Record<string, unknown>,
+          String(college.name),
+        )
+      : null,
+    after: serializeDepartment(
+      department as Record<string, unknown>,
+      String(college.name),
+    ),
+  });
 
   return serializeDepartment(
     department as Record<string, unknown>,
@@ -479,17 +641,45 @@ export async function updateDepartment(
 export async function deactivateDepartment(departmentId: string) {
   const session = await requireCampusAdminSession();
   await connectMongo();
+  const universityId = session.user.universityId as string;
+  const before = await DepartmentModel.findOne({
+    _id: departmentId,
+    universityId,
+    ...deletedFilter,
+  }).lean();
   const department = await DepartmentModel.findOneAndUpdate(
-    { _id: departmentId, universityId: session.user.universityId },
+    { _id: departmentId, universityId, ...deletedFilter },
     { $set: { status: "INACTIVE" } },
     { new: true },
   ).lean();
 
   if (!department) {
-    throw new Error("Department not found.");
+    throw new ApiError({
+      statusCode: 404,
+      code: "DEPARTMENT_NOT_FOUND",
+      message: "Department not found.",
+    });
   }
 
   const college = await CollegeModel.findById(department.collegeId).lean();
+
+  await writeAuditLog({
+    actorId: session.user.id,
+    universityId,
+    action: "DEPARTMENT_UPDATE",
+    entityType: "department",
+    entityId: departmentId,
+    before: before
+      ? serializeDepartment(
+          before as Record<string, unknown>,
+          college ? String(college.name) : "Unknown college",
+        )
+      : null,
+    after: serializeDepartment(
+      department as Record<string, unknown>,
+      college ? String(college.name) : "Unknown college",
+    ),
+  });
 
   return serializeDepartment(
     department as Record<string, unknown>,
@@ -532,19 +722,48 @@ export async function createRepresentativeInvitation(
     throw new Error("Selected college does not exist.");
   }
 
+  const invitationToken = createToken();
   const invitation = await RepresentativeInvitationModel.create({
     _id: randomUUID(),
     universityId,
     collegeId: payload.collegeId,
-    firstName: payload.firstName,
-    lastName: payload.lastName,
-    email: payload.email.toLowerCase(),
-    phone: payload.phone || null,
     status: "SENT",
-    invitationToken: createToken(),
+    invitationToken,
     expiresAt: new Date(Date.now() + payload.expiresInDays * invitationTtlMs),
     invitedByUserId: session.user.id,
     sentAt: new Date(),
+  });
+  await InvitationModel.create({
+    _id: randomUUID(),
+    token: invitationToken,
+    type: "REPRESENTATIVE_INVITATION",
+    email: null,
+    universityId,
+    collegeId: payload.collegeId,
+    departmentId: null,
+    role: "STUDENT",
+    position: "REPRESENTATIVE",
+    createdBy: session.user.id,
+    expiresAt: invitation.expiresAt,
+    status: "PENDING",
+    metadata: {
+      legacyInvitationId: invitation._id,
+    },
+  });
+  await writeAuditLog({
+    actorId: session.user.id,
+    universityId,
+    action: "INVITATION_CREATED",
+    entityType: "invitation",
+    entityId: String(invitation._id),
+    after: invitation.toObject(),
+  });
+  await emitNotificationEvent({
+    type: "INVITATION_CREATED",
+    universityId,
+    actorId: session.user.id,
+    entityType: "invitation",
+    entityId: String(invitation._id),
   });
 
   return serializeRepresentativeInvitation(
@@ -575,10 +794,6 @@ export async function updateRepresentativeInvitation(
     {
       $set: {
         collegeId: payload.collegeId,
-        firstName: payload.firstName,
-        lastName: payload.lastName,
-        email: payload.email.toLowerCase(),
-        phone: payload.phone || null,
         expiresAt: new Date(
           Date.now() + payload.expiresInDays * invitationTtlMs,
         ),
@@ -590,6 +805,19 @@ export async function updateRepresentativeInvitation(
   if (!invitation) {
     throw new Error("Representative invitation not found.");
   }
+
+  await InvitationModel.updateOne(
+    {
+      type: "REPRESENTATIVE_INVITATION",
+      "metadata.legacyInvitationId": invitation._id,
+    },
+    {
+      $set: {
+        collegeId: payload.collegeId,
+        expiresAt: invitation.expiresAt,
+      },
+    },
+  );
 
   return serializeRepresentativeInvitation(
     invitation as Record<string, unknown>,
@@ -617,6 +845,22 @@ export async function resendRepresentativeInvitation(invitationId: string) {
     throw new Error("Representative invitation not found.");
   }
 
+  await InvitationModel.updateOne(
+    {
+      type: "REPRESENTATIVE_INVITATION",
+      "metadata.legacyInvitationId": invitation._id,
+    },
+    {
+      $set: {
+        token: invitation.invitationToken,
+        expiresAt: invitation.expiresAt,
+        status: "PENDING",
+        revokedAt: null,
+        revokedBy: null,
+      },
+    },
+  );
+
   const college = await CollegeModel.findById(invitation.collegeId).lean();
 
   return serializeRepresentativeInvitation(
@@ -628,8 +872,9 @@ export async function resendRepresentativeInvitation(invitationId: string) {
 export async function deactivateRepresentativeInvitation(invitationId: string) {
   const session = await requireCampusAdminSession();
   await connectMongo();
+  const universityId = session.user.universityId as string;
   const invitation = await RepresentativeInvitationModel.findOneAndUpdate(
-    { _id: invitationId, universityId: session.user.universityId },
+    { _id: invitationId, universityId },
     { $set: { status: "DISABLED" } },
     { new: true },
   ).lean();
@@ -637,6 +882,29 @@ export async function deactivateRepresentativeInvitation(invitationId: string) {
   if (!invitation) {
     throw new Error("Representative invitation not found.");
   }
+
+  await InvitationModel.updateOne(
+    {
+      token: invitation.invitationToken,
+      type: "REPRESENTATIVE_INVITATION",
+      universityId,
+      status: "PENDING",
+    },
+    {
+      $set: {
+        status: "REVOKED",
+        revokedAt: new Date(),
+        revokedBy: session.user.id,
+      },
+    },
+  );
+  await writeAuditLog({
+    actorId: session.user.id,
+    universityId,
+    action: "INVITATION_REVOKED",
+    entityType: "invitation",
+    entityId: String(invitation._id),
+  });
 
   const college = await CollegeModel.findById(invitation.collegeId).lean();
 
@@ -680,19 +948,33 @@ export async function createTeacherInvitation(input: TeacherInvitationInput) {
     throw new Error("Selected department does not exist.");
   }
 
+  const invitationToken = createToken();
   const invitation = await TeacherInvitationModel.create({
     _id: randomUUID(),
     universityId,
     departmentId: payload.departmentId,
-    firstName: payload.firstName,
-    lastName: payload.lastName,
-    email: payload.email.toLowerCase(),
-    phone: payload.phone || null,
     status: "SENT",
-    invitationToken: createToken(),
+    invitationToken,
     expiresAt: new Date(Date.now() + payload.expiresInDays * invitationTtlMs),
     invitedByUserId: session.user.id,
     sentAt: new Date(),
+  });
+  await InvitationModel.create({
+    _id: randomUUID(),
+    token: invitationToken,
+    type: "TEACHER_INVITATION",
+    email: null,
+    universityId,
+    collegeId: department.collegeId ?? null,
+    departmentId: payload.departmentId,
+    role: "TEACHER",
+    position: "NONE",
+    createdBy: session.user.id,
+    expiresAt: invitation.expiresAt,
+    status: "PENDING",
+    metadata: {
+      legacyInvitationId: invitation._id,
+    },
   });
 
   return serializeTeacherInvitation(
@@ -723,10 +1005,6 @@ export async function updateTeacherInvitation(
     {
       $set: {
         departmentId: payload.departmentId,
-        firstName: payload.firstName,
-        lastName: payload.lastName,
-        email: payload.email.toLowerCase(),
-        phone: payload.phone || null,
         expiresAt: new Date(
           Date.now() + payload.expiresInDays * invitationTtlMs,
         ),
@@ -738,6 +1016,20 @@ export async function updateTeacherInvitation(
   if (!invitation) {
     throw new Error("Teacher invitation not found.");
   }
+
+  await InvitationModel.updateOne(
+    {
+      type: "TEACHER_INVITATION",
+      "metadata.legacyInvitationId": invitation._id,
+    },
+    {
+      $set: {
+        collegeId: department.collegeId ?? null,
+        departmentId: payload.departmentId,
+        expiresAt: invitation.expiresAt,
+      },
+    },
+  );
 
   return serializeTeacherInvitation(
     invitation as Record<string, unknown>,
@@ -765,6 +1057,22 @@ export async function resendTeacherInvitation(invitationId: string) {
     throw new Error("Teacher invitation not found.");
   }
 
+  await InvitationModel.updateOne(
+    {
+      type: "TEACHER_INVITATION",
+      "metadata.legacyInvitationId": invitation._id,
+    },
+    {
+      $set: {
+        token: invitation.invitationToken,
+        expiresAt: invitation.expiresAt,
+        status: "PENDING",
+        revokedAt: null,
+        revokedBy: null,
+      },
+    },
+  );
+
   const department = await DepartmentModel.findById(
     invitation.departmentId,
   ).lean();
@@ -778,8 +1086,9 @@ export async function resendTeacherInvitation(invitationId: string) {
 export async function deactivateTeacherInvitation(invitationId: string) {
   const session = await requireCampusAdminSession();
   await connectMongo();
+  const universityId = session.user.universityId as string;
   const invitation = await TeacherInvitationModel.findOneAndUpdate(
-    { _id: invitationId, universityId: session.user.universityId },
+    { _id: invitationId, universityId },
     { $set: { status: "DISABLED" } },
     { new: true },
   ).lean();
@@ -787,6 +1096,22 @@ export async function deactivateTeacherInvitation(invitationId: string) {
   if (!invitation) {
     throw new Error("Teacher invitation not found.");
   }
+
+  await InvitationModel.updateOne(
+    {
+      token: invitation.invitationToken,
+      type: "TEACHER_INVITATION",
+      universityId,
+      status: "PENDING",
+    },
+    {
+      $set: {
+        status: "REVOKED",
+        revokedAt: new Date(),
+        revokedBy: session.user.id,
+      },
+    },
+  );
 
   const department = await DepartmentModel.findById(
     invitation.departmentId,

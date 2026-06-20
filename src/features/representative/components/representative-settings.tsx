@@ -84,12 +84,12 @@ export function RepresentativeSettings() {
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="grid gap-4 md:grid-cols-2">
-              <SettingValue label="College Name" value="College of ICT" />
-              <SettingValue label="Short Name" value="CoICT" />
+              <SettingValue label="College Name" value="Not configured" />
+              <SettingValue label="Short Name" value="Not configured" />
               <SettingValue
                 className="md:col-span-2"
                 label="Description"
-                value="College of Information and Communication Technologies at the University of Dar es Salaam."
+                value="College information will appear after real records are configured."
               />
             </div>
             <Button

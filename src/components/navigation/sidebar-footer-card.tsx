@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 import { FaFire } from "react-icons/fa6";
 import { FiChevronRight, FiGlobe } from "react-icons/fi";
 
@@ -11,22 +12,114 @@ type SidebarFooterCardProps = {
   email: string;
   domain?: string;
   streakLabel?: string;
-  streakDays?: string;
   profileHref?: string;
   className?: string;
 };
 
-const weekDays = ["M", "T", "W", "T", "F", "S", "S"];
+type WeeklyActivityDay = {
+  label: string;
+  date: string;
+  active: boolean;
+  isToday: boolean;
+};
+
+type StreakSummary = {
+  currentCount: number;
+  longestCount: number;
+  status: string;
+  activeDaysThisWeek: number;
+  weekGoal: number;
+  progressPercent: number;
+  weeklyActivity: WeeklyActivityDay[];
+  recoveryTokens: number;
+};
+
+type StreakSummaryResponse = {
+  data?: {
+    summary?: StreakSummary;
+  };
+  error?: {
+    message?: string;
+  } | null;
+};
+
+const defaultWeekActivity = ["M", "T", "W", "T", "F", "S", "S"].map(
+  (label) => ({
+    label,
+    date: "",
+    active: false,
+    isToday: false,
+  }),
+);
 
 export function SidebarFooterCard({
   name,
   email,
   domain = "campushub.com",
   streakLabel = "Campus Streak",
-  streakDays = "7 days",
-  profileHref = "/portal-selection",
+  profileHref = "/dashboard",
   className,
 }: SidebarFooterCardProps) {
+  const [summary, setSummary] = useState<StreakSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const loadSummary = useCallback(async () => {
+    try {
+      const response = await fetch("/api/streaks/summary", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const payload = (await response.json()) as StreakSummaryResponse;
+
+      if (!response.ok || payload.error) {
+        setSummary(null);
+        return;
+      }
+
+      setSummary(payload.data?.summary ?? null);
+    } catch {
+      setSummary(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function sync() {
+      if (!cancelled) {
+        await loadSummary();
+      }
+    }
+
+    void sync();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadSummary]);
+
+  useEffect(() => {
+    const refresh = () => void loadSummary();
+
+    window.addEventListener("campushub:streak-updated", refresh);
+
+    return () => window.removeEventListener("campushub:streak-updated", refresh);
+  }, [loadSummary]);
+
+  const weeklyActivity = summary?.weeklyActivity?.length
+    ? summary.weeklyActivity
+    : defaultWeekActivity;
+  const currentCount = summary?.currentCount ?? 0;
+  const activeDaysThisWeek = summary?.activeDaysThisWeek ?? 0;
+  const weekGoal = summary?.weekGoal ?? 7;
+  const progressPercent = summary?.progressPercent ?? 0;
+  const streakDays = loading
+    ? "Loading"
+    : currentCount === 1
+      ? "1 day"
+      : `${currentCount} days`;
+
   return (
     <div className={cn("space-y-3", className)}>
       <div className="rounded-xl bg-surface-muted p-3">
@@ -45,33 +138,37 @@ export function SidebarFooterCard({
           </p>
         </div>
         <div className="mt-4 grid grid-cols-7 gap-2 text-center text-xs font-medium">
-          {weekDays.map((day, index) => (
-            <span key={`${day}-${index}`}>{day}</span>
+          {weeklyActivity.map((day, index) => (
+            <span key={`${day.label}-${day.date || index}`}>{day.label}</span>
           ))}
         </div>
         <div className="mt-3 grid grid-cols-7 gap-2">
-          {weekDays.map((day, index) => {
-            const active = index < 5;
+          {weeklyActivity.map((day, index) => {
             return (
               <span
                 className={cn(
                   "flex aspect-square items-center justify-center rounded-full text-[10px]",
-                  active
+                  day.active
                     ? "bg-primary/15 text-primary"
-                    : "bg-background text-muted-foreground",
+                    : day.isToday
+                      ? "bg-primary/5 text-primary"
+                      : "bg-background text-muted-foreground",
                 )}
-                key={`${day}-dot-${index}`}
+                key={`${day.label}-dot-${day.date || index}`}
               >
-                {active ? "•" : ""}
+                {day.active ? "•" : ""}
               </span>
             );
           })}
         </div>
         <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-primary/15">
-          <div className="h-full w-[71%] rounded-full bg-primary" />
+          <div
+            className="h-full rounded-full bg-primary transition-[width]"
+            style={{ width: `${progressPercent}%` }}
+          />
         </div>
         <p className="mt-4 text-center text-xs font-semibold">
-          5 of 7 days this week
+          {activeDaysThisWeek} of {weekGoal} days this week
         </p>
       </div>
 

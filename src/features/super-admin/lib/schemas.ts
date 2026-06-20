@@ -24,11 +24,13 @@ const optionalImageReferenceSchema = z
     ]),
   );
 
-export const universityStatusSchema = z.enum([
-  "ACTIVE",
-  "INACTIVE",
-  "ONBOARDING",
-]);
+const optionalCoordinateSchema = (min: number, max: number, message: string) =>
+  z.preprocess(
+    (value) => (value === "" || value === null || value === undefined ? null : value),
+    z.coerce.number().min(min, message).max(max, message).nullable().default(null),
+  );
+
+export const universityStatusSchema = z.enum(["ACTIVE", "INACTIVE", "PENDING"]);
 
 export const universityInputSchema = z.object({
   name: z.string().trim().min(2, "University name is required."),
@@ -47,15 +49,23 @@ export const universityInputSchema = z.object({
     .transform((value) => value || "")
     .pipe(z.union([z.literal(""), z.string().email("Enter a valid email.")])),
   phone: z.string().trim().optional().default(""),
+  locationName: z.string().trim().optional().default(""),
+  locationAddress: z.string().trim().optional().default(""),
+  locationLatitude: optionalCoordinateSchema(
+    -90,
+    90,
+    "Latitude must be between -90 and 90.",
+  ),
+  locationLongitude: optionalCoordinateSchema(
+    -180,
+    180,
+    "Longitude must be between -180 and 180.",
+  ),
   status: universityStatusSchema.default("ACTIVE"),
 });
 
 export const campusAdminInvitationInputSchema = z.object({
   universityId: z.string().trim().min(1, "Select a university."),
-  firstName: z.string().trim().min(2, "First name is required."),
-  lastName: z.string().trim().min(2, "Last name is required."),
-  email: z.string().trim().email("Enter a valid email."),
-  phone: z.string().trim().optional().default(""),
   expiresInDays: z.coerce
     .number()
     .int()
@@ -67,6 +77,10 @@ export const campusAdminInvitationInputSchema = z.object({
 export const campusAdminActivationSchema = z
   .object({
     token: z.string().min(24, "Activation token is required."),
+    firstName: z.string().trim().min(2, "First name is required."),
+    lastName: z.string().trim().min(2, "Last name is required."),
+    email: z.string().trim().email("Enter a valid email."),
+    phone: z.string().trim().optional().default(""),
     password: passwordSchema,
     confirmPassword: z.string().min(1, "Confirm your password."),
   })
