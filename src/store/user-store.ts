@@ -36,6 +36,7 @@ function sameUser(left: AuthUser | null, right: AuthUser | null) {
     left.name === right.name &&
     left.email === right.email &&
     left.image === right.image &&
+    left.avatar === right.avatar &&
     left.role === right.role &&
     left.universityId === right.universityId &&
     left.collegeId === right.collegeId &&

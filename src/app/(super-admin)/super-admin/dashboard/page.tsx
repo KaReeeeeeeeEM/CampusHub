@@ -58,10 +58,10 @@ const platformActivity = [
 ];
 
 const platformDistribution = [
-  { name: "Universities", value: 4, color: "#60DDA0" },
-  { name: "Admins", value: 8, color: "#3478F6" },
-  { name: "Students", value: 24, color: "#7C3AED" },
-  { name: "Employers", value: 6, color: "#F59E0B" },
+  { name: "Universities", value: 4, color: "var(--chart-primary)" },
+  { name: "Admins", value: 8, color: "var(--chart-secondary)" },
+  { name: "Students", value: 24, color: "var(--chart-tertiary)" },
+  { name: "Employers", value: 6, color: "var(--chart-accent)" },
 ];
 
 const platformGoals = [
@@ -69,19 +69,19 @@ const platformGoals = [
     label: "University Setup",
     value: 80,
     detail: "First tenant workflow coverage",
-    color: "#3478F6",
+    color: "var(--chart-primary)",
   },
   {
     label: "Admin Invitations",
     value: 65,
     detail: "Campus admins invited",
-    color: "#10B981",
+    color: "var(--chart-secondary)",
   },
   {
     label: "Employer Review",
     value: 45,
     detail: "Applications pending review",
-    color: "#F97316",
+    color: "var(--chart-accent)",
   },
 ];
 
@@ -129,7 +129,7 @@ export default async function SuperAdminDashboardPage() {
                   <span className="dashboard-icon-tile flex h-9 w-9 items-center justify-center">
                     <Icon className="h-4 w-4" aria-hidden="true" />
                   </span>
-                  <span className="rounded-full bg-success/10 px-2 py-1 text-xs font-semibold text-success">
+                  <span className="rounded-full bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
                     active
                   </span>
                 </div>
@@ -185,7 +185,7 @@ export default async function SuperAdminDashboardPage() {
                   <Icon
                     className={
                       item.complete
-                        ? "h-5 w-5 text-success"
+                        ? "h-5 w-5 text-primary"
                         : "h-5 w-5 text-muted-foreground"
                     }
                     aria-hidden="true"

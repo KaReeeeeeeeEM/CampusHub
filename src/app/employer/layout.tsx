@@ -1,3 +1,4 @@
+import { AuthReadyGate } from "@/components/auth/auth-ready-gate";
 import { EmployerLayout } from "@/features/employer-portal/components/employer-layout";
 import { requireRole } from "@/lib/auth/route-guards";
 import { DashboardThemeProvider } from "@/providers/dashboard-theme-provider";
@@ -11,7 +12,12 @@ export default async function EmployerPortalLayout({
 
   return (
     <DashboardThemeProvider>
-      <EmployerLayout user={session.user}>{children}</EmployerLayout>
+      <AuthReadyGate
+        title="Loading Employer workspace"
+        description="Fetching your account, role, and organization details."
+      >
+        <EmployerLayout user={session.user}>{children}</EmployerLayout>
+      </AuthReadyGate>
     </DashboardThemeProvider>
   );
 }

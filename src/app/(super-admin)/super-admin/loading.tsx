@@ -5,6 +5,7 @@ export default function SuperAdminLoading() {
     <PageLoadingState
       title="Loading Super Admin workspace"
       description="Fetching platform metrics, universities, users, and applications."
+      withSidebar={false}
     />
   );
 }

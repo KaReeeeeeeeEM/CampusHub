@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Kibo idle animation">
+  <style>
+    .kibo{animation:breathe 2.8s ease-in-out infinite;transform-origin:128px 190px}.eye{animation:blink 4.2s infinite;transform-origin:center}@keyframes breathe{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-4px) scale(1.018)}}@keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.08)}}
+  </style>
+  <ellipse cx="128" cy="226" rx="54" ry="12" fill="#071326" opacity=".18"/>
+  <g class="kibo">
+    <rect x="160" y="105" width="34" height="58" rx="14" fill="#071326"/>
+    <path d="M82 210c-10 0-18-8-18-18v-5h34v5c0 10-7 18-16 18Zm92 0c-10 0-18-8-18-18v-5h34v5c0 10-7 18-16 18Z" fill="#071326"/>
+    <path d="M128 36c46 0 80 38 80 89 0 58-35 95-80 95s-80-37-80-95c0-51 34-89 80-89Z" fill="#F5B642"/>
+    <path d="M80 84 128 24l48 60-26-8-22-30-22 30-26 8Z" fill="#FFFFFF"/>
+    <g class="eye"><circle cx="101" cy="120" r="13" fill="#071326"/><circle cx="97" cy="115" r="4" fill="#FFFFFF"/></g>
+    <g class="eye"><circle cx="155" cy="120" r="13" fill="#071326"/><circle cx="151" cy="115" r="4" fill="#FFFFFF"/></g>
+    <path d="M104 154c12 12 36 12 48 0" fill="none" stroke="#071326" stroke-width="9" stroke-linecap="round"/>
+    <path d="M54 128c-24 8-33 25-22 38M202 128c24 8 33 25 22 38" fill="none" stroke="#F5B642" stroke-width="18" stroke-linecap="round"/>
+  </g>
+</svg>

@@ -58,7 +58,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} ${permanentMarker.variable} antialiased`}>
+      <body
+        className={`${inter.variable} ${permanentMarker.variable} antialiased`}
+        suppressHydrationWarning
+      >
         <AppProviders>{children}</AppProviders>
       </body>
     </html>

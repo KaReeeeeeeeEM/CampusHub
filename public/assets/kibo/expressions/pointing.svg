@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Kibo pointing">
+  <ellipse cx="128" cy="226" rx="54" ry="12" fill="#071326" opacity=".16"/>
+  <rect x="160" y="105" width="34" height="58" rx="14" fill="#071326"/>
+  <path d="M82 210c-10 0-18-8-18-18v-5h34v5c0 10-7 18-16 18Zm92 0c-10 0-18-8-18-18v-5h34v5c0 10-7 18-16 18Z" fill="#071326"/>
+  <path d="M128 36c46 0 80 38 80 89 0 58-35 95-80 95s-80-37-80-95c0-51 34-89 80-89Z" fill="#F5B642"/>
+  <path d="M80 84 128 24l48 60-26-8-22-30-22 30-26 8Z" fill="#FFFFFF"/>
+  <circle cx="101" cy="120" r="12" fill="#071326"/><circle cx="155" cy="120" r="12" fill="#071326"/>
+  <path d="M106 153c13 12 31 12 44 0" fill="none" stroke="#071326" stroke-width="8" stroke-linecap="round"/>
+  <path d="M57 132c-22 10-29 24-18 36" fill="none" stroke="#F5B642" stroke-width="18" stroke-linecap="round"/>
+  <path d="M199 130c23 3 39-3 48-18" fill="none" stroke="#F5B642" stroke-width="18" stroke-linecap="round"/>
+  <path d="m223 92 26 18-26 18" fill="none" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

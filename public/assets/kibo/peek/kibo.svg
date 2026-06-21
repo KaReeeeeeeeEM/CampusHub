@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Kibo peek animation">
+  <style>
+    .kibo{animation:peek 2.6s ease-in-out infinite}.eyes{animation:look 2.6s ease-in-out infinite}@keyframes peek{0%,100%{transform:translateX(-58px)}35%,75%{transform:translateX(0)}}@keyframes look{0%,40%,100%{transform:translateX(0)}60%{transform:translateX(8px)}}
+  </style>
+  <rect x="0" y="0" width="82" height="256" rx="28" fill="#071326"/>
+  <g class="kibo">
+    <ellipse cx="125" cy="226" rx="42" ry="10" fill="#071326" opacity=".16"/>
+    <rect x="150" y="109" width="30" height="52" rx="13" fill="#071326"/>
+    <path d="M126 39c44 0 77 37 77 88 0 57-34 92-77 92-29 0-51-35-51-92 0-51 12-88 51-88Z" fill="#F5B642"/>
+    <path d="M83 84 128 25l47 59-25-8-22-30-22 30-23 8Z" fill="#FFFFFF"/>
+    <g class="eyes"><circle cx="111" cy="120" r="14" fill="#071326"/><circle cx="107" cy="115" r="4" fill="#FFFFFF"/><circle cx="160" cy="120" r="11" fill="#071326"/><circle cx="157" cy="116" r="3" fill="#FFFFFF"/></g>
+    <path d="M115 153c11 11 29 11 40 0" fill="none" stroke="#071326" stroke-width="8" stroke-linecap="round"/>
+  </g>
+</svg>

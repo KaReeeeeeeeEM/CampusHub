@@ -1,5 +1,5 @@
 export const mockTeacherProfile = {
-  name: "Teacher",
+  name: "",
   title: "",
   department: "",
   college: "",

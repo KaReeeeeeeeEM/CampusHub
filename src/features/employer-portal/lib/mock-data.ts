@@ -1,5 +1,5 @@
 export const mockEmployerProfile = {
-  company: "Employer",
+  company: "",
   email: "",
   industry: "",
   location: "",

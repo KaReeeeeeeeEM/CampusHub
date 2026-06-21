@@ -121,7 +121,7 @@ export function CampusAdminSidebar() {
         className={cn("mt-auto", collapsed && "hidden")}
         email={user?.email ?? "campus-admin@campushub.com"}
         name={getUserName(user)}
-        profileHref="/campus-admin/settings"
+        profileHref="/campus-admin/profile"
         streakLabel="Campus Streak"
       />
     </aside>

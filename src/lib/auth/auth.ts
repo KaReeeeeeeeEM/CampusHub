@@ -1,5 +1,7 @@
 import { APIError, betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
+import { twoFactor } from "better-auth/plugins";
+import { passkey } from "@better-auth/passkey";
 import { randomUUID } from "node:crypto";
 import { ZodError } from "zod";
 
@@ -278,8 +280,25 @@ export const auth = betterAuth({
         returned: true,
         defaultValue: false,
       },
+      twoFactorEnabled: {
+        type: "boolean",
+        required: false,
+        input: false,
+        returned: true,
+        defaultValue: false,
+      },
     },
   },
+  plugins: [
+    twoFactor({
+      issuer: "CampusHub",
+      allowPasswordless: true,
+    }),
+    passkey({
+      rpName: "CampusHub",
+      origin: getAuthBaseUrl(),
+    }),
+  ],
   hooks: {
     before: async (ctx: { path?: string; body?: Record<string, unknown> }) => {
       if (ctx.path !== "/sign-up/email") {
@@ -410,6 +429,7 @@ export const auth = betterAuth({
             collegeId: user.collegeId as never,
             departmentId: user.departmentId as never,
             onboardingCompleted: user.onboardingCompleted as never,
+            twoFactorEnabled: user.twoFactorEnabled as never,
           });
         },
       },
@@ -438,6 +458,7 @@ export const auth = betterAuth({
             collegeId: user.collegeId as never,
             departmentId: user.departmentId as never,
             onboardingCompleted: user.onboardingCompleted as never,
+            twoFactorEnabled: user.twoFactorEnabled as never,
           });
           await writeAuthAuditLog({
             actorId: user.id,

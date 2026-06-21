@@ -362,7 +362,6 @@ export function SuperAdminAuditLogs({
         columns={columns}
         data={filteredLogs}
         getRowId={(log) => log.id}
-        pageSize={5}
         empty={
           <Empty
             filterName={search || "selected filters"}

@@ -17,6 +17,7 @@ export const committeeCategories = [
   "Events",
   "Health",
   "General",
+  "Other",
 ] as const;
 
 export const eventCategories = [
@@ -28,6 +29,7 @@ export const eventCategories = [
   "SEMINAR",
   "CAREER",
   "SOCIAL",
+  "OTHER",
 ] as const;
 
 export const mockCommitteeMembers: CommitteeMember[] = [];

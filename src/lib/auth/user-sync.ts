@@ -33,6 +33,7 @@ type AuthUserRecord = {
   collegeId?: string | null;
   departmentId?: string | null;
   onboardingCompleted?: boolean | null;
+  twoFactorEnabled?: boolean | null;
 };
 
 type AuthSessionRecord = {
@@ -221,6 +222,7 @@ export async function syncAuthUser(user: AuthUserRecord) {
         collegeId: user.collegeId ?? null,
         departmentId: user.departmentId ?? null,
         onboardingCompleted: Boolean(user.onboardingCompleted),
+        twoFactorEnabled: Boolean(user.twoFactorEnabled),
         profileCompletionPercentage,
         status,
       },

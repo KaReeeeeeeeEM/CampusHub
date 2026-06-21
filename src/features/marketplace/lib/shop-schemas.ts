@@ -26,6 +26,17 @@ export const createShopSchema = z.object({
   category: z.string().trim().min(1).max(80),
   contactPhone: z.string().trim().min(5).max(32).optional().nullable(),
   contactEmail: z.string().trim().email().optional().nullable(),
+  whatsappNumber: z.string().trim().min(5).max(32).optional().nullable(),
+  openingHours: z
+    .object({
+      availabilityStatus: z
+        .enum(["Open", "Open 24/7", "Limited Hours", "Closed"])
+        .optional(),
+      openingTime: z.string().trim().optional().nullable(),
+      closingTime: z.string().trim().optional().nullable(),
+    })
+    .optional()
+    .nullable(),
   location: shopLocationSchema,
 });
 

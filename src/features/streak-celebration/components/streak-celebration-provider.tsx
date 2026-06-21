@@ -14,6 +14,7 @@ import {
 } from "react";
 import { FiSkipForward } from "react-icons/fi";
 
+import { useOverlayCoordinator } from "@/components/overlays/overlay-coordinator";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/features/auth/auth-provider";
 import { eventToCelebration } from "@/features/streak-celebration/lib/celebration-utils";
@@ -71,6 +72,8 @@ export function StreakCelebrationProvider({
   children: ReactNode;
 }) {
   const { isAuthenticated, isPending } = useAuth();
+  const { activeOverlay, claimOverlay, releaseOverlay } =
+    useOverlayCoordinator();
   const [queue, setQueue] = useState<RewardEvent[]>([]);
   const [activeEvent, setActiveEvent] = useState<RewardEvent | null>(null);
   const knownEventIds = useRef(new Set<string>());
@@ -82,10 +85,13 @@ export function StreakCelebrationProvider({
     fetchingRef.current = true;
 
     try {
-      const response = await fetch("/api/reward-events?status=UNSEEN&limit=10", {
-        credentials: "include",
-        cache: "no-store",
-      });
+      const response = await fetch(
+        "/api/reward-events?status=UNSEEN&limit=10",
+        {
+          credentials: "include",
+          cache: "no-store",
+        },
+      );
       const payload = (await response.json()) as RewardEventsResponse;
 
       if (!response.ok || payload.error) return;
@@ -112,34 +118,38 @@ export function StreakCelebrationProvider({
       setQueue([]);
       setActiveEvent(null);
       knownEventIds.current.clear();
+      releaseOverlay("streak-celebration");
       return;
     }
 
     void refreshCelebrations();
-    const interval = window.setInterval(refreshCelebrations, 45_000);
+    const interval = window.setInterval(refreshCelebrations, 12_000);
 
     return () => window.clearInterval(interval);
-  }, [isAuthenticated, isPending, refreshCelebrations]);
+  }, [isAuthenticated, isPending, refreshCelebrations, releaseOverlay]);
 
   useEffect(() => {
     const refresh = () => void refreshCelebrations();
 
     window.addEventListener("campushub:streak-updated", refresh);
 
-    return () => window.removeEventListener("campushub:streak-updated", refresh);
+    return () =>
+      window.removeEventListener("campushub:streak-updated", refresh);
   }, [refreshCelebrations]);
 
   useEffect(() => {
     if (activeEvent || queue.length === 0) return;
+    if (!claimOverlay("streak-celebration")) return;
 
     const [nextEvent, ...rest] = queue;
     setActiveEvent(nextEvent);
     setQueue(rest);
-  }, [activeEvent, queue]);
+  }, [activeEvent, activeOverlay, claimOverlay, queue]);
 
   const completeActiveEvent = useCallback(async () => {
     const event = activeEvent;
     setActiveEvent(null);
+    releaseOverlay("streak-celebration");
 
     if (!event) return;
 
@@ -155,12 +165,13 @@ export function StreakCelebrationProvider({
     } catch {
       return;
     }
-  }, [activeEvent]);
+  }, [activeEvent, releaseOverlay]);
 
-  const value = useMemo(
-    () => ({ refreshCelebrations }),
-    [refreshCelebrations],
-  );
+  const skipActiveEvent = useCallback(() => {
+    void completeActiveEvent();
+  }, [completeActiveEvent]);
+
+  const value = useMemo(() => ({ refreshCelebrations }), [refreshCelebrations]);
 
   return (
     <CelebrationContext.Provider value={value}>
@@ -170,7 +181,7 @@ export function StreakCelebrationProvider({
           <StreakCelebrationOverlay
             key={activeEvent.id}
             event={activeEvent}
-            onClose={completeActiveEvent}
+            onClose={skipActiveEvent}
           />
         ) : null}
       </AnimatePresence>
@@ -186,6 +197,8 @@ function StreakCelebrationOverlay({
   onClose: () => void;
 }) {
   const viewModel = useMemo(() => eventToCelebration(event), [event]);
+  const isStreakReward =
+    viewModel.kind === "streak" || viewModel.kind === "freeze";
   const [step, setStep] = useState(0);
   const [streakSummary, setStreakSummary] = useState<StreakSummary | null>(
     null,
@@ -196,6 +209,11 @@ function StreakCelebrationOverlay({
     let cancelled = false;
 
     async function loadStreakSummary() {
+      if (!isStreakReward) {
+        setStreakSummary(null);
+        return;
+      }
+
       try {
         const streakType =
           typeof event.metadata?.streakType === "string"
@@ -223,7 +241,7 @@ function StreakCelebrationOverlay({
     return () => {
       cancelled = true;
     };
-  }, [event.id, event.metadata]);
+  }, [event.id, event.metadata, isStreakReward]);
 
   useEffect(() => {
     const timers = [
@@ -287,12 +305,16 @@ function StreakCelebrationOverlay({
     }
   }, [step, viewModel.kind]);
 
+  const handleClose = useCallback(() => {
+    onClose();
+  }, [onClose]);
+
   return (
     <motion.div
       ref={overlayRef}
       aria-modal="true"
       className={cn(
-        "fixed inset-0 z-[200] flex min-h-dvh items-center justify-center overflow-hidden px-4 py-6",
+        "fixed inset-0 z-[300] flex min-h-dvh items-center justify-center overflow-hidden px-4 py-6",
         viewModel.kind === "freeze"
           ? "bg-sky-950/35 backdrop-blur-xl"
           : "bg-amber-950/25 backdrop-blur-xl",
@@ -305,20 +327,21 @@ function StreakCelebrationOverlay({
       <motion.div
         aria-hidden="true"
         className={cn(
-          "absolute inset-0 opacity-80",
+          "pointer-events-none absolute inset-0 opacity-80",
           viewModel.kind === "freeze"
             ? "bg-[radial-gradient(circle_at_center,rgba(125,211,252,0.18),transparent_48%)]"
             : "bg-[radial-gradient(circle_at_center,rgba(251,191,36,0.16),transparent_52%)]",
         )}
       />
       <motion.div
-        className="relative w-full max-w-[430px] overflow-hidden rounded-3xl bg-white px-6 pb-7 pt-8 text-center text-slate-950 shadow-[0_28px_90px_rgba(69,26,3,0.24)] sm:px-8"
+        className="pointer-events-auto relative z-10 w-full max-w-[430px] overflow-hidden rounded-3xl bg-white px-6 pb-7 pt-8 text-center text-slate-950 shadow-[0_28px_90px_rgba(69,26,3,0.24)] sm:px-8"
         initial={{ opacity: 0, scale: 0.86, y: 24 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.92, y: 16 }}
+        onPointerDown={(event) => event.stopPropagation()}
         transition={{ duration: 0.3, ease: "easeOut" }}
       >
-        <div className="relative mx-auto flex h-28 w-28 items-center justify-center sm:h-32 sm:w-32">
+        <div className="pointer-events-none relative mx-auto flex h-28 w-28 items-center justify-center sm:h-32 sm:w-32">
           <motion.div
             className="flex items-center justify-center text-7xl sm:text-8xl"
             initial={{ scale: 0.6, opacity: 0 }}
@@ -333,41 +356,43 @@ function StreakCelebrationOverlay({
           </motion.div>
         </div>
 
-        <HeroNumber
-          step={step}
-          summary={streakSummary}
-          viewModel={viewModel}
-        />
+        <HeroNumber step={step} summary={streakSummary} viewModel={viewModel} />
         <motion.p
           className="relative mx-auto mt-2 max-w-xs text-xs font-semibold leading-5 text-slate-500 sm:text-sm"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: step >= 2 ? 1 : 0, y: step >= 2 ? 0 : 10 }}
         >
-          {viewModel.kind === "freeze"
-            ? "Your streak freeze kept your momentum safe."
-            : "You are building a strong CampusHub habit."}
+          {viewModel.subtitle}
         </motion.p>
 
-        <WeekStrip
-          step={step}
-          summary={streakSummary}
-          viewModel={viewModel}
-        />
+        {isStreakReward ? (
+          <WeekStrip
+            step={step}
+            summary={streakSummary}
+            viewModel={viewModel}
+          />
+        ) : (
+          <RewardHighlight step={step} viewModel={viewModel} />
+        )}
 
-        <div className="relative mt-7 flex flex-col gap-3">
+        <div className="pointer-events-auto relative z-20 mt-7 flex flex-col gap-3">
           <Button
             data-celebration-continue
+            data-testid="streak-celebration-continue"
             type="button"
-            className="h-12 w-full bg-sky-500 text-base font-black uppercase tracking-[0.08em] text-white shadow-[0_5px_0_#0284c7] hover:bg-sky-400"
-            onClick={onClose}
+            className="pointer-events-auto h-12 w-full cursor-pointer bg-sky-500 text-base font-black uppercase tracking-[0.08em] text-white shadow-[0_5px_0_#0284c7] hover:bg-sky-400"
+            onClick={handleClose}
+            onPointerDown={(event) => event.stopPropagation()}
           >
             Continue
           </Button>
           <Button
+            data-testid="streak-celebration-skip"
             type="button"
             variant="ghost"
-            className="h-10 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-            onClick={onClose}
+            className="pointer-events-auto h-10 cursor-pointer text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            onClick={handleClose}
+            onPointerDown={(event) => event.stopPropagation()}
           >
             <FiSkipForward className="h-4 w-4" aria-hidden="true" />
             Skip
@@ -421,7 +446,8 @@ function WeekStrip({
                 complete
                   ? "bg-orange-500 text-white"
                   : "bg-slate-200 text-slate-400",
-                current && "bg-orange-100 text-orange-500 ring-2 ring-orange-300",
+                current &&
+                  "bg-orange-100 text-orange-500 ring-2 ring-orange-300",
                 freeze && "bg-sky-400 text-white",
               )}
               initial={{ scale: 0.6, opacity: 0 }}
@@ -459,6 +485,57 @@ function WeekStrip({
         <p className="col-span-7 text-center text-xs font-semibold text-slate-400">
           Loading streak days
         </p>
+      ) : null}
+    </motion.div>
+  );
+}
+
+function RewardHighlight({
+  step,
+  viewModel,
+}: {
+  step: number;
+  viewModel: CelebrationViewModel;
+}) {
+  return (
+    <motion.div
+      className="mx-auto mt-6 max-w-sm space-y-3"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: step >= 2 ? 1 : 0, y: step >= 2 ? 0 : 10 }}
+    >
+      <motion.div
+        className="rounded-2xl bg-slate-100 px-4 py-4 text-left"
+        initial={{ scale: 0.94 }}
+        animate={{ scale: step >= 3 ? [0.94, 1.03, 1] : 0.94 }}
+        transition={{ duration: 0.55, ease: "easeOut" }}
+      >
+        <div className="flex items-center gap-3">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-2xl shadow-sm">
+            {viewModel.rewardIcon}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-base font-black text-slate-950">
+              {viewModel.rewardLabel}
+            </p>
+            <p className="mt-1 text-xs font-semibold text-slate-500">
+              {viewModel.nextMilestone}
+            </p>
+          </div>
+        </div>
+      </motion.div>
+
+      {viewModel.xp > 0 ? (
+        <motion.div
+          className="rounded-full bg-fuchsia-100 px-4 py-3 text-center text-lg font-black text-fuchsia-600"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{
+            opacity: step >= 3 ? 1 : 0,
+            scale: step >= 3 ? [0.9, 1.06, 1] : 0.9,
+          }}
+          transition={{ duration: 0.55, ease: "easeOut" }}
+        >
+          +{viewModel.xp} XP
+        </motion.div>
       ) : null}
     </motion.div>
   );
@@ -503,7 +580,9 @@ function HeroNumber({
       animate={{ opacity: step >= 2 ? 1 : 0, y: step >= 2 ? 0 : 18 }}
     >
       <h1 className="campushub-streak-display text-3xl font-black tracking-normal text-slate-900 sm:text-4xl">
-        {count} day streak!
+        {viewModel.kind === "level"
+          ? `Level ${count}!`
+          : `${count} day streak!`}
       </h1>
     </motion.div>
   );

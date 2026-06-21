@@ -27,7 +27,12 @@ export function Topbar() {
       <Search className="max-w-md" placeholder="Search CampusHub" />
       <div className="ml-auto flex items-center gap-1">
         <NotificationMenu />
-        <UserMenu name={user?.name} email={user?.email} />
+        <UserMenu
+          name={user?.name}
+          email={user?.email}
+          avatar={user?.avatar}
+          image={user?.image}
+        />
       </div>
     </header>
   );

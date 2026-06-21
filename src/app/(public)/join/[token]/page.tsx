@@ -92,6 +92,7 @@ export default async function JoinInvitationPage({
                 token,
                 universityName: resolution.university.name,
                 collegeName: resolution.college.name,
+                departments: resolution.departments,
               }}
             />
           </CardContent>

@@ -5,8 +5,9 @@ import { connectMongo } from "@/lib/db/mongodb";
 import {
   AlmanacEventModel,
   AnnouncementModel,
+  CollegeModel,
   CommitteeModel,
-  CommunityModel,
+  DepartmentModel,
   EventModel,
   ForumModel,
   MapLocationModel,
@@ -23,7 +24,6 @@ export const platformContentTypes = [
   "polls",
   "suggestions",
   "forums",
-  "communities",
   "committees",
 ] as const;
 
@@ -49,6 +49,22 @@ export type PlatformContentUniversity = {
   name: string;
 };
 
+export type PlatformContentTarget = {
+  id: string;
+  name: string;
+  universityId: string;
+};
+
+export type PlatformContentMapLocation = {
+  id: string;
+  name: string;
+  universityId: string;
+  category: string;
+  coordinates: string;
+  latitude: number | null;
+  longitude: number | null;
+};
+
 export type PlatformContentInput = {
   type: PlatformContentType;
   universityId: string;
@@ -59,9 +75,18 @@ export type PlatformContentInput = {
   startsAt?: string | null;
   endsAt?: string | null;
   venue?: string | null;
+  venueMode?: "UNIVERSITY_POINT" | "OUTSIDE" | null;
+  locationId?: string | null;
+  locationName?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   options?: string[] | null;
+  visibility?: "UNIVERSITY" | "COLLEGE" | "DEPARTMENT" | "CUSTOM" | null;
+  collegeIds?: string[] | null;
+  departmentIds?: string[] | null;
+  customAudience?: string[] | null;
+  allowMultipleSelection?: boolean | null;
+  anonymous?: boolean | null;
 };
 
 const contentModels = {
@@ -72,7 +97,6 @@ const contentModels = {
   polls: PollModel,
   suggestions: SuggestionModel,
   forums: ForumModel,
-  communities: CommunityModel,
   committees: CommitteeModel,
 } as const;
 
@@ -84,7 +108,6 @@ const statusDefaults: Record<PlatformContentType, string> = {
   polls: "DRAFT",
   suggestions: "OPEN",
   forums: "ACTIVE",
-  communities: "ACTIVE",
   committees: "ACTIVE",
 };
 
@@ -121,7 +144,7 @@ function normalizeType(value: unknown): PlatformContentType {
 }
 
 function getDisplayTitle(type: PlatformContentType, item: Record<string, unknown>) {
-  if (type === "map-locations" || type === "forums" || type === "communities" || type === "committees") {
+  if (type === "map-locations" || type === "forums" || type === "committees") {
     return stringValue(item.name, "Untitled");
   }
 
@@ -157,6 +180,29 @@ function getStartDate(type: PlatformContentType, item: Record<string, unknown>) 
   return null;
 }
 
+function getEndDate(type: PlatformContentType, item: Record<string, unknown>) {
+  if (type === "events") return serializeDate(item.endDate ?? item.endAt);
+  if (type === "almanac") return serializeDate(item.endDate);
+  if (type === "polls") return serializeDate(item.endDate ?? item.endsAt);
+
+  return null;
+}
+
+function getPollOptions(item: Record<string, unknown>) {
+  if (!Array.isArray(item.options)) return [];
+
+  return item.options
+    .map((option) => {
+      if (typeof option === "string") return option;
+      if (option && typeof option === "object") {
+        const label = (option as Record<string, unknown>).label;
+        return typeof label === "string" ? label : "";
+      }
+      return "";
+    })
+    .filter(Boolean);
+}
+
 function serializeItem(
   type: PlatformContentType,
   item: Record<string, unknown>,
@@ -178,6 +224,19 @@ function serializeItem(
     updatedAt: serializeDate(item.updatedAt),
     metadata: {
       visibility: item.visibility ?? null,
+      endDate: getEndDate(type, item),
+      options: type === "polls" ? getPollOptions(item) : [],
+      collegeIds: item.collegeIds ?? [],
+      departmentIds: item.departmentIds ?? [],
+      customAudience: item.customAudience ?? [],
+      allowMultipleSelection:
+        item.allowMultipleSelection ?? item.allowMultiple ?? null,
+      anonymous: item.anonymous ?? null,
+      venue: item.venue ?? null,
+      locationId: item.locationId ?? null,
+      locationName: item.locationName ?? null,
+      latitude: item.latitude ?? null,
+      longitude: item.longitude ?? null,
       collegeId: item.collegeId ?? null,
       departmentId: item.departmentId ?? null,
     },
@@ -241,7 +300,32 @@ function buildCreatePayload(input: PlatformContentInput, actorId: string) {
         createdBy: actorId,
         status,
       };
-    case "events":
+    case "events": {
+      const usesUniversityPoint = input.venueMode === "UNIVERSITY_POINT";
+      const venue = usesUniversityPoint
+        ? input.locationName?.trim() || input.venue?.trim()
+        : input.venue?.trim();
+      const latitude =
+        typeof input.latitude === "number" && Number.isFinite(input.latitude)
+          ? input.latitude
+          : null;
+      const longitude =
+        typeof input.longitude === "number" && Number.isFinite(input.longitude)
+          ? input.longitude
+          : null;
+
+      if (usesUniversityPoint && !input.locationId) {
+        throw new Error("Select a university map point for this event.");
+      }
+
+      if (!usesUniversityPoint && !venue) {
+        throw new Error("Enter an outside venue for this event.");
+      }
+
+      if (latitude === null || longitude === null) {
+        throw new Error("Set event latitude and longitude for directions.");
+      }
+
       return {
         _id: randomUUID(),
         universityId: input.universityId,
@@ -249,7 +333,11 @@ function buildCreatePayload(input: PlatformContentInput, actorId: string) {
         description,
         eventType: category === "GENERAL" ? "SOCIAL" : category,
         organizerId: actorId,
-        venue: input.venue?.trim() || "Campus",
+        venue,
+        locationId: usesUniversityPoint ? input.locationId : null,
+        locationName: usesUniversityPoint ? venue : null,
+        latitude,
+        longitude,
         startDate: startsAt,
         endDate: endsAt,
         startAt: startsAt,
@@ -257,6 +345,7 @@ function buildCreatePayload(input: PlatformContentInput, actorId: string) {
         qrCode: `event_${randomBytes(32).toString("base64url")}`,
         status,
       };
+    }
     case "almanac":
       return {
         _id: randomUUID(),
@@ -295,6 +384,13 @@ function buildCreatePayload(input: PlatformContentInput, actorId: string) {
       const options = (optionLabels.length >= 2 ? optionLabels : ["Yes", "No"]).map(
         (label) => ({ optionId: randomUUID(), label, voteCount: 0 }),
       );
+      const visibility = input.visibility ?? "UNIVERSITY";
+      const collegeIds = visibility === "COLLEGE" ? input.collegeIds ?? [] : [];
+      const departmentIds =
+        visibility === "DEPARTMENT" ? input.departmentIds ?? [] : [];
+      const customAudience =
+        visibility === "CUSTOM" ? input.customAudience ?? [] : [];
+
       return {
         _id: randomUUID(),
         universityId: input.universityId,
@@ -304,6 +400,19 @@ function buildCreatePayload(input: PlatformContentInput, actorId: string) {
         description,
         pollType: category,
         options,
+        visibility,
+        collegeIds,
+        departmentIds,
+        customAudience,
+        targetAudience: {
+          universityWide: visibility === "UNIVERSITY",
+          collegeIds,
+          departmentIds,
+          roles: ["STUDENT", "TEACHER"],
+        },
+        allowMultiple: Boolean(input.allowMultipleSelection),
+        allowMultipleSelection: Boolean(input.allowMultipleSelection),
+        anonymous: Boolean(input.anonymous),
         endsAt,
         endDate: endsAt,
         startDate: startsAt,
@@ -331,16 +440,6 @@ function buildCreatePayload(input: PlatformContentInput, actorId: string) {
         description,
         status,
       };
-    case "communities":
-      return {
-        _id: randomUUID(),
-        universityId: input.universityId,
-        name: title,
-        slug,
-        description,
-        ownerId: actorId,
-        status,
-      };
     case "committees":
       return {
         _id: randomUUID(),
@@ -363,7 +462,6 @@ function buildUpdatePayload(type: PlatformContentType, input: Partial<PlatformCo
     if (
       type === "map-locations" ||
       type === "forums" ||
-      type === "communities" ||
       type === "committees"
     ) {
       update.name = input.title.trim();
@@ -418,8 +516,67 @@ function buildUpdatePayload(type: PlatformContentType, input: Partial<PlatformCo
     }
   }
 
+  if (type === "polls") {
+    if (input.visibility) {
+      const collegeIds =
+        input.visibility === "COLLEGE" ? input.collegeIds ?? [] : [];
+      const departmentIds =
+        input.visibility === "DEPARTMENT" ? input.departmentIds ?? [] : [];
+
+      update.visibility = input.visibility;
+      update.collegeIds = collegeIds;
+      update.departmentIds = departmentIds;
+      update.customAudience =
+        input.visibility === "CUSTOM" ? input.customAudience ?? [] : [];
+      update.targetAudience = {
+        universityWide: input.visibility === "UNIVERSITY",
+        collegeIds,
+        departmentIds,
+        roles: ["STUDENT", "TEACHER"],
+      };
+    }
+
+    if (typeof input.allowMultipleSelection === "boolean") {
+      update.allowMultiple = input.allowMultipleSelection;
+      update.allowMultipleSelection = input.allowMultipleSelection;
+    }
+
+    if (typeof input.anonymous === "boolean") {
+      update.anonymous = input.anonymous;
+    }
+  }
+
   if (type === "events" && typeof input.venue === "string") {
-    update.venue = input.venue || "Campus";
+    const usesUniversityPoint = input.venueMode === "UNIVERSITY_POINT";
+    const venue = usesUniversityPoint
+      ? input.locationName?.trim() || input.venue.trim()
+      : input.venue.trim();
+    const latitude =
+      typeof input.latitude === "number" && Number.isFinite(input.latitude)
+        ? input.latitude
+        : null;
+    const longitude =
+      typeof input.longitude === "number" && Number.isFinite(input.longitude)
+        ? input.longitude
+        : null;
+
+    if (usesUniversityPoint && !input.locationId) {
+      throw new Error("Select a university map point for this event.");
+    }
+
+    if (!usesUniversityPoint && !venue) {
+      throw new Error("Enter an outside venue for this event.");
+    }
+
+    if (latitude === null || longitude === null) {
+      throw new Error("Set event latitude and longitude for directions.");
+    }
+
+    update.venue = venue;
+    update.locationId = usesUniversityPoint ? input.locationId : null;
+    update.locationName = usesUniversityPoint ? venue : null;
+    update.latitude = latitude;
+    update.longitude = longitude;
   }
 
   if (type === "map-locations") {
@@ -448,6 +605,20 @@ export async function listPlatformContent(query?: {
   const universities = await UniversityModel.find({ deletedAt: null })
     .sort({ name: 1 })
     .lean();
+  const [colleges, departments, mapLocations] = await Promise.all([
+    CollegeModel.find({ deletedAt: null, status: "ACTIVE" })
+      .select("_id name shortName code universityId")
+      .sort({ name: 1 })
+      .lean(),
+    DepartmentModel.find({ deletedAt: null, status: "ACTIVE" })
+      .select("_id name code universityId")
+      .sort({ name: 1 })
+      .lean(),
+    MapLocationModel.find({ deletedAt: null, status: "ACTIVE" })
+      .select("_id name category latitude longitude universityId")
+      .sort({ name: 1 })
+      .lean(),
+  ]);
   const universityNames = new Map(
     universities.map((university) => [String(university._id), String(university.name)]),
   );
@@ -473,6 +644,33 @@ export async function listPlatformContent(query?: {
     universities: universities.map((university) => ({
       id: String(university._id),
       name: String(university.name),
+    })),
+    colleges: colleges.map((college) => ({
+      id: String(college._id),
+      name: String(college.shortName ?? college.name ?? college.code),
+      universityId: String(college.universityId),
+    })),
+    departments: departments.map((department) => ({
+      id: String(department._id),
+      name: String(department.name ?? department.code),
+      universityId: String(department.universityId),
+    })),
+    mapLocations: mapLocations.map((location) => ({
+      id: String(location._id),
+      name: String(location.name),
+      universityId: String(location.universityId),
+      category: String(location.category ?? "Campus"),
+      coordinates:
+        typeof location.latitude === "number" &&
+        typeof location.longitude === "number"
+          ? `${location.latitude}, ${location.longitude}`
+          : "",
+      latitude:
+        typeof location.latitude === "number" ? Number(location.latitude) : null,
+      longitude:
+        typeof location.longitude === "number"
+          ? Number(location.longitude)
+          : null,
     })),
     items: entries.flat().sort((a, b) => {
       const aDate = a.updatedAt ?? a.createdAt ?? "";

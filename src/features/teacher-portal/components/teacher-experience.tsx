@@ -15,11 +15,13 @@ import FullCalendar from "@fullcalendar/react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import type { IconType } from "react-icons";
 import {
   FiAward,
+  FiArrowLeft,
+  FiArrowRight,
   FiBell,
   FiBookOpen,
   FiCalendar,
@@ -70,7 +72,9 @@ import type { DataTableColumn } from "@/components/shared/data-table";
 import { DataTable } from "@/components/shared/data-table";
 import { Drawer } from "@/components/shared/drawer";
 import { Empty } from "@/components/shared/empty";
+import { LoadingState } from "@/components/shared/loading-state";
 import { Modal } from "@/components/shared/modal";
+import { MultiStepProgress } from "@/components/shared/multi-step-progress";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -88,24 +92,32 @@ import {
 } from "@/components/ui/radix-select";
 import {
   mockTeacherProfile,
-  teacherAlmanacItems,
   teacherAnnouncements,
   teacherEvents,
   teacherForumTopics,
-  teacherNotifications,
   teacherPolls,
   teacherProjects,
-  teacherStats,
   teacherStudents,
   type TeacherAlmanacItem,
   type TeacherAnnouncement,
   type TeacherEvent,
   type TeacherForumTopic,
-  type TeacherNotification,
   type TeacherPoll,
   type TeacherProject,
   type TeacherStudent,
 } from "@/features/teacher-portal/lib/mock-data";
+import { useAuth } from "@/features/auth/auth-provider";
+import { NotificationTabs } from "@/features/notifications/components/notification-tabs";
+import {
+  deleteClientNotification,
+  deleteClientNotifications,
+  fetchClientNotifications,
+  filterNotificationsByTab,
+  getNotificationTabs,
+  markAllClientNotificationsRead,
+  markClientNotificationRead,
+  type ClientNotification,
+} from "@/features/notifications/lib/client-notification-utils";
 import { cn } from "@/lib/utils";
 
 const announcementCategories = [
@@ -116,6 +128,7 @@ const announcementCategories = [
   "Sports",
   "Student Welfare",
   "University News",
+  "Other",
 ];
 
 const almanacModes = [
@@ -149,14 +162,49 @@ const chartViewLabels: Record<ChartView, string> = {
   area: "Area chart",
 };
 
-const teacherActivityChartData = [
-  { label: "Jan", students: 96, projects: 18, events: 4 },
-  { label: "Feb", students: 108, projects: 22, events: 5 },
-  { label: "Mar", students: 118, projects: 26, events: 6 },
-  { label: "Apr", students: 132, projects: 29, events: 7 },
-  { label: "May", students: 148, projects: 32, events: 9 },
-  { label: "Jun", students: 164, projects: 38, events: 10 },
-];
+type TeacherActivityChartPoint = {
+  label: string;
+  students: number;
+  projects: number;
+  events: number;
+};
+
+type TeacherVisibleAlmanac = {
+  id: string;
+  title: string;
+  description: string | null;
+  academicYear: string | null;
+  semester: string | null;
+  status: string;
+  eventCount: number;
+  deadlineCount: number;
+  events: TeacherVisibleAlmanacEvent[];
+};
+
+type TeacherVisibleAlmanacEvent = {
+  id: string;
+  title: string;
+  description: string | null;
+  eventType: string;
+  startDate: string | null;
+  isAllDay: boolean;
+  isDeadline: boolean;
+  deadlineType: string | null;
+};
+
+type ResolvedAccountProfile = {
+  name: string | null;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  avatar: string | null;
+  image: string | null;
+  phoneNumber: string | null;
+  universityName: string | null;
+  collegeName: string | null;
+  departmentName: string | null;
+  position: string | null;
+};
 
 const replySchema = z.object({
   reply: z.string().min(6, "Write a meaningful reply."),
@@ -238,6 +286,53 @@ function getTeacherAlmanacIsoDate(date: string) {
 
 function isSameTeacherAlmanacDay(itemDate: string, selectedDate: string) {
   return getTeacherAlmanacIsoDate(itemDate) === selectedDate.slice(0, 10);
+}
+
+function toTitleCase(value: string) {
+  return value
+    .toLowerCase()
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`)
+    .join(" ");
+}
+
+function formatAlmanacEventDate(value: string | null) {
+  if (!value) return "Date not set";
+  const parsed = new Date(value);
+
+  if (Number.isNaN(parsed.getTime())) return value.slice(0, 10);
+
+  return parsed.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatAlmanacEventTime(value: string | null, isAllDay: boolean) {
+  if (isAllDay) return "All day";
+  if (!value) return "Time not set";
+  const parsed = new Date(value);
+
+  if (Number.isNaN(parsed.getTime())) return "Time not set";
+
+  return parsed.toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function getVisibleAlmanacEventType(event: TeacherVisibleAlmanacEvent) {
+  if (event.isDeadline) return "Deadline";
+  if (event.eventType === "EXAMINATION") return "Exam";
+  if (event.eventType === "GENERAL") return "Event";
+
+  return toTitleCase(event.eventType);
+}
+
+function getFieldValue(value: unknown, fallback = "Not set") {
+  return typeof value === "string" && value.trim() ? value : fallback;
 }
 
 function formatTeacherAnnouncementDate(date = new Date()) {
@@ -403,9 +498,15 @@ function ChartViewMenu({
   );
 }
 
-function TeacherActivityChart({ view }: { view: ChartView }) {
+function TeacherActivityChart({
+  data,
+  view,
+}: {
+  data: TeacherActivityChartPoint[];
+  view: ChartView;
+}) {
   const commonProps = {
-    data: teacherActivityChartData,
+    data,
     margin: { top: 12, right: 24, left: -12, bottom: 0 },
   };
 
@@ -498,6 +599,21 @@ function ImageBlock({
       className={cn("bg-cover bg-center", className)}
       style={{ backgroundImage: `url(${src})` }}
     />
+  );
+}
+
+function DashboardEmptyState({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-lg border border-dashed border-border bg-background/40 p-5 text-sm">
+      <p className="font-semibold text-foreground">{title}</p>
+      <p className="mt-2 leading-6 text-muted-foreground">{description}</p>
+    </div>
   );
 }
 
@@ -698,34 +814,77 @@ function ProjectListPanel({
         </span>
       </div>
       <div className="space-y-3">
-        {projects.map((project, index) => (
-          <button
-            key={project.id}
-            type="button"
-            className="flex w-full items-center gap-4 rounded-lg bg-surface-muted p-3 text-left transition-colors hover:bg-surface-raised"
-            onClick={() => onView(project)}
-          >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-              {index + 1}
-            </span>
-            <ImageBlock src={project.image} className="h-12 w-16 shrink-0 rounded-md" />
-            <span className="min-w-0 flex-1">
-              <span className="block font-semibold text-foreground">{project.name}</span>
-              <span className="mt-0.5 block truncate text-sm text-muted-foreground">
-                {project.owner} · {project.category}
+        {projects.length > 0 ? (
+          projects.map((project, index) => (
+            <button
+              key={project.id}
+              type="button"
+              className="flex w-full items-center gap-4 rounded-lg bg-surface-muted p-3 text-left transition-colors hover:bg-surface-raised"
+              onClick={() => onView(project)}
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                {index + 1}
               </span>
-            </span>
-            <span className="hidden text-sm font-semibold text-primary sm:block">
-              {numberFormat(project.stars)} stars
-            </span>
-          </button>
-        ))}
+              <ImageBlock src={project.image} className="h-12 w-16 shrink-0 rounded-md" />
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold text-foreground">{project.name}</span>
+                <span className="mt-0.5 block truncate text-sm text-muted-foreground">
+                  {project.owner} · {project.category}
+                </span>
+              </span>
+              <span className="hidden text-sm font-semibold text-primary sm:block">
+                {numberFormat(project.stars)} stars
+              </span>
+            </button>
+          ))
+        ) : (
+          <DashboardEmptyState
+            title="No projects yet"
+            description="Real student showcase projects will appear here once they are published."
+          />
+        )}
       </div>
     </Card>
   );
 }
 
 function TeacherShowcaseCharts({ projects }: { projects: TeacherProject[] }) {
+  if (!projects.length) {
+    return (
+      <div className="grid gap-5 xl:grid-cols-[1.15fr_.85fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Showcase Engagement</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Views and stars across current student project categories.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <DashboardEmptyState
+              title="No showcase engagement yet"
+              description="Student project activity will appear here after real showcase records are published."
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Project Signal Trend</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Faculty-visible project attention by published work.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <DashboardEmptyState
+              title="No project signals yet"
+              description="Trend data will be calculated from real project views and stars."
+            />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   const categoryData = Object.values(
     projects.reduce<
       Record<
@@ -825,6 +984,17 @@ function TopTalentPanel() {
     .slice()
     .sort((a, b) => b.xp - a.xp)
     .slice(0, 5);
+  if (!rankedStudents.length) {
+    return (
+      <Card className="p-5">
+        <DashboardEmptyState
+          title="No talent signals yet"
+          description="Students will appear here after real XP, project, and skill activity is available."
+        />
+      </Card>
+    );
+  }
+
   const topXp = Math.max(...rankedStudents.map((student) => student.xp));
 
   return (
@@ -1163,7 +1333,7 @@ function TeacherEventForm({ onComplete }: { onComplete: () => void }) {
               <SelectValue placeholder="Select event category" />
             </SelectTrigger>
             <SelectContent>
-              {["Research", "Technology", "Career", "Academic", "Workshop"].map((item) => (
+              {["Research", "Technology", "Career", "Academic", "Workshop", "Other"].map((item) => (
                 <SelectItem key={item} value={item}>
                   {item}
                 </SelectItem>
@@ -1353,6 +1523,7 @@ function TeacherAnnouncementForm({
 }
 
 function TeacherPollForm({ onComplete }: { onComplete: () => void }) {
+  const [step, setStep] = useState(0);
   const [options, setOptions] = useState(["Yes, this semester", "Next semester"]);
   const form = useForm<TeacherPollFormValues>({
     resolver: zodResolver(teacherPollSchema),
@@ -1370,128 +1541,266 @@ function TeacherPollForm({ onComplete }: { onComplete: () => void }) {
   function updateOption(index: number, value: string) {
     setOptions((current) => current.map((option, itemIndex) => (itemIndex === index ? value : option)));
   }
+  const steps = [
+    {
+      title: "Basics",
+      description: "Write the poll question and feedback context.",
+    },
+    {
+      title: "Audience",
+      description: "Choose category, audience, deadline, and results visibility.",
+    },
+    {
+      title: "Options",
+      description: "Add the answer choices for students and stakeholders.",
+    },
+  ];
+  const currentStep = steps[step];
+  const isLastStep = step === steps.length - 1;
+
+  async function goNext() {
+    const valid = await form.trigger(
+      step === 0
+        ? ["question", "description"]
+        : ["category", "audience", "endDate", "visibility"],
+    );
+    if (valid) setStep((current) => Math.min(current + 1, steps.length - 1));
+  }
 
   return (
     <form
       className="space-y-5"
-      onSubmit={form.handleSubmit(() => {
-        const cleanOptions = options.map((option) => option.trim()).filter(Boolean);
-        if (cleanOptions.length < 2) {
-          campusToast.error({
-            title: "Poll Needs Options",
-            description: "Add at least two answer options before creating the poll.",
-          });
+      onSubmit={(event) => {
+        if (!isLastStep) {
+          event.preventDefault();
+          void goNext();
           return;
         }
-        campusToast.success({
-          title: "Poll Created",
-          description: "The teacher poll has been prepared locally for preview.",
-        });
-        onComplete();
-      })}
+        void form.handleSubmit(() => {
+          const cleanOptions = options.map((option) => option.trim()).filter(Boolean);
+          if (cleanOptions.length < 2) {
+            campusToast.error({
+              title: "Poll Needs Options",
+              description: "Add at least two answer options before creating the poll.",
+            });
+            return;
+          }
+          campusToast.success({
+            title: "Poll Created",
+            description: "The teacher poll has been prepared locally for preview.",
+          });
+          onComplete();
+        })(event);
+      }}
     >
-      <label className="grid gap-2 text-sm font-medium text-foreground">
-        Poll Question
-        <CampusInput
-          placeholder="Which project review format works best?"
-          {...form.register("question")}
-        />
-      </label>
-      <div className="grid gap-5 md:grid-cols-2">
-        <label className="grid gap-2 text-sm font-medium text-foreground">
-          Category
-          <Select
-            value={form.watch("category")}
-            onValueChange={(value) => form.setValue("category", value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select poll category" />
-            </SelectTrigger>
-            <SelectContent>
-              {["Academic", "Research", "Technology", "Career", "Student Welfare"].map((item) => (
-                <SelectItem key={item} value={item}>
-                  {item}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </label>
-        <label className="grid gap-2 text-sm font-medium text-foreground">
-          Audience
-          <CampusInput placeholder="Final year students" {...form.register("audience")} />
-        </label>
-        <label className="grid gap-2 text-sm font-medium text-foreground">
-          End Date
-          <CampusInput type="date" {...form.register("endDate")} />
-        </label>
-        <label className="grid gap-2 text-sm font-medium text-foreground">
-          Results Visibility
-          <Select
-            value={form.watch("visibility")}
-            onValueChange={(value) => form.setValue("visibility", value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select visibility" />
-            </SelectTrigger>
-            <SelectContent>
-              {["Always visible", "Visible after voting", "Visible after poll ends", "Hidden"].map((item) => (
-                <SelectItem key={item} value={item}>
-                  {item}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </label>
+      <MultiStepProgress
+        activeIndex={step}
+        className="mb-8"
+        maxClickableIndex={step}
+        steps={steps.map((item) => ({
+          label: item.title,
+          icon: FiArrowRight,
+        }))}
+        onStepClick={setStep}
+      />
+      <div className="rounded-lg border border-border bg-background p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+          {currentStep.title}
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {currentStep.description}
+        </p>
       </div>
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-medium text-foreground">Options</p>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            onClick={() => setOptions((current) => [...current, ""])}
-          >
-            <FiPlus className="h-4 w-4" />
-            Add Option
-          </Button>
-        </div>
-        <div className="space-y-3">
-          {options.map((option, index) => (
+      {step === 0 ? (
+        <div className="grid gap-5">
+          <label className="grid gap-2 text-sm font-medium text-foreground">
+            Poll Question
             <CampusInput
-              key={index}
-              value={option}
-              onChange={(event) => updateOption(index, event.target.value)}
-              placeholder={`Option ${index + 1}`}
+              placeholder="Which project review format works best?"
+              {...form.register("question")}
             />
-          ))}
+          </label>
+          <label className="grid gap-2 text-sm font-medium text-foreground">
+            Description
+            <CampusTextarea
+              rows={4}
+              placeholder="Explain what decision or feedback this poll supports."
+              {...form.register("description")}
+            />
+          </label>
         </div>
+      ) : null}
+      {step === 1 ? (
+        <div className="grid gap-5 md:grid-cols-2">
+          <label className="grid gap-2 text-sm font-medium text-foreground">
+            Category
+            <Select
+              value={form.watch("category")}
+              onValueChange={(value) => form.setValue("category", value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select poll category" />
+              </SelectTrigger>
+              <SelectContent>
+                {["Academic", "Research", "Technology", "Career", "Student Welfare", "Other"].map((item) => (
+                  <SelectItem key={item} value={item}>
+                    {item}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
+          <label className="grid gap-2 text-sm font-medium text-foreground">
+            Audience
+            <CampusInput placeholder="Final year students" {...form.register("audience")} />
+          </label>
+          <label className="grid gap-2 text-sm font-medium text-foreground">
+            End Date
+            <CampusInput type="date" {...form.register("endDate")} />
+          </label>
+          <label className="grid gap-2 text-sm font-medium text-foreground">
+            Results Visibility
+            <Select
+              value={form.watch("visibility")}
+              onValueChange={(value) => form.setValue("visibility", value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select visibility" />
+              </SelectTrigger>
+              <SelectContent>
+                {["Always visible", "Visible after voting", "Visible after poll ends", "Hidden"].map((item) => (
+                  <SelectItem key={item} value={item}>
+                    {item}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
+        </div>
+      ) : null}
+      {step === 2 ? (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-foreground">Options</p>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => setOptions((current) => [...current, ""])}
+            >
+              <FiPlus className="h-4 w-4" />
+              Add Option
+            </Button>
+          </div>
+          <div className="space-y-3">
+            {options.map((option, index) => (
+              <CampusInput
+                key={index}
+                value={option}
+                onChange={(event) => updateOption(index, event.target.value)}
+                placeholder={`Option ${index + 1}`}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
+      <div className="flex flex-col-reverse gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <Button
+          disabled={step === 0}
+          type="button"
+          variant="secondary"
+          onClick={() => setStep((current) => Math.max(current - 1, 0))}
+        >
+          <FiArrowLeft className="h-4 w-4" />
+          Back
+        </Button>
+        {!isLastStep ? (
+          <Button type="button" onClick={goNext}>
+            Continue
+            <FiArrowRight className="h-4 w-4" />
+          </Button>
+        ) : (
+          <Button type="submit">
+            <FiPlus className="h-4 w-4" />
+            Create Poll
+          </Button>
+        )}
       </div>
-      <label className="grid gap-2 text-sm font-medium text-foreground">
-        Description
-        <CampusTextarea
-          rows={4}
-          placeholder="Explain what decision or feedback this poll supports."
-          {...form.register("description")}
-        />
-      </label>
-      <Button type="submit" className="w-full">
-        <FiPlus className="h-4 w-4" />
-        Create Poll
-      </Button>
     </form>
   );
 }
 
 export function TeacherDashboardView() {
+  const { user } = useAuth();
   const [selectedProject, setSelectedProject] = useState<TeacherProject | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<TeacherEvent | null>(null);
   const [chartView, setChartView] = useState<ChartView>("bar");
+  const teacherFirstName =
+    getFieldValue(user?.firstName, "") ||
+    getFieldValue(user?.name, "")
+      .split(" ")
+      .filter(Boolean)
+      .at(0) ||
+    "";
+  const activityChartData = useMemo<TeacherActivityChartPoint[]>(
+    () =>
+      Array.from({ length: 6 }, (_, index) => {
+        const date = new Date();
+        date.setMonth(date.getMonth() - (5 - index));
+        const label = date.toLocaleDateString(undefined, { month: "short" });
+
+        return {
+          label,
+          students: 0,
+          projects: teacherProjects.filter((project) =>
+            String(project.createdAt ?? project.date ?? "").includes(label),
+          ).length,
+          events: teacherEvents.filter((event) =>
+            String(event.startDate ?? event.date ?? "").includes(label),
+          ).length,
+        };
+      }),
+    [],
+  );
+  const hasActivityData = activityChartData.some(
+    (point) => point.students > 0 || point.projects > 0 || point.events > 0,
+  );
+  const dashboardStats = [
+    {
+      label: "Tracked students",
+      value: numberFormat(teacherStudents.length),
+      trend: "Live records",
+    },
+    {
+      label: "Student projects",
+      value: numberFormat(teacherProjects.length),
+      trend: "Live records",
+    },
+    {
+      label: "Academic events",
+      value: numberFormat(teacherEvents.length),
+      trend: "Live records",
+    },
+    {
+      label: "Announcements",
+      value: numberFormat(teacherAnnouncements.length),
+      trend: "Live records",
+    },
+    {
+      label: "Polls",
+      value: numberFormat(teacherPolls.length),
+      trend: "Live records",
+    },
+  ];
 
   return (
     <PageShell
       eyebrow="Teacher Portal"
-      title={`Good morning, ${mockTeacherProfile.name.split(" ")[1]}.`}
+      title={
+        teacherFirstName
+          ? `Good morning, ${teacherFirstName}.`
+          : "Teacher dashboard."
+      }
       description="Track academic activity, discover student talent, and stay connected to your university ecosystem."
       actions={
         <Button asChild>
@@ -1503,7 +1812,7 @@ export function TeacherDashboardView() {
       }
     >
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {teacherStats.map((stat, index) => (
+        {dashboardStats.map((stat, index) => (
           <MetricCard
             key={stat.label}
             label={stat.label}
@@ -1525,11 +1834,18 @@ export function TeacherDashboardView() {
           </div>
         </CardHeader>
         <CardContent className="px-2 pb-5 pt-0 sm:px-4">
-          <div className="w-full min-w-0">
-            <ResponsiveContainer width="100%" height={360} minWidth={0}>
-              <TeacherActivityChart view={chartView} />
-            </ResponsiveContainer>
-          </div>
+          {hasActivityData ? (
+            <div className="w-full min-w-0">
+              <ResponsiveContainer width="100%" height={360} minWidth={0}>
+                <TeacherActivityChart data={activityChartData} view={chartView} />
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <DashboardEmptyState
+              title="No academic activity yet"
+              description="Live student, project, and event activity will appear here once records exist for this teacher dashboard."
+            />
+          )}
         </CardContent>
       </Card>
 
@@ -1542,27 +1858,34 @@ export function TeacherDashboardView() {
             </p>
           </CardHeader>
           <CardContent className="space-y-3">
-            {teacherProjects.slice(0, 3).map((project) => (
-              <button
-                key={project.id}
-                type="button"
-                className="flex w-full items-center gap-4 rounded-lg bg-surface-muted p-3 text-left transition-colors hover:bg-surface-raised"
-                onClick={() => setSelectedProject(project)}
-              >
-                <ImageBlock src={project.image} className="h-16 w-20 shrink-0 rounded-md" />
-                <span className="min-w-0 flex-1">
-                  <span className="block font-semibold text-foreground">
-                    {project.name}
+            {teacherProjects.length > 0 ? (
+              teacherProjects.slice(0, 3).map((project) => (
+                <button
+                  key={project.id}
+                  type="button"
+                  className="flex w-full items-center gap-4 rounded-lg bg-surface-muted p-3 text-left transition-colors hover:bg-surface-raised"
+                  onClick={() => setSelectedProject(project)}
+                >
+                  <ImageBlock src={project.image} className="h-16 w-20 shrink-0 rounded-md" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-semibold text-foreground">
+                      {project.name}
+                    </span>
+                    <span className="block truncate text-sm text-muted-foreground">
+                      {project.owner} · {project.category}
+                    </span>
                   </span>
-                  <span className="block truncate text-sm text-muted-foreground">
-                    {project.owner} · {project.category}
+                  <span className="text-sm font-semibold text-primary">
+                    {project.stars} stars
                   </span>
-                </span>
-                <span className="text-sm font-semibold text-primary">
-                  {project.stars} stars
-                </span>
-              </button>
-            ))}
+                </button>
+              ))
+            ) : (
+              <DashboardEmptyState
+                title="No student projects yet"
+                description="Projects will appear here when students publish work visible to faculty."
+              />
+            )}
           </CardContent>
         </Card>
 
@@ -1571,14 +1894,21 @@ export function TeacherDashboardView() {
             <CardTitle>Recent Announcements</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {teacherAnnouncements.slice(0, 3).map((announcement) => (
-              <div key={announcement.id} className="rounded-lg bg-surface-muted p-3">
-                <p className="font-medium text-foreground">{announcement.title}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {announcement.category} · {announcement.date}
-                </p>
-              </div>
-            ))}
+            {teacherAnnouncements.length > 0 ? (
+              teacherAnnouncements.slice(0, 3).map((announcement) => (
+                <div key={announcement.id} className="rounded-lg bg-surface-muted p-3">
+                  <p className="font-medium text-foreground">{announcement.title}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {announcement.category} · {announcement.date}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <DashboardEmptyState
+                title="No announcements yet"
+                description="Recent university announcements will appear here once published."
+              />
+            )}
           </CardContent>
         </Card>
 
@@ -1587,19 +1917,26 @@ export function TeacherDashboardView() {
             <CardTitle>Upcoming Academic Events</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {teacherEvents.slice(0, 3).map((event) => (
-              <button
-                key={event.id}
-                type="button"
-                className="w-full rounded-lg bg-surface-muted p-3 text-left hover:bg-surface-raised"
-                onClick={() => setSelectedEvent(event)}
-              >
-                <p className="font-medium text-foreground">{event.title}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {event.date} · {event.venue}
-                </p>
-              </button>
-            ))}
+            {teacherEvents.length > 0 ? (
+              teacherEvents.slice(0, 3).map((event) => (
+                <button
+                  key={event.id}
+                  type="button"
+                  className="w-full rounded-lg bg-surface-muted p-3 text-left hover:bg-surface-raised"
+                  onClick={() => setSelectedEvent(event)}
+                >
+                  <p className="font-medium text-foreground">{event.title}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {event.date} · {event.venue}
+                  </p>
+                </button>
+              ))
+            ) : (
+              <DashboardEmptyState
+                title="No upcoming events"
+                description="Academic events visible to teachers will appear here once scheduled."
+              />
+            )}
           </CardContent>
         </Card>
 
@@ -1608,23 +1945,30 @@ export function TeacherDashboardView() {
             <CardTitle>Top Innovators</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {teacherStudents
-              .slice()
-              .sort((a, b) => b.xp - a.xp)
-              .slice(0, 4)
-              .map((student, index) => (
-                <div key={student.id} className="flex items-center gap-3">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                    {index + 1}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium text-foreground">{student.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {numberFormat(student.xp)} XP
-                    </p>
+            {teacherStudents.length > 0 ? (
+              teacherStudents
+                .slice()
+                .sort((a, b) => b.xp - a.xp)
+                .slice(0, 4)
+                .map((student, index) => (
+                  <div key={student.id} className="flex items-center gap-3">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                      {index + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-foreground">{student.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {numberFormat(student.xp)} XP
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+            ) : (
+              <DashboardEmptyState
+                title="No innovator rankings yet"
+                description="Student innovation signals will appear here when student activity records exist."
+              />
+            )}
           </CardContent>
         </Card>
 
@@ -1633,14 +1977,21 @@ export function TeacherDashboardView() {
             <CardTitle>Recent Polls</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {teacherPolls.slice(0, 2).map((poll) => (
-              <div key={poll.id} className="rounded-lg bg-surface-muted p-3">
-                <p className="font-medium text-foreground">{poll.question}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {poll.responses} responses · {poll.status}
-                </p>
-              </div>
-            ))}
+            {teacherPolls.length > 0 ? (
+              teacherPolls.slice(0, 2).map((poll) => (
+                <div key={poll.id} className="rounded-lg bg-surface-muted p-3">
+                  <p className="font-medium text-foreground">{poll.question}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {poll.responses} responses · {poll.status}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <DashboardEmptyState
+                title="No polls yet"
+                description="Recent academic polls will appear here once they are created."
+              />
+            )}
           </CardContent>
         </Card>
 
@@ -1652,19 +2003,28 @@ export function TeacherDashboardView() {
             </p>
           </CardHeader>
           <CardContent className="grid gap-3 md:grid-cols-2">
-            {teacherProjects.slice(0, 2).map((project) => (
-              <button
-                key={project.id}
-                type="button"
-                className="rounded-lg bg-surface-muted p-3 text-left transition-colors hover:bg-surface-raised"
-                onClick={() => setSelectedProject(project)}
-              >
-                <p className="font-medium text-foreground">{project.name}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {project.department} · {project.status}
-                </p>
-              </button>
-            ))}
+            {teacherProjects.length > 0 ? (
+              teacherProjects.slice(0, 2).map((project) => (
+                <button
+                  key={project.id}
+                  type="button"
+                  className="rounded-lg bg-surface-muted p-3 text-left transition-colors hover:bg-surface-raised"
+                  onClick={() => setSelectedProject(project)}
+                >
+                  <p className="font-medium text-foreground">{project.name}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {project.department} · {project.status}
+                  </p>
+                </button>
+              ))
+            ) : (
+              <div className="md:col-span-2">
+                <DashboardEmptyState
+                  title="No review queue items"
+                  description="Student work that needs faculty attention will appear here once submitted."
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -1695,7 +2055,9 @@ export function TeacherAnnouncementsView() {
   const [announcements, setAnnouncements] = useState(teacherAnnouncements);
   const [selected, setSelected] = useState<TeacherAnnouncement | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const departmentAudience = `Students in ${mockTeacherProfile.department}`;
+  const departmentAudience = mockTeacherProfile.department
+    ? `Students in ${mockTeacherProfile.department}`
+    : "All students";
 
   const filtered = useMemo(
     () =>
@@ -1863,14 +2225,72 @@ export function TeacherAlmanacView() {
   const [typeFilter, setTypeFilter] = useState("All");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selected, setSelected] = useState<TeacherAlmanacItem | null>(null);
+  const [almanacs, setAlmanacs] = useState<TeacherVisibleAlmanac[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadAlmanacs() {
+      try {
+        setIsLoading(true);
+        setLoadError(null);
+        const response = await fetch("/api/almanacs", { cache: "no-store" });
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(payload?.error?.message ?? "Unable to load almanacs.");
+        }
+
+        if (mounted) {
+          setAlmanacs(Array.isArray(payload?.data?.almanacs) ? payload.data.almanacs : []);
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Unable to load almanacs.";
+        if (mounted) {
+          setLoadError(message);
+          setAlmanacs([]);
+          campusToast.error(message);
+        }
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    }
+
+    void loadAlmanacs();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+  const activeAlmanac = almanacs.find((almanac) => almanac.status === "ACTIVE") ?? almanacs[0] ?? null;
+  const almanacItems = useMemo(
+    () =>
+      almanacs.flatMap((almanac) =>
+        (almanac.events ?? []).map((event) => ({
+          id: event.id,
+          title: event.title,
+          type: getVisibleAlmanacEventType(event),
+          date: formatAlmanacEventDate(event.startDate),
+          time: formatAlmanacEventTime(event.startDate, event.isAllDay),
+          venue: almanac.title,
+          description:
+            event.description ??
+            almanac.description ??
+            "No description provided for this almanac entry.",
+        })),
+      ),
+    [almanacs],
+  );
   const almanacTypes = [
     "All",
-    ...Array.from(new Set(teacherAlmanacItems.map((item) => item.type))),
+    ...Array.from(new Set(almanacItems.map((item) => item.type))),
   ];
   const filtered = useMemo(() => {
     const normalized = query.toLowerCase().trim();
 
-    return teacherAlmanacItems.filter((item) => {
+    return almanacItems.filter((item) => {
       const typeMatch = typeFilter === "All" || item.type === typeFilter;
       const queryMatch =
         !normalized ||
@@ -1881,7 +2301,7 @@ export function TeacherAlmanacView() {
 
       return typeMatch && queryMatch;
     });
-  }, [query, typeFilter]);
+  }, [almanacItems, query, typeFilter]);
   const items =
     mode === "exams"
       ? filtered.filter((item) => item.type === "Exam")
@@ -1915,14 +2335,59 @@ export function TeacherAlmanacView() {
         </Select>
       </div>
 
-      {mode === "calendar" ? (
+      {activeAlmanac ? (
+        <Card className="p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+                Active almanac
+              </p>
+              <h2 className="mt-1 text-lg font-semibold text-foreground">
+                {activeAlmanac.title}
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {[activeAlmanac.academicYear, activeAlmanac.semester]
+                  .filter(Boolean)
+                  .join(" · ") || "Academic period not set"}
+              </p>
+            </div>
+            <div className="flex gap-2 text-sm">
+              <span className="rounded-full bg-surface-muted px-3 py-1.5 text-muted-foreground">
+                {activeAlmanac.eventCount} events
+              </span>
+              <span className="rounded-full bg-surface-muted px-3 py-1.5 text-muted-foreground">
+                {activeAlmanac.deadlineCount} deadlines
+              </span>
+            </div>
+          </div>
+        </Card>
+      ) : null}
+
+      {isLoading ? (
+        <LoadingState label="Loading almanac" />
+      ) : loadError ? (
+        <Empty
+          title="Unable to load almanac"
+          description={loadError}
+          icon={FiCalendar}
+        />
+      ) : mode === "calendar" ? (
         <CalendarPanel
           items={items}
           onDateSelect={setSelectedDate}
           onSelect={setSelected}
         />
       ) : mode === "timeline" ? (
-        <TimelinePanel items={items} onSelect={setSelected} />
+        <TimelinePanel
+          items={items}
+          onSelect={setSelected}
+          emptyTitle={activeAlmanac ? "No timeline entries yet" : "No active almanac"}
+          emptyDescription={
+            activeAlmanac
+              ? "This university almanac exists, but it has no visible entries for the current filter."
+              : "No active university almanac has been published for your teacher account yet."
+          }
+        />
       ) : items.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {items.map((item) => (
@@ -2124,6 +2589,34 @@ export function TeacherShowcaseView() {
   const [mode, setMode] = useState<ShowcaseMode>("overview");
   const [selected, setSelected] = useState<TeacherProject | null>(null);
   const categories = ["All", ...Array.from(new Set(teacherProjects.map((project) => project.category)))];
+  const showcaseMetrics = [
+    { label: "Trending Projects", value: teacherProjects.length, icon: FiTrendingUp },
+    {
+      label: "Student Creators",
+      value: new Set(teacherProjects.map((project) => project.owner).filter(Boolean)).size,
+      icon: FiUsers,
+    },
+    {
+      label: "Projects Reviewed",
+      value: teacherProjects.filter((project) =>
+        String(project.status ?? "").toLowerCase().includes("review"),
+      ).length,
+      icon: FiEye,
+    },
+    {
+      label: "Research Docs",
+      value: teacherProjects.reduce(
+        (total, project) => total + (Array.isArray(project.documents) ? project.documents.length : 0),
+        0,
+      ),
+      icon: FiFileText,
+    },
+    {
+      label: "Saved Projects",
+      value: teacherProjects.filter((project) => Boolean(project.saved || project.isSaved)).length,
+      icon: FiSave,
+    },
+  ];
   const filtered = useMemo(
     () =>
       teacherProjects.filter(
@@ -2154,18 +2647,11 @@ export function TeacherShowcaseView() {
       {mode === "overview" ? (
         <>
           <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-5">
-            {[
-              { label: "Trending Projects", value: "18", icon: FiTrendingUp },
-              { label: "Student Creators", value: "74", icon: FiUsers },
-              { label: "Projects Reviewed", value: "32", icon: FiEye },
-              { label: "Research Docs", value: "48", icon: FiFileText },
-              { label: "Saved Projects", value: "11", icon: FiSave },
-            ].map((item) => (
+            {showcaseMetrics.map((item) => (
               <MetricCard
                 key={item.label}
                 label={item.label}
-                value={item.value}
-                trend="live"
+                value={numberFormat(item.value)}
                 icon={item.icon}
               />
             ))}
@@ -2551,7 +3037,65 @@ export function TeacherPollsView() {
 }
 
 export function TeacherProfileView() {
+  const { user } = useAuth();
   const [editOpen, setEditOpen] = useState(false);
+  const [accountProfile, setAccountProfile] = useState<ResolvedAccountProfile | null>(null);
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadAccountProfile() {
+      try {
+        const response = await fetch("/api/account/profile", { cache: "no-store" });
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(payload?.error?.message ?? "Unable to load profile.");
+        }
+
+        if (mounted) setAccountProfile(payload?.data?.profile ?? null);
+      } catch (error) {
+        campusToast.error(
+          error instanceof Error ? error.message : "Unable to load profile.",
+        );
+      }
+    }
+
+    void loadAccountProfile();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+  const displayName =
+    getFieldValue(accountProfile?.name ?? user?.name, "") ||
+    getFieldValue(
+      [
+        accountProfile?.firstName ?? user?.firstName,
+        accountProfile?.lastName ?? user?.lastName,
+      ]
+        .filter(Boolean)
+        .join(" "),
+      "",
+    ) ||
+    "Teacher profile";
+  const displayTitle = getFieldValue(
+    mockTeacherProfile.title,
+    accountProfile?.position && accountProfile.position !== "NONE"
+      ? accountProfile.position
+      : "Teacher",
+  );
+  const academicInterests = mockTeacherProfile.interests.filter(Boolean);
+  const profileStats = [
+    [
+      "Projects Reviewed",
+      teacherProjects.filter((project) =>
+        String(project.status ?? "").toLowerCase().includes("review"),
+      ).length,
+    ],
+    ["Students Saved", teacherStudents.length],
+    ["Polls Created", teacherPolls.length],
+    ["Events Hosted", teacherEvents.length],
+  ];
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
@@ -2574,16 +3118,43 @@ export function TeacherProfileView() {
     >
       <div className="grid gap-5 xl:grid-cols-[1fr_1.4fr]">
         <Card className="p-6">
-          <Avatar label={mockTeacherProfile.avatar} className="h-20 w-20 text-xl" />
+          <Avatar
+            label={
+              mockTeacherProfile.avatar ||
+              getInitials(displayName)
+            }
+            className="h-20 w-20 text-xl"
+          />
           <h2 className="mt-5 text-2xl font-semibold text-foreground">
-            {mockTeacherProfile.name}
+            {displayName}
           </h2>
-          <p className="text-muted-foreground">{mockTeacherProfile.title}</p>
+          <p className="text-muted-foreground">{displayTitle}</p>
           <div className="mt-6 grid gap-3">
-            <InfoTile label="Department" value={mockTeacherProfile.department} />
-            <InfoTile label="College" value={mockTeacherProfile.college} />
-            <InfoTile label="Office" value={mockTeacherProfile.office} />
-            <InfoTile label="Email" value={mockTeacherProfile.email} />
+            <InfoTile
+              label="Department"
+              value={getFieldValue(
+                accountProfile?.departmentName ?? mockTeacherProfile.department,
+              )}
+            />
+            <InfoTile
+              label="College"
+              value={getFieldValue(accountProfile?.collegeName ?? mockTeacherProfile.college)}
+            />
+            <InfoTile
+              label="University"
+              value={getFieldValue(accountProfile?.universityName)}
+            />
+            <InfoTile label="Office" value={getFieldValue(mockTeacherProfile.office)} />
+            <InfoTile
+              label="Email"
+              value={getFieldValue(
+                accountProfile?.email ?? user?.email ?? mockTeacherProfile.email,
+              )}
+            />
+            <InfoTile
+              label="Phone"
+              value={getFieldValue(accountProfile?.phoneNumber)}
+            />
           </div>
         </Card>
         <div className="grid gap-5 md:grid-cols-2">
@@ -2592,15 +3163,12 @@ export function TeacherProfileView() {
               <CardTitle>Participation Statistics</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {[
-                ["Projects Reviewed", "32"],
-                ["Students Saved", "148"],
-                ["Polls Created", "7"],
-                ["Events Hosted", "9"],
-              ].map(([label, value]) => (
+              {profileStats.map(([label, value]) => (
                 <div key={label} className="flex items-center justify-between rounded-lg bg-surface-muted p-4">
                   <span className="text-sm text-muted-foreground">{label}</span>
-                  <span className="text-xl font-semibold text-foreground">{value}</span>
+                  <span className="text-xl font-semibold text-foreground">
+                    {numberFormat(value)}
+                  </span>
                 </div>
               ))}
             </CardContent>
@@ -2610,30 +3178,32 @@ export function TeacherProfileView() {
               <CardTitle>Academic Interests</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-2">
-              {mockTeacherProfile.interests.map((interest) => (
-                <span
-                  key={interest}
-                  className="rounded-full bg-primary/10 px-3 py-1.5 text-sm text-primary"
-                >
-                  {interest}
-                </span>
-              ))}
+              {academicInterests.length > 0 ? (
+                academicInterests.map((interest) => (
+                  <span
+                    key={interest}
+                    className="rounded-full bg-primary/10 px-3 py-1.5 text-sm text-primary"
+                  >
+                    {interest}
+                  </span>
+                ))
+              ) : (
+                <DashboardEmptyState
+                  title="No interests set"
+                  description="Academic interests will appear here after the profile is completed."
+                />
+              )}
             </CardContent>
           </Card>
           <Card className="md:col-span-2">
             <CardHeader>
               <CardTitle>Achievements</CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-3 md:grid-cols-3">
-              {["Research Mentor", "Project Reviewer", "Talent Scout"].map((item) => (
-                <div key={item} className="rounded-lg bg-surface-muted p-4">
-                  <FiAward className="h-5 w-5 text-primary" />
-                  <p className="mt-3 font-semibold text-foreground">{item}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Earned through teacher participation and academic support.
-                  </p>
-                </div>
-              ))}
+            <CardContent>
+              <DashboardEmptyState
+                title="No achievements earned yet"
+                description="Teacher achievements will appear here after real participation signals are recorded."
+              />
             </CardContent>
           </Card>
         </div>
@@ -2676,15 +3246,44 @@ export function TeacherProfileView() {
 }
 
 export function TeacherNotificationsView() {
-  const [filter, setFilter] = useState("All");
-  const [notifications, setNotifications] = useState(teacherNotifications);
-  const categories = ["All", "Unread", ...Array.from(new Set(teacherNotifications.map((item) => item.type)))];
-  const filtered = notifications.filter((notification) => {
-    if (filter === "All") return true;
-    if (filter === "Unread") return notification.unread;
-    return notification.type === filter;
-  });
-  const viewNotification = (notification: TeacherNotification) => {
+  const [activeTab, setActiveTab] = useState("All");
+  const [notifications, setNotifications] = useState<ClientNotification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const tabs = getNotificationTabs(notifications);
+  const filtered = filterNotificationsByTab(notifications, activeTab);
+  const unreadCount = notifications.filter((notification) => notification.unread).length;
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadNotifications() {
+      try {
+        setIsLoading(true);
+        const nextNotifications = await fetchClientNotifications();
+        if (mounted) setNotifications(nextNotifications);
+      } catch (error) {
+        campusToast.error(
+          error instanceof Error
+            ? error.message
+            : "Unable to load notifications.",
+        );
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    }
+
+    void loadNotifications();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const viewNotification = async (notification: ClientNotification) => {
+    if (notification.unread) {
+      await markNotificationRead(notification.id);
+    }
+
     setNotifications((current) =>
       current.map((item) =>
         item.id === notification.id ? { ...item, unread: false } : item,
@@ -2695,14 +3294,58 @@ export function TeacherNotificationsView() {
       description: notification.description,
     });
   };
-  const markNotificationRead = (id: string) => {
-    setNotifications((current) =>
-      current.map((item) => (item.id === id ? { ...item, unread: false } : item)),
-    );
+  const markNotificationRead = async (id: string) => {
+    try {
+      const updated = await markClientNotificationRead(id);
+      setNotifications((current) =>
+        current.map((item) => (item.id === id ? updated : item)),
+      );
+    } catch (error) {
+      campusToast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to mark notification as read.",
+      );
+    }
   };
-  const clearNotification = (id: string) => {
-    setNotifications((current) => current.filter((item) => item.id !== id));
+  const markAllRead = async () => {
+    try {
+      await markAllClientNotificationsRead();
+      setNotifications((current) =>
+        current.map((notification) => ({ ...notification, unread: false })),
+      );
+    } catch (error) {
+      campusToast.error(
+        error instanceof Error ? error.message : "Unable to mark notifications read.",
+      );
+    }
   };
+  const clearNotification = async (id: string) => {
+    try {
+      await deleteClientNotification(id);
+      setNotifications((current) => current.filter((item) => item.id !== id));
+    } catch (error) {
+      campusToast.error(
+        error instanceof Error ? error.message : "Unable to clear notification.",
+      );
+    }
+  };
+  const clearAllNotifications = async () => {
+    try {
+      await deleteClientNotifications(notifications.map((notification) => notification.id));
+      setNotifications([]);
+      setActiveTab("All");
+    } catch (error) {
+      campusToast.error(
+        error instanceof Error ? error.message : "Unable to clear notifications.",
+      );
+    }
+  };
+
+  useEffect(() => {
+    if (tabs.some((tab) => tab.key === activeTab)) return;
+    setActiveTab("All");
+  }, [activeTab, tabs]);
 
   return (
     <PageShell
@@ -2715,11 +3358,8 @@ export function TeacherNotificationsView() {
             type="button"
             variant="secondary"
             size="sm"
-            onClick={() =>
-              setNotifications((current) =>
-                current.map((notification) => ({ ...notification, unread: false })),
-              )
-            }
+            disabled={unreadCount === 0}
+            onClick={markAllRead}
           >
             Mark read
           </Button>
@@ -2727,60 +3367,40 @@ export function TeacherNotificationsView() {
             type="button"
             variant="secondary"
             size="sm"
-            onClick={() => setNotifications([])}
+            disabled={notifications.length === 0}
+            onClick={clearAllNotifications}
           >
             Clear all
           </Button>
         </>
       }
     >
-      <div className="grid gap-5 lg:grid-cols-[18rem_1fr]">
-        <Card className="h-fit p-4 lg:sticky lg:top-24">
-          <div className="space-y-2">
-            {categories.map((category) => (
-              <button
-                key={category}
-                type="button"
-                className={cn(
-                  "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm",
-                  filter === category
-                    ? "bg-primary text-primary-foreground"
-                    : "hover:bg-surface-muted",
-                )}
-                onClick={() => setFilter(category)}
-              >
-                <span>{category}</span>
-                <span>
-                  {category === "All"
-                    ? notifications.length
-                    : category === "Unread"
-                      ? notifications.filter((item) => item.unread).length
-                      : notifications.filter((item) => item.type === category).length}
-                </span>
-              </button>
-            ))}
-          </div>
-        </Card>
-        <div className="max-h-[calc(100vh-14rem)] space-y-3 overflow-y-auto pr-1">
-          {filtered.length > 0 ? (
-            filtered.map((notification) => (
-              <NotificationCard
-                key={notification.id}
-                notification={notification}
-                onClear={clearNotification}
-                onMarkRead={markNotificationRead}
-                onView={viewNotification}
-              />
-            ))
-          ) : (
-            <Empty
-              title="No notifications"
-              description={`No data for the filter "${filter}".`}
-              icon={FiBell}
-              filterName={filter}
+      <NotificationTabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+      <div className="max-h-[calc(100vh-14rem)] space-y-3 overflow-y-auto pr-1">
+        {isLoading ? (
+          <LoadingState label="Loading notifications" />
+        ) : filtered.length > 0 ? (
+          filtered.map((notification) => (
+            <NotificationCard
+              key={notification.id}
+              notification={notification}
+              onClear={clearNotification}
+              onMarkRead={markNotificationRead}
+              onView={viewNotification}
             />
-          )}
-        </div>
+          ))
+        ) : (
+          <Card className="p-5">
+            <DashboardEmptyState
+              title="No notifications"
+              description={
+                activeTab === "All"
+                  ? "Academic notices, events, polls, forum activity, showcase updates, and university alerts will appear here."
+                  : `No notifications for the "${activeTab}" tab.`
+              }
+            />
+          </Card>
+        )}
       </div>
     </PageShell>
   );
@@ -3250,38 +3870,46 @@ function EventCalendarPanel({
 function TimelinePanel({
   items,
   onSelect,
+  emptyTitle = "No timeline entries",
+  emptyDescription = "Published almanac entries will appear here once they exist.",
 }: {
   items: TeacherAlmanacItem[];
   onSelect: (item: TeacherAlmanacItem) => void;
+  emptyTitle?: string;
+  emptyDescription?: string;
 }) {
   return (
     <Card className="p-5">
-      <div className="space-y-4">
-        {items.map((item, index) => (
-          <button
-            key={item.id}
-            type="button"
-            className="grid w-full grid-cols-[2rem_1fr] gap-4 text-left"
-            onClick={() => onSelect(item)}
-          >
-            <span className="relative flex justify-center">
-              <span className="mt-1 h-3 w-3 rounded-full bg-primary" />
-              {index < items.length - 1 ? (
-                <span className="absolute top-5 h-full w-px bg-border" />
-              ) : null}
-            </span>
-            <span className="rounded-lg bg-surface-muted p-4">
-              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-                {item.date} · {item.type}
+      {items.length > 0 ? (
+        <div className="space-y-4">
+          {items.map((item, index) => (
+            <button
+              key={item.id}
+              type="button"
+              className="grid w-full grid-cols-[2rem_1fr] gap-4 text-left"
+              onClick={() => onSelect(item)}
+            >
+              <span className="relative flex justify-center">
+                <span className="mt-1 h-3 w-3 rounded-full bg-primary" />
+                {index < items.length - 1 ? (
+                  <span className="absolute top-5 h-full w-px bg-border" />
+                ) : null}
               </span>
-              <span className="mt-2 block font-semibold text-foreground">{item.title}</span>
-              <span className="mt-1 block text-sm text-muted-foreground">
-                {item.time} · {item.venue}
+              <span className="rounded-lg bg-surface-muted p-4">
+                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+                  {item.date} · {item.type}
+                </span>
+                <span className="mt-2 block font-semibold text-foreground">{item.title}</span>
+                <span className="mt-1 block text-sm text-muted-foreground">
+                  {item.time} · {item.venue}
+                </span>
               </span>
-            </span>
-          </button>
-        ))}
-      </div>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <DashboardEmptyState title={emptyTitle} description={emptyDescription} />
+      )}
     </Card>
   );
 }
@@ -3377,8 +4005,8 @@ function NotificationCard({
   onMarkRead,
   onClear,
 }: {
-  notification: TeacherNotification;
-  onView: (notification: TeacherNotification) => void;
+  notification: ClientNotification;
+  onView: (notification: ClientNotification) => void;
   onMarkRead: (id: string) => void;
   onClear: (id: string) => void;
 }) {

@@ -508,3 +508,38 @@ export async function deleteNotification(notificationId: string) {
 
   return serializeNotification(notification as Record<string, unknown>);
 }
+
+export async function deleteAllNotifications() {
+  const actor = await requireAuth();
+  await connectMongo();
+  const deletedAt = new Date();
+  const result = await NotificationModel.updateMany(
+    {
+      recipientId: actor.id,
+      ...deletedFilter,
+    },
+    {
+      $set: {
+        status: "ARCHIVED",
+        archivedAt: deletedAt,
+        deletedAt,
+        deletedById: actor.id,
+      },
+    },
+  );
+
+  await writeAuditLog({
+    actorId: actor.id,
+    universityId: actor.universityId ?? null,
+    action: "NOTIFICATION_ARCHIVED",
+    entityType: "notification",
+    entityId: null,
+    metadata: {
+      deleted: true,
+      count: result.modifiedCount,
+      scope: "ALL_NOTIFICATIONS",
+    },
+  });
+
+  return { deleted: result.modifiedCount };
+}

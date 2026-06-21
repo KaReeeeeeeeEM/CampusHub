@@ -41,6 +41,16 @@ const userSchema = new Schema(
       type: String,
       default: null,
     },
+    coverImage: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    profileSticker: {
+      type: String,
+      default: null,
+      trim: true,
+    },
     username: {
       type: String,
       required: true,
@@ -185,6 +195,23 @@ const userSchema = new Schema(
       type: Boolean,
       default: false,
       index: true,
+    },
+    twoFactorEnabled: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    notificationPreferences: {
+      streakReminders: { type: Boolean, default: true },
+      eventReminders: { type: Boolean, default: true },
+      communityUpdates: { type: Boolean, default: true },
+      marketplaceActivity: { type: Boolean, default: true },
+      projectActivity: { type: Boolean, default: true },
+      mentorshipActivity: { type: Boolean, default: true },
+      opportunityAlerts: { type: Boolean, default: true },
+      announcements: { type: Boolean, default: true },
+      pushEnabled: { type: Boolean, default: false },
+      emailDigestEnabled: { type: Boolean, default: true },
     },
     profileCompletionPercentage: {
       type: Number,

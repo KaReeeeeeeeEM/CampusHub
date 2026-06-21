@@ -1,18 +1,18 @@
 import { CampusAdminPageHeader } from "@/features/campus-admin/components/campus-admin-page-header";
 import { AlmanacManagement } from "@/features/campus-admin/components/almanac/almanac-management";
-import { listAlmanacEvents } from "@/features/almanac/lib/almanac-service";
+import { listCampusAdminAlmanacs } from "@/features/almanac/lib/almanac-service";
 
 export default async function CampusAdminAlmanacPage() {
-  const events = await listAlmanacEvents({});
+  const almanacs = await listCampusAdminAlmanacs();
 
   return (
     <main className="w-full max-w-none px-4 py-6 sm:px-6">
       <CampusAdminPageHeader
         eyebrow="Academic calendar"
         title="Almanac"
-        description="Manage academic dates, deadlines, examinations, and university calendar events."
+        description="Create academic calendar shells, then add dated almanac events and deadlines from each calendar."
       />
-      <AlmanacManagement initialEvents={events} />
+      <AlmanacManagement initialAlmanacs={almanacs} />
     </main>
   );
 }

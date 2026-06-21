@@ -60,6 +60,17 @@ const DEFAULT_BADGES: Array<
     isGlobal: true,
   },
   {
+    name: "14 Day Streak",
+    slug: "streak-14-days",
+    description: "Awarded for maintaining a fourteen day activity streak.",
+    icon: "flame",
+    category: "Streaks",
+    rarity: "UNCOMMON",
+    xpReward: 70,
+    criteria: { type: "STREAK_MILESTONE", days: 14 },
+    isGlobal: true,
+  },
+  {
     name: "30 Day Streak",
     slug: "streak-30-days",
     description: "Awarded for maintaining a thirty day activity streak.",
@@ -68,6 +79,17 @@ const DEFAULT_BADGES: Array<
     rarity: "RARE",
     xpReward: 150,
     criteria: { type: "STREAK_MILESTONE", days: 30 },
+    isGlobal: true,
+  },
+  {
+    name: "60 Day Streak",
+    slug: "streak-60-days",
+    description: "Awarded for maintaining a sixty day activity streak.",
+    icon: "flame",
+    category: "Streaks",
+    rarity: "EPIC",
+    xpReward: 250,
+    criteria: { type: "STREAK_MILESTONE", days: 60 },
     isGlobal: true,
   },
   {
@@ -155,7 +177,11 @@ const DEFAULT_BADGES: Array<
     category: "Marketplace",
     rarity: "UNCOMMON",
     xpReward: 50,
-    criteria: { type: "MARKETPLACE_METRIC", metric: "completedOrders", count: 1 },
+    criteria: {
+      type: "MARKETPLACE_METRIC",
+      metric: "completedOrders",
+      count: 1,
+    },
     isGlobal: true,
   },
   {
@@ -177,7 +203,11 @@ const DEFAULT_BADGES: Array<
     category: "Mentorship",
     rarity: "EPIC",
     xpReward: 150,
-    criteria: { type: "MENTORSHIP_METRIC", metric: "completedMentorships", count: 5 },
+    criteria: {
+      type: "MENTORSHIP_METRIC",
+      metric: "completedMentorships",
+      count: 5,
+    },
     isGlobal: true,
   },
   {
@@ -282,7 +312,8 @@ function serializeBadge(badge: Record<string, unknown>) {
       typeof badge.universityId === "string" ? badge.universityId : null,
     name: String(badge.name),
     slug: String(badge.slug),
-    description: typeof badge.description === "string" ? badge.description : null,
+    description:
+      typeof badge.description === "string" ? badge.description : null,
     icon:
       typeof badge.icon === "string"
         ? badge.icon
@@ -508,7 +539,9 @@ export async function listBadges(query: unknown = {}) {
     .limit(filters.limit)
     .lean();
 
-  return badges.map((badge) => serializeBadge(badge as Record<string, unknown>));
+  return badges.map((badge) =>
+    serializeBadge(badge as Record<string, unknown>),
+  );
 }
 
 export async function grantBadgeToUser(actor: AuthUser, input: unknown) {
@@ -587,7 +620,8 @@ export async function grantBadgeToUser(actor: AuthUser, input: unknown) {
       typeof user.departmentId === "string" ? user.departmentId : null,
     activityType: "BADGE_EARNED",
     title: `${String(badge.name)} badge earned`,
-    description: typeof badge.description === "string" ? badge.description : null,
+    description:
+      typeof badge.description === "string" ? badge.description : null,
     entityType: "user_badge",
     entityId: String(userBadge._id),
     visibility: "PRIVATE",
@@ -720,7 +754,9 @@ export async function updateUserBadgeDisplay(
   );
 
   if (actor.id !== userBadge.userId && !canManageBadges(actor)) {
-    throw forbidden("Only the owner or a badge manager can update display state.");
+    throw forbidden(
+      "Only the owner or a badge manager can update display state.",
+    );
   }
 
   const updated = await UserBadgeModel.findOneAndUpdate(

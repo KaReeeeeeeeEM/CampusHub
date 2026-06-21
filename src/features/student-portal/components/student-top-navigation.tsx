@@ -67,6 +67,8 @@ export function StudentTopNavigation({ user }: { user: AuthUser }) {
           <UserMenu
             name={getUserName(user)}
             email={user.email}
+            avatar={user.avatar}
+            image={user.image}
           />
         </div>
       </div>

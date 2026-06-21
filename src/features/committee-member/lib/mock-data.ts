@@ -1,7 +1,7 @@
 export const committeeCategory = "Committee";
 
 export const committeeProfile = {
-  name: "Committee Member",
+  name: "",
   email: "",
   role: "",
   category: committeeCategory,

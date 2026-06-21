@@ -1,0 +1,73 @@
+{
+  "name": "Kibo",
+  "role": "CampusHub mascot",
+  "description": "A friendly gold CampusHub companion inspired by Kibo Peak, built for onboarding, empty states, reminders, achievements, streaks, and celebration screens.",
+  "colors": {
+    "gold": "#F5B642",
+    "navy": "#071326",
+    "white": "#FFFFFF",
+    "shadow": "#D87900"
+  },
+  "expressions": {
+    "idle": "/assets/kibo/expressions/idle.svg",
+    "happy": "/assets/kibo/expressions/happy.svg",
+    "excited": "/assets/kibo/expressions/excited.svg",
+    "celebrating": "/assets/kibo/expressions/celebrating.svg",
+    "thinking": "/assets/kibo/expressions/thinking.svg",
+    "curious": "/assets/kibo/expressions/curious.svg",
+    "concerned": "/assets/kibo/expressions/concerned.svg",
+    "sleeping": "/assets/kibo/expressions/sleeping.svg",
+    "waving": "/assets/kibo/expressions/waving.svg",
+    "pointing": "/assets/kibo/expressions/pointing.svg",
+    "clapping": "/assets/kibo/expressions/clapping.svg",
+    "peek": "/assets/kibo/expressions/peek.svg"
+  },
+  "animations": {
+    "idle": {
+      "fallback": "/assets/kibo/idle/kibo.svg",
+      "rive": "/assets/kibo/idle/kibo.riv"
+    },
+    "wave": {
+      "fallback": "/assets/kibo/wave/kibo.svg",
+      "rive": "/assets/kibo/wave/kibo.riv"
+    },
+    "peek": {
+      "fallback": "/assets/kibo/peek/kibo.svg",
+      "rive": "/assets/kibo/peek/kibo.riv"
+    },
+    "celebrate": {
+      "fallback": "/assets/kibo/celebrate/kibo.svg",
+      "rive": "/assets/kibo/celebrate/kibo.riv"
+    },
+    "thinking": {
+      "fallback": "/assets/kibo/thinking/kibo.svg",
+      "rive": "/assets/kibo/thinking/kibo.riv"
+    },
+    "sleeping": {
+      "fallback": "/assets/kibo/sleeping/kibo.svg",
+      "rive": "/assets/kibo/sleeping/kibo.riv"
+    },
+    "pointing": {
+      "fallback": "/assets/kibo/pointing/kibo.svg",
+      "rive": "/assets/kibo/pointing/kibo.riv"
+    },
+    "clapping": {
+      "fallback": "/assets/kibo/clapping/kibo.svg",
+      "rive": "/assets/kibo/clapping/kibo.riv"
+    },
+    "streak_warning": {
+      "fallback": "/assets/kibo/streak_warning/kibo.svg",
+      "rive": "/assets/kibo/streak_warning/kibo.riv"
+    },
+    "achievement_unlock": {
+      "fallback": "/assets/kibo/achievement_unlock/kibo.svg",
+      "rive": "/assets/kibo/achievement_unlock/kibo.riv"
+    }
+  },
+  "rules": [
+    "Kibo is a mascot, not an AI assistant or chatbot.",
+    "Kibo interactions must be dismissible.",
+    "Kibo should never obstruct core workflows.",
+    "Use Kibo for emotional moments: onboarding, empty states, reminders, streaks, achievements, badges, and celebrations."
+  ]
+}

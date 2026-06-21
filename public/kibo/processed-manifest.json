@@ -1,0 +1,373 @@
+{
+  "name": "Kibo processed asset registry",
+  "generatedBy": "local background-removal pipeline",
+  "policy": "Kibo framework must consume processed assets only.",
+  "images": [
+    {
+      "original": "/kibo/images/Create_a_variation_of_the_202606201526.jpeg",
+      "processed": "/kibo/images/processed/Create_a_variation_of_the_202606201526.png",
+      "assetType": "image",
+      "animationType": "source-reference",
+      "transparency": {
+        "width": 2752,
+        "height": 1536,
+        "transparentPixelRatio": 0.7968,
+        "partialAlphaPixelRatio": 0.0001
+      },
+      "quality": "processed"
+    },
+    {
+      "original": "/kibo/images/Kibo_mascot_jumping_joyfully_air_202606201528.jpeg",
+      "processed": "/kibo/images/processed/Kibo_mascot_jumping_joyfully_air_202606201528.png",
+      "assetType": "image",
+      "animationType": "source-reference",
+      "transparency": {
+        "width": 1376,
+        "height": 768,
+        "transparentPixelRatio": 0.7661,
+        "partialAlphaPixelRatio": 0.0
+      },
+      "quality": "processed"
+    },
+    {
+      "original": "/kibo/images/Kibo_mascot_peeking_from_behind_202606201529.jpeg",
+      "processed": "/kibo/images/processed/Kibo_mascot_peeking_from_behind_202606201529.png",
+      "assetType": "image",
+      "animationType": "source-reference",
+      "transparency": {
+        "width": 1376,
+        "height": 768,
+        "transparentPixelRatio": 0.3638,
+        "partialAlphaPixelRatio": 0.0
+      },
+      "quality": "processed"
+    },
+    {
+      "original": "/kibo/images/Kibo_mascot_reading_books_202606201528.jpeg",
+      "processed": "/kibo/images/processed/Kibo_mascot_reading_books_202606201528.png",
+      "assetType": "image",
+      "animationType": "source-reference",
+      "transparency": {
+        "width": 1376,
+        "height": 768,
+        "transparentPixelRatio": 0.7842,
+        "partialAlphaPixelRatio": 0.0003
+      },
+      "quality": "processed"
+    },
+    {
+      "original": "/kibo/images/Kibo_mascot_waving_cheerfully_202606201529.jpeg",
+      "processed": "/kibo/images/processed/Kibo_mascot_waving_cheerfully_202606201529.png",
+      "assetType": "image",
+      "animationType": "source-reference",
+      "transparency": {
+        "width": 1376,
+        "height": 768,
+        "transparentPixelRatio": 0.8125,
+        "partialAlphaPixelRatio": 0.0
+      },
+      "quality": "processed"
+    },
+    {
+      "original": "/kibo/images/celebrate.png",
+      "processed": "/kibo/images/processed/celebrate.png",
+      "assetType": "image",
+      "animationType": "celebrate",
+      "transparency": {
+        "width": 1376,
+        "height": 768,
+        "transparentPixelRatio": 0.766,
+        "partialAlphaPixelRatio": 0.0
+      },
+      "quality": "processed"
+    },
+    {
+      "original": "/kibo/images/curious.png",
+      "processed": "/kibo/images/processed/curious.png",
+      "assetType": "image",
+      "animationType": "curious",
+      "transparency": {
+        "width": 1376,
+        "height": 768,
+        "transparentPixelRatio": 0.3637,
+        "partialAlphaPixelRatio": 0.0
+      },
+      "quality": "processed"
+    },
+    {
+      "original": "/kibo/images/happy.png",
+      "processed": "/kibo/images/processed/happy.png",
+      "assetType": "image",
+      "animationType": "happy",
+      "transparency": {
+        "width": 1376,
+        "height": 768,
+        "transparentPixelRatio": 0.8125,
+        "partialAlphaPixelRatio": 0.0
+      },
+      "quality": "processed"
+    },
+    {
+      "original": "/kibo/images/kibo-turnaround-sheet.jpeg",
+      "processed": "/kibo/images/processed/kibo-turnaround-sheet.png",
+      "assetType": "image",
+      "animationType": "source-reference",
+      "transparency": {
+        "width": 1376,
+        "height": 768,
+        "transparentPixelRatio": 0.5927,
+        "partialAlphaPixelRatio": 0.0001
+      },
+      "quality": "processed"
+    },
+    {
+      "original": "/kibo/images/kibo.jpeg",
+      "processed": "/kibo/images/processed/kibo.png",
+      "assetType": "image",
+      "animationType": "source-reference",
+      "transparency": {
+        "width": 1376,
+        "height": 768,
+        "transparentPixelRatio": 0.8379,
+        "partialAlphaPixelRatio": 0.0
+      },
+      "quality": "processed"
+    },
+    {
+      "original": "/kibo/images/proud.png",
+      "processed": "/kibo/images/processed/proud.png",
+      "assetType": "image",
+      "animationType": "proud",
+      "transparency": {
+        "width": 2752,
+        "height": 1536,
+        "transparentPixelRatio": 0.7968,
+        "partialAlphaPixelRatio": 0.0001
+      },
+      "quality": "processed"
+    },
+    {
+      "original": "/kibo/images/sleepy.png",
+      "processed": "/kibo/images/processed/sleepy.png",
+      "assetType": "image",
+      "animationType": "sleepy",
+      "transparency": {
+        "width": 1376,
+        "height": 768,
+        "transparentPixelRatio": 0.8379,
+        "partialAlphaPixelRatio": 0.0
+      },
+      "quality": "processed"
+    },
+    {
+      "original": "/kibo/images/thinking.png",
+      "processed": "/kibo/images/processed/thinking.png",
+      "assetType": "image",
+      "animationType": "thinking",
+      "transparency": {
+        "width": 1376,
+        "height": 768,
+        "transparentPixelRatio": 0.7842,
+        "partialAlphaPixelRatio": 0.0002
+      },
+      "quality": "processed"
+    }
+  ],
+  "videos": [
+    {
+      "original": "/kibo/videos/announcement.mp4",
+      "processed": "/kibo/videos/processed/announcement.webm",
+      "assetType": "video",
+      "animationType": "announcement",
+      "codec": "VP9 WebM",
+      "quality": "processed-with-caution",
+      "diagnostics": {
+        "firstFrameTransparentPixelRatio": 0.0,
+        "firstFramePartialAlphaPixelRatio": 0.0
+      },
+      "alphaMode": true,
+      "reportedPixelFormat": "yuv420p",
+      "transparencyQuality": "approximate-white-keyed-alpha"
+    },
+    {
+      "original": "/kibo/videos/badge.mp4",
+      "processed": "/kibo/videos/processed/badge.webm",
+      "assetType": "video",
+      "animationType": "badge",
+      "codec": "VP9 WebM",
+      "quality": "processed-with-caution",
+      "diagnostics": {
+        "firstFrameTransparentPixelRatio": 0.0,
+        "firstFramePartialAlphaPixelRatio": 0.0
+      },
+      "alphaMode": true,
+      "reportedPixelFormat": "yuv420p",
+      "transparencyQuality": "approximate-white-keyed-alpha"
+    },
+    {
+      "original": "/kibo/videos/celebrate.mp4",
+      "processed": "/kibo/videos/processed/celebrate.webm",
+      "assetType": "video",
+      "animationType": "celebrate",
+      "codec": "VP9 WebM",
+      "quality": "processed-with-caution",
+      "diagnostics": {
+        "firstFrameTransparentPixelRatio": 0.0,
+        "firstFramePartialAlphaPixelRatio": 0.0
+      },
+      "alphaMode": true,
+      "reportedPixelFormat": "yuv420p",
+      "transparencyQuality": "approximate-white-keyed-alpha"
+    },
+    {
+      "original": "/kibo/videos/idle.mp4",
+      "processed": "/kibo/videos/processed/idle.webm",
+      "assetType": "video",
+      "animationType": "idle",
+      "codec": "VP9 WebM",
+      "quality": "processed-with-caution",
+      "diagnostics": {
+        "firstFrameTransparentPixelRatio": 0.0,
+        "firstFramePartialAlphaPixelRatio": 0.0
+      },
+      "alphaMode": true,
+      "reportedPixelFormat": "yuv420p",
+      "transparencyQuality": "approximate-white-keyed-alpha"
+    },
+    {
+      "original": "/kibo/videos/inactivity.mp4",
+      "processed": "/kibo/videos/processed/inactivity.webm",
+      "assetType": "video",
+      "animationType": "source-reference",
+      "codec": "VP9 WebM",
+      "quality": "processed-with-caution",
+      "diagnostics": {
+        "firstFrameTransparentPixelRatio": 0.0,
+        "firstFramePartialAlphaPixelRatio": 0.0
+      },
+      "alphaMode": true,
+      "reportedPixelFormat": "yuv420p",
+      "transparencyQuality": "approximate-white-keyed-alpha"
+    },
+    {
+      "original": "/kibo/videos/marketplace.mp4",
+      "processed": "/kibo/videos/processed/marketplace.webm",
+      "assetType": "video",
+      "animationType": "marketplace",
+      "codec": "VP9 WebM",
+      "quality": "processed-with-caution",
+      "diagnostics": {
+        "firstFrameTransparentPixelRatio": 0.0,
+        "firstFramePartialAlphaPixelRatio": 0.0
+      },
+      "alphaMode": true,
+      "reportedPixelFormat": "yuv420p",
+      "transparencyQuality": "approximate-white-keyed-alpha"
+    },
+    {
+      "original": "/kibo/videos/peek.mp4",
+      "processed": "/kibo/videos/processed/peek.webm",
+      "assetType": "video",
+      "animationType": "source-reference",
+      "codec": "VP9 WebM",
+      "quality": "processed-with-caution",
+      "diagnostics": {
+        "firstFrameTransparentPixelRatio": 0.0,
+        "firstFramePartialAlphaPixelRatio": 0.0
+      },
+      "alphaMode": true,
+      "reportedPixelFormat": "yuv420p",
+      "transparencyQuality": "approximate-white-keyed-alpha"
+    },
+    {
+      "original": "/kibo/videos/project-star.mp4",
+      "processed": "/kibo/videos/processed/project-star.webm",
+      "assetType": "video",
+      "animationType": "project-star",
+      "codec": "VP9 WebM",
+      "quality": "processed-with-caution",
+      "diagnostics": {
+        "firstFrameTransparentPixelRatio": 0.0,
+        "firstFramePartialAlphaPixelRatio": 0.0
+      },
+      "alphaMode": true,
+      "reportedPixelFormat": "yuv420p",
+      "transparencyQuality": "approximate-white-keyed-alpha"
+    },
+    {
+      "original": "/kibo/videos/sleeping.mp4",
+      "processed": "/kibo/videos/processed/sleeping.webm",
+      "assetType": "video",
+      "animationType": "sleeping",
+      "codec": "VP9 WebM",
+      "quality": "processed-with-caution",
+      "diagnostics": {
+        "firstFrameTransparentPixelRatio": 0.0,
+        "firstFramePartialAlphaPixelRatio": 0.0
+      },
+      "alphaMode": true,
+      "reportedPixelFormat": "yuv420p",
+      "transparencyQuality": "approximate-white-keyed-alpha"
+    },
+    {
+      "original": "/kibo/videos/streak.mp4",
+      "processed": "/kibo/videos/processed/streak.webm",
+      "assetType": "video",
+      "animationType": "streak",
+      "codec": "VP9 WebM",
+      "quality": "processed-with-caution",
+      "diagnostics": {
+        "firstFrameTransparentPixelRatio": 0.0,
+        "firstFramePartialAlphaPixelRatio": 0.0
+      },
+      "alphaMode": true,
+      "reportedPixelFormat": "yuv420p",
+      "transparencyQuality": "approximate-white-keyed-alpha"
+    },
+    {
+      "original": "/kibo/videos/thinking.mp4",
+      "processed": "/kibo/videos/processed/thinking.webm",
+      "assetType": "video",
+      "animationType": "thinking",
+      "codec": "VP9 WebM",
+      "quality": "processed-with-caution",
+      "diagnostics": {
+        "firstFrameTransparentPixelRatio": 0.0,
+        "firstFramePartialAlphaPixelRatio": 0.0
+      },
+      "alphaMode": true,
+      "reportedPixelFormat": "yuv420p",
+      "transparencyQuality": "approximate-white-keyed-alpha"
+    },
+    {
+      "original": "/kibo/videos/warning.mp4",
+      "processed": "/kibo/videos/processed/warning.webm",
+      "assetType": "video",
+      "animationType": "warning",
+      "codec": "VP9 WebM",
+      "quality": "processed-with-caution",
+      "diagnostics": {
+        "firstFrameTransparentPixelRatio": 0.0,
+        "firstFramePartialAlphaPixelRatio": 0.0
+      },
+      "alphaMode": true,
+      "reportedPixelFormat": "yuv420p",
+      "transparencyQuality": "approximate-white-keyed-alpha"
+    },
+    {
+      "original": "/kibo/videos/wave.mp4",
+      "processed": "/kibo/videos/processed/wave.webm",
+      "assetType": "video",
+      "animationType": "wave",
+      "codec": "VP9 WebM",
+      "quality": "processed-with-caution",
+      "diagnostics": {
+        "firstFrameTransparentPixelRatio": 0.0,
+        "firstFramePartialAlphaPixelRatio": 0.0
+      },
+      "alphaMode": true,
+      "reportedPixelFormat": "yuv420p",
+      "transparencyQuality": "approximate-white-keyed-alpha"
+    }
+  ]
+}

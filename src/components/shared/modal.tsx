@@ -43,7 +43,25 @@ export function Modal({
                   transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
                 />
               </Dialog.Overlay>
-              <Dialog.Content asChild forceMount>
+              <Dialog.Content
+                asChild
+                forceMount
+                onInteractOutside={(event) => {
+                  const target = event.target;
+
+                  if (!(target instanceof HTMLElement)) {
+                    return;
+                  }
+
+                  if (
+                    target.closest(
+                      "[data-campus-select-content], [data-radix-popper-content-wrapper]",
+                    )
+                  ) {
+                    event.preventDefault();
+                  }
+                }}
+              >
                 <motion.div
                   className={cn(
                     "fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[calc(100%-2rem)] overflow-y-auto rounded-lg border border-border bg-surface p-6 text-foreground shadow-xl focus:outline-none",

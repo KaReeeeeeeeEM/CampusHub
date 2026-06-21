@@ -32,7 +32,8 @@ export function eventToCelebration(event: RewardEvent): CelebrationViewModel {
   const milestoneDays =
     numberFrom(event.metadata?.milestoneDays) ??
     numberFrom(event.reward?.milestoneDays);
-  const currentCount = numberFrom(event.metadata?.currentCount) ?? milestoneDays;
+  const currentCount =
+    numberFrom(event.metadata?.currentCount) ?? milestoneDays;
   const previousCount =
     currentCount && currentCount > 1 ? currentCount - 1 : null;
 
@@ -114,8 +115,53 @@ export function eventToCelebration(event: RewardEvent): CelebrationViewModel {
     };
   }
 
+  if (event.trigger === "LEVEL_UP") {
+    const level =
+      numberFrom(event.reward?.level) ?? numberFrom(event.metadata?.level);
+    const previousLevel =
+      numberFrom(event.reward?.previousLevel) ??
+      numberFrom(event.metadata?.previousLevel);
+
+    return {
+      kind: "level",
+      title: level ? `Level ${level}` : "Level Up",
+      subtitle: event.description ?? "Your CampusHub level increased.",
+      heroIcon: "⚡",
+      fromCount: previousLevel,
+      toCount: level,
+      rewardLabel: level ? `Level ${level}` : event.title,
+      rewardIcon: "⚡",
+      xp: event.xp,
+      nextMilestone: "Keep earning XP to reach the next level",
+      shareText: `⚡ I reached ${level ? `Level ${level}` : "a new level"} on CampusHub`,
+    };
+  }
+
+  if (event.trigger === "XP_EARNED") {
+    const amount =
+      event.xp ||
+      numberFrom(event.reward?.amount) ||
+      numberFrom(event.metadata?.xpAwarded) ||
+      0;
+    const source = stringFrom(event.reward?.label) ?? event.title;
+
+    return {
+      kind: "xp",
+      title: amount > 0 ? `+${amount} XP` : "XP Earned",
+      subtitle: event.description ?? "Your CampusHub progress increased.",
+      heroIcon: "✨",
+      fromCount: null,
+      toCount: null,
+      rewardLabel: source,
+      rewardIcon: "✨",
+      xp: amount,
+      nextMilestone: "Keep earning XP to climb the leaderboard",
+      shareText: `✨ I earned ${amount} XP on CampusHub`,
+    };
+  }
+
   return {
-    kind: "level",
+    kind: "xp",
     title: titleCase(event.trigger),
     subtitle: event.description ?? "Your CampusHub progress increased.",
     heroIcon: "✨",

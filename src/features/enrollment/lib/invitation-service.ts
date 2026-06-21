@@ -11,6 +11,7 @@ import {
 import { connectMongo } from "@/lib/db/mongodb";
 import {
   CollegeModel,
+  DepartmentModel,
   InvitationModel,
   JoinInvitationModel,
   RepresentativeModel,
@@ -37,8 +38,79 @@ type RepresentativeSessionUser = AuthSession["user"] & {
   id: string;
 };
 
+export type SerializedStudentInvitation = {
+  id: string;
+  token: string;
+  universityId: string;
+  universityName: string;
+  collegeId: string;
+  collegeName: string;
+  status: "ACTIVE" | "DISABLED";
+  invitationUrl: string;
+  usageCount: number;
+  maxUsageCount: number | null;
+  expiresAt: string | null;
+  createdAt: string | null;
+  lastUsedAt: string | null;
+};
+
+export type RepresentativeInvitationPageData = {
+  scope: {
+    universityId: string;
+    universityName: string;
+    collegeId: string;
+    collegeName: string;
+  };
+  invitations: SerializedStudentInvitation[];
+};
+
+function getAppBaseUrl() {
+  return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+}
+
 function createInvitationToken() {
   return randomBytes(18).toString("base64url");
+}
+
+function serializeDate(value: unknown) {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString();
+
+  const date = new Date(String(value));
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function serializeStudentInvitation(
+  invitation: Record<string, unknown>,
+  {
+    universityName,
+    collegeName,
+  }: {
+    universityName: string;
+    collegeName: string;
+  },
+) {
+  const token = String(invitation.token);
+
+  return {
+    id: String(invitation._id),
+    token,
+    universityId: String(invitation.universityId),
+    universityName,
+    collegeId: String(invitation.collegeId),
+    collegeName,
+    status:
+      (invitation.status as SerializedStudentInvitation["status"]) ?? "ACTIVE",
+    invitationUrl: new URL(`/join/${token}`, getAppBaseUrl()).toString(),
+    usageCount: Number(invitation.usageCount ?? 0),
+    maxUsageCount:
+      typeof invitation.maxUsageCount === "number"
+        ? invitation.maxUsageCount
+        : null,
+    expiresAt: serializeDate(invitation.expiresAt),
+    createdAt: serializeDate(invitation.createdAt),
+    lastUsedAt: serializeDate(invitation.lastUsedAt),
+  } satisfies SerializedStudentInvitation;
 }
 
 function isRepresentative(user: RepresentativeSessionUser) {
@@ -181,7 +253,10 @@ export async function createStudentInvitation(input: CreateInvitationInput) {
     entityId: String(invitation._id),
   });
 
-  return invitation.toObject();
+  return serializeStudentInvitation(invitation.toObject(), {
+    universityName: String(university.name),
+    collegeName: String(college.name),
+  });
 }
 
 export async function disableInvitation(invitationId: string) {
@@ -229,7 +304,15 @@ export async function disableInvitation(invitationId: string) {
     entityId: String(invitation._id),
   });
 
-  return invitation;
+  const [university, college] = await Promise.all([
+    UniversityModel.findById(invitation.universityId).lean(),
+    CollegeModel.findById(invitation.collegeId).lean(),
+  ]);
+
+  return serializeStudentInvitation(invitation, {
+    universityName: university ? String(university.name) : "Unknown university",
+    collegeName: college ? String(college.name) : "Unknown college",
+  });
 }
 
 export async function regenerateInvitation(
@@ -275,18 +358,56 @@ export async function regenerateInvitation(
     regeneratedFromInvitationId: existingInvitation._id,
   });
 
-  return invitation.toObject();
+  const [university, college] = await Promise.all([
+    UniversityModel.findById(invitation.universityId).lean(),
+    CollegeModel.findById(invitation.collegeId).lean(),
+  ]);
+
+  return serializeStudentInvitation(invitation.toObject(), {
+    universityName: university ? String(university.name) : "Unknown university",
+    collegeName: college ? String(college.name) : "Unknown college",
+  });
 }
 
-export async function getRepresentativeInvitations() {
+export async function getRepresentativeInvitationPageData(): Promise<RepresentativeInvitationPageData> {
   const session = await requireRepresentativeSession();
   const representative = await getRepresentativeProfile(session.user);
 
-  return JoinInvitationModel.find({
-    representativeId: representative._id,
-  })
-    .sort({ createdAt: -1 })
-    .lean();
+  const [university, college, invitations] = await Promise.all([
+    UniversityModel.findById(representative.universityId).lean(),
+    CollegeModel.findById(representative.collegeId).lean(),
+    JoinInvitationModel.find({
+      representativeId: representative._id,
+    })
+      .sort({ createdAt: -1 })
+      .lean(),
+  ]);
+
+  const universityName = university
+    ? String(university.name)
+    : "Unknown university";
+  const collegeName = college ? String(college.name) : "Unknown college";
+
+  return {
+    scope: {
+      universityId: String(representative.universityId),
+      universityName,
+      collegeId: String(representative.collegeId),
+      collegeName,
+    },
+    invitations: invitations.map((invitation) =>
+      serializeStudentInvitation(invitation, {
+        universityName,
+        collegeName,
+      }),
+    ),
+  };
+}
+
+export async function getRepresentativeInvitations() {
+  const pageData = await getRepresentativeInvitationPageData();
+
+  return pageData.invitations;
 }
 
 export async function getInvitationUsage(invitationId: string) {
@@ -341,7 +462,7 @@ export async function resolveInvitation(token: string) {
     return { status: "usage_exceeded" as const, invitation };
   }
 
-  const [university, college, representative, representativeUser] =
+  const [university, college, representative, representativeUser, departments] =
     await Promise.all([
       UniversityModel.findById(invitation.universityId).lean(),
       CollegeModel.findById(invitation.collegeId).lean(),
@@ -351,6 +472,14 @@ export async function resolveInvitation(token: string) {
         .then((record) =>
           record ? UserModel.findById(record.userId).lean() : null,
         ),
+      DepartmentModel.find({
+        universityId: invitation.universityId,
+        collegeId: invitation.collegeId,
+        status: "ACTIVE",
+        deletedAt: null,
+      })
+        .sort({ name: 1 })
+        .lean(),
     ]);
 
   if (!university || !college || !representative) {
@@ -364,6 +493,11 @@ export async function resolveInvitation(token: string) {
     college,
     representative,
     representativeUser,
+    departments: departments.map((department) => ({
+      id: String(department._id),
+      name: String(department.name),
+      code: String(department.code),
+    })),
   };
 }
 

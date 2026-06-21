@@ -40,6 +40,7 @@ export {
 export {
   AlmanacEventModel,
   AlmanacEventViewModel,
+  AlmanacModel,
   AlmanacReminderEngagementModel,
   AnnouncementModel,
   AnnouncementViewModel,
@@ -49,6 +50,7 @@ export {
   ForumReplyModel,
   ForumEngagementModel,
   ForumTopicModel,
+  LostFoundItemModel,
   MapDirectionRequestModel,
   MapLocationModel,
   MapLocationViewModel,
@@ -56,6 +58,7 @@ export {
   PollVoteModel,
   SuggestionCommentModel,
   SuggestionModel,
+  type AlmanacDocument,
   type AlmanacEventDocument,
   type AlmanacEventViewDocument,
   type AlmanacReminderEngagementDocument,
@@ -67,6 +70,7 @@ export {
   type ForumEngagementDocument,
   type ForumReplyDocument,
   type ForumTopicDocument,
+  type LostFoundItemDocument,
   type MapDirectionRequestDocument,
   type MapLocationDocument,
   type MapLocationViewDocument,
@@ -79,6 +83,10 @@ export {
   DepartmentModel,
   type DepartmentDocument,
 } from "@/lib/db/models/department";
+export {
+  PushSubscriptionModel,
+  type PushSubscriptionDocument,
+} from "@/lib/db/models/push-subscription";
 export {
   AuditLogModel,
   ModerationActionModel,

@@ -151,13 +151,6 @@ export function UniversityProfilePage({
       value: stats.events,
     },
     {
-      label: "Communities",
-      description: "Review communities created in this university.",
-      href: `/super-admin/communities?universityId=${university.id}`,
-      icon: FiUsers,
-      value: stats.communities,
-    },
-    {
       label: "Projects",
       description: "Browse projects published by university members.",
       href: `/super-admin/projects?universityId=${university.id}`,

@@ -2,7 +2,6 @@
 // @ts-nocheck
 "use client";
 
-
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -43,8 +42,10 @@ import { FadeIn } from "@/components/motion/fade-in";
 import { StaggerContainer } from "@/components/motion/stagger-container";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Drawer } from "@/components/shared/drawer";
+import { LoadingState } from "@/components/shared/loading-state";
 import { Modal } from "@/components/shared/modal";
 import { MultiStepProgress } from "@/components/shared/multi-step-progress";
+import { Skeleton } from "@/components/shared/skeleton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -57,11 +58,7 @@ import {
 } from "@/components/ui/radix-select";
 import { AdminActionMenu } from "@/features/administration/components/admin-action-menu";
 import {
-  campusDeliveryLocations,
   marketCategories,
-  marketOrders,
-  marketProducts,
-  marketShops,
   visibilityOptions,
   type MarketOrder,
   type MarketProduct,
@@ -170,6 +167,277 @@ const statusStyles: Record<string, string> = {
   Closed: "bg-rose-500/10 text-rose-500",
 };
 
+type CampusMarketData = {
+  products: MarketProduct[];
+  shops: MarketShop[];
+  orders: MarketOrder[];
+  deliveryLocations: string[];
+};
+
+const emptyMarketData: CampusMarketData = {
+  products: [],
+  shops: [],
+  orders: [],
+  deliveryLocations: [],
+};
+
+function readApiArray(payload: unknown, key: string) {
+  const data =
+    typeof payload === "object" && payload
+      ? (payload as Record<string, unknown>).data
+      : null;
+
+  if (!data || typeof data !== "object") return [];
+
+  const value = (data as Record<string, unknown>)[key];
+
+  return Array.isArray(value) ? value : [];
+}
+
+function formatMoney(value: unknown, currency: unknown) {
+  const amount = Number(value ?? 0);
+  const resolvedCurrency = typeof currency === "string" ? currency : "TZS";
+
+  if (!Number.isFinite(amount)) return String(value ?? "");
+
+  return `${resolvedCurrency} ${amount.toLocaleString()}`;
+}
+
+function normalizeMarketProduct(product: Record<string, unknown>) {
+  const images = Array.isArray(product.images)
+    ? product.images.map(String).filter(Boolean)
+    : [];
+  const visibility = Array.isArray(product.visibility)
+    ? product.visibility.map(String)
+    : [String(product.visibility ?? "ALL_USERS")];
+
+  return {
+    ...product,
+    id: String(product.id ?? product._id ?? ""),
+    name: String(product.name ?? product.title ?? "Untitled product"),
+    title: String(product.title ?? product.name ?? "Untitled product"),
+    description: String(product.description ?? ""),
+    images,
+    category: String(product.category ?? "Other"),
+    price: formatMoney(product.price, product.currency),
+    status: String(product.status ?? product.availability ?? "ACTIVE"),
+    visibility,
+    seller: String(
+      product.seller ?? product.sellerName ?? product.ownerName ?? "",
+    ),
+    shopName: String(product.shopName ?? ""),
+    favorite: Boolean(product.favorite ?? product.isFavorite),
+    trending: Boolean(product.trending ?? product.featured),
+    recommended: Boolean(product.recommended ?? product.featured),
+    newest: Boolean(product.newest),
+    stars: Number(product.stars ?? product.favoriteCount ?? 0),
+    views: Number(product.views ?? product.viewCount ?? 0),
+  };
+}
+
+function normalizeMarketShop(shop: Record<string, unknown>) {
+  const location =
+    typeof shop.location === "object" && shop.location
+      ? (shop.location as Record<string, unknown>)
+      : null;
+  const openingHours =
+    typeof shop.openingHours === "object" && shop.openingHours
+      ? (shop.openingHours as Record<string, unknown>)
+      : {};
+  const status = String(shop.status ?? "ACTIVE");
+  const availabilityStatus =
+    typeof openingHours.availabilityStatus === "string"
+      ? openingHours.availabilityStatus
+      : status === "CLOSED"
+        ? "Closed"
+        : "Open";
+  const locationName = String(
+    location?.name ??
+      location?.address ??
+      shop.locationName ??
+      shop.address ??
+      "",
+  );
+
+  return {
+    ...shop,
+    id: String(shop.id ?? shop._id ?? ""),
+    name: String(shop.name ?? "Unnamed shop"),
+    description: typeof shop.description === "string" ? shop.description : "",
+    category: String(shop.category ?? "Other"),
+    status,
+    verified: Boolean(shop.verified ?? shop.isVerified),
+    location: locationName,
+    logo: typeof shop.logo === "string" ? shop.logo : "",
+    coverImage:
+      typeof shop.bannerImage === "string"
+        ? shop.bannerImage
+        : typeof shop.coverImage === "string"
+          ? shop.coverImage
+          : "",
+    contactNumber: String(shop.contactPhone ?? shop.contactNumber ?? ""),
+    whatsappNumber: String(shop.whatsappNumber ?? shop.contactPhone ?? ""),
+    availabilityStatus,
+    openingTime:
+      typeof openingHours.openingTime === "string"
+        ? openingHours.openingTime
+        : "",
+    closingTime:
+      typeof openingHours.closingTime === "string"
+        ? openingHours.closingTime
+        : "",
+    products: Number(shop.productCount ?? shop.products ?? 0),
+    rating: Number(shop.rating ?? 0),
+  };
+}
+
+function normalizeMarketOrder(order: Record<string, unknown>) {
+  return {
+    ...order,
+    id: String(order.id ?? order._id ?? ""),
+    product: String(
+      order.product ?? order.productTitle ?? order.productName ?? "",
+    ),
+    buyer: String(order.buyer ?? order.buyerName ?? ""),
+    seller: String(order.seller ?? order.sellerName ?? ""),
+    status: String(order.status ?? "Pending"),
+    createdAt: String(order.createdAt ?? ""),
+  };
+}
+
+function normalizeMarketplaceLocation(location: Record<string, unknown>) {
+  return String(
+    location.name ?? location.title ?? location.label ?? location.address ?? "",
+  ).trim();
+}
+
+function useCampusMarketData() {
+  const [data, setData] = useState<CampusMarketData>(emptyMarketData);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    async function load() {
+      setIsLoading(true);
+
+      try {
+        const [
+          productsResponse,
+          shopsResponse,
+          ordersResponse,
+          locationsResponse,
+        ] = await Promise.all([
+          fetch("/api/products?limit=100", { cache: "no-store" }),
+          fetch("/api/shops?limit=100", { cache: "no-store" }),
+          fetch("/api/order-requests?limit=100", { cache: "no-store" }),
+          fetch("/api/marketplace-locations?limit=100", {
+            cache: "no-store",
+          }),
+        ]);
+
+        const [productsPayload, shopsPayload, ordersPayload, locationsPayload] =
+          await Promise.all([
+            productsResponse.ok ? productsResponse.json() : null,
+            shopsResponse.ok ? shopsResponse.json() : null,
+            ordersResponse.ok ? ordersResponse.json() : null,
+            locationsResponse.ok ? locationsResponse.json() : null,
+          ]);
+
+        if (!active) return;
+
+        const deliveryLocations = readApiArray(locationsPayload, "locations")
+          .map((location) =>
+            normalizeMarketplaceLocation(location as Record<string, unknown>),
+          )
+          .filter(Boolean);
+
+        setData({
+          products: readApiArray(productsPayload, "products").map((product) =>
+            normalizeMarketProduct(product as Record<string, unknown>),
+          ),
+          shops: readApiArray(shopsPayload, "shops").map((shop) =>
+            normalizeMarketShop(shop as Record<string, unknown>),
+          ),
+          orders: readApiArray(ordersPayload, "requests").map((order) =>
+            normalizeMarketOrder(order as Record<string, unknown>),
+          ),
+          deliveryLocations,
+        });
+      } catch {
+        if (active) setData(emptyMarketData);
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    }
+
+    void load();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return { ...data, isLoading };
+}
+
+function useMyShopData() {
+  const [shops, setShops] = useState<MarketShop[]>([]);
+  const [deliveryLocations, setDeliveryLocations] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    async function load() {
+      setIsLoading(true);
+
+      try {
+        const [shopsResponse, locationsResponse] = await Promise.all([
+          fetch("/api/shops/my?limit=100", { cache: "no-store" }),
+          fetch("/api/marketplace-locations?limit=100", {
+            cache: "no-store",
+          }),
+        ]);
+        const [shopsPayload, locationsPayload] = await Promise.all([
+          shopsResponse.ok ? shopsResponse.json() : null,
+          locationsResponse.ok ? locationsResponse.json() : null,
+        ]);
+
+        if (!active) return;
+
+        setShops(
+          readApiArray(shopsPayload, "shops").map((shop) =>
+            normalizeMarketShop(shop as Record<string, unknown>),
+          ),
+        );
+        setDeliveryLocations(
+          readApiArray(locationsPayload, "locations")
+            .map((location) =>
+              normalizeMarketplaceLocation(location as Record<string, unknown>),
+            )
+            .filter(Boolean),
+        );
+      } catch {
+        if (!active) return;
+
+        setShops([]);
+        setDeliveryLocations([]);
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    }
+
+    void load();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return { shops, setShops, deliveryLocations, isLoading };
+}
+
 function MarketShell({ children }: { children: React.ReactNode }) {
   return <main className="w-full px-4 py-6 sm:px-6">{children}</main>;
 }
@@ -202,6 +470,47 @@ function MarketPageHeader({
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>
     </FadeIn>
+  );
+}
+
+function MarketGridSkeleton({ count = 6 }: { count?: number }) {
+  return (
+    <div
+      className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+      aria-busy="true"
+      aria-label="Loading market records"
+    >
+      {Array.from({ length: count }).map((_, index) => (
+        <div
+          key={index}
+          className="overflow-hidden rounded-lg border border-border bg-surface"
+        >
+          <Skeleton className="aspect-[4/3] rounded-none" />
+          <div className="space-y-4 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-40 max-w-full" />
+                <Skeleton className="h-3 w-28" />
+              </div>
+              <Skeleton className="h-8 w-8 rounded-md" />
+            </div>
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-5 w-24" />
+              <Skeleton className="h-6 w-20 rounded-full" />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -248,10 +557,25 @@ function MediaBlock({
   title,
   className,
 }: {
-  image: string;
+  image?: string | null;
   title: string;
   className?: string;
 }) {
+  if (!image) {
+    return (
+      <div
+        aria-label={`${title} image placeholder`}
+        className={cn(
+          "flex items-center justify-center bg-surface-muted text-muted-foreground",
+          className,
+        )}
+        role="img"
+      >
+        <FiShoppingBag className="h-5 w-5" aria-hidden="true" />
+      </div>
+    );
+  }
+
   return (
     <div
       aria-label={title}
@@ -325,17 +649,17 @@ function ProductCard({
           <span className="truncate text-right">{product.visibility[0]}</span>
         </div>
         <div className="mt-auto grid gap-2 pt-5 sm:grid-cols-2">
-          <Button
-            asChild
-            className="w-full"
-            variant="secondary"
-          >
+          <Button asChild className="w-full" variant="secondary">
             <Link href={getProductHref(product)}>
               <FiEye className="h-4 w-4" aria-hidden="true" />
               View Product
             </Link>
           </Button>
-          <Button className="w-full" type="button" onClick={() => onOrder(product)}>
+          <Button
+            className="w-full"
+            type="button"
+            onClick={() => onOrder(product)}
+          >
             <FiShoppingBag className="h-4 w-4" aria-hidden="true" />
             Order
           </Button>
@@ -380,6 +704,7 @@ function OrderProductModal({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { deliveryLocations } = useCampusMarketData();
   const form = useForm<OrderFormValues>({
     resolver: zodResolver(orderSchema),
     defaultValues: {
@@ -403,7 +728,11 @@ function OrderProductModal({
       open={open}
       onOpenChange={onOpenChange}
       title="Order Product"
-      description={product ? `Connect with ${product.seller} to arrange payment and delivery.` : undefined}
+      description={
+        product
+          ? `Connect with ${product.seller} to arrange payment and delivery.`
+          : undefined
+      }
     >
       <form className="space-y-5" onSubmit={form.handleSubmit(submit)}>
         {product ? (
@@ -417,13 +746,17 @@ function OrderProductModal({
               <p className="font-semibold">{product.name}</p>
               <p className="mt-1 text-sm text-primary">{product.price}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                CampusHub does not process payments. Buyers and sellers arrange payment directly.
+                CampusHub does not process payments. Buyers and sellers arrange
+                payment directly.
               </p>
             </div>
           </div>
         ) : null}
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Quantity" error={form.formState.errors.quantity?.message}>
+          <Field
+            label="Quantity"
+            error={form.formState.errors.quantity?.message}
+          >
             <CampusInput
               min={1}
               type="number"
@@ -438,18 +771,22 @@ function OrderProductModal({
             <Select
               value={form.watch("deliveryLocation")}
               onValueChange={(value) =>
-                form.setValue("deliveryLocation", value, { shouldValidate: true })
+                form.setValue("deliveryLocation", value, {
+                  shouldValidate: true,
+                })
               }
             >
               <SelectTrigger>
                 <SelectValue placeholder="Choose location" />
               </SelectTrigger>
               <SelectContent>
-                {campusDeliveryLocations.map((location) => (
-                  <SelectItem key={location} value={location}>
-                    {location}
-                  </SelectItem>
-                ))}
+                {["Use Current Location", ...deliveryLocations].map(
+                  (location) => (
+                    <SelectItem key={location} value={location}>
+                      {location}
+                    </SelectItem>
+                  ),
+                )}
               </SelectContent>
             </Select>
           </Field>
@@ -482,7 +819,9 @@ function Field({
     <label className="block space-y-3">
       <span className="block text-sm font-medium">{label}</span>
       {children}
-      {error ? <span className="block text-xs text-destructive">{error}</span> : null}
+      {error ? (
+        <span className="block text-xs text-destructive">{error}</span>
+      ) : null}
     </label>
   );
 }
@@ -507,6 +846,12 @@ function MarketActions() {
 }
 
 export function MarketHomePageView() {
+  const {
+    products: marketProducts,
+    shops: marketShops,
+    orders: marketOrders,
+    isLoading,
+  } = useCampusMarketData();
   const [orderProduct, setOrderProduct] = useState<MarketProduct | null>(null);
   const [category, setCategory] = useState("All");
 
@@ -548,79 +893,87 @@ export function MarketHomePageView() {
         description="Discover products, student shops, services, and daily campus essentials. CampusHub connects buyers and sellers without handling payments."
         action={<MarketActions />}
       />
-      <StaggerContainer className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <InfoTile
-          icon={FiPackage}
-          label="Products"
-          value={`${activeListings.toLocaleString()} active listings`}
-        />
-        <InfoTile
-          icon={FiShoppingBag}
-          label="Student Shops"
-          value={`${verifiedShops.toLocaleString()} verified shops`}
-        />
-        <InfoTile
-          icon={FiUsers}
-          label="Campus Reach"
-          value={`${campusReach.toLocaleString()} student buyers`}
-        />
-        <InfoTile icon={FiClock} label="Avg. Response" value="N/A" />
-      </StaggerContainer>
+      {isLoading ? (
+        <LoadingState label="Loading marketplace" />
+      ) : (
+        <>
+          <StaggerContainer className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <InfoTile
+              icon={FiPackage}
+              label="Products"
+              value={`${activeListings.toLocaleString()} active listings`}
+            />
+            <InfoTile
+              icon={FiShoppingBag}
+              label="Student Shops"
+              value={`${verifiedShops.toLocaleString()} verified shops`}
+            />
+            <InfoTile
+              icon={FiUsers}
+              label="Campus Reach"
+              value={`${campusReach.toLocaleString()} student buyers`}
+            />
+            <InfoTile icon={FiClock} label="Avg. Response" value="N/A" />
+          </StaggerContainer>
 
-      <section className="mt-4">
-        <CategoryTabs value={category} onChange={setCategory} />
-      </section>
+          <section className="mt-4">
+            <CategoryTabs value={category} onChange={setCategory} />
+          </section>
 
-      <section className="mt-6 grid gap-6 xl:grid-cols-[1.4fr_0.8fr]">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-4">
-            <div>
-              <CardTitle>Trending Products</CardTitle>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Fast-moving products across campus this week.
-              </p>
-            </div>
-            <Button asChild size="sm" variant="secondary">
-              <Link href="/student/market/browse">View all</Link>
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {trending.length ? (
-              <div className="grid gap-4 md:grid-cols-2">
-                {trending.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    onOrder={setOrderProduct}
-                  />
-                ))}
-              </div>
-            ) : (
-              <Empty filterName={category} icon={FiShoppingBag} />
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Featured Shops</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Trusted sellers with consistent campus activity.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {categoryShops.length ? (
-              categoryShops.map((shop) => <ShopCompactCard key={shop.id} shop={shop} />)
-            ) : (
-              <Empty filterName={category} icon={FiShoppingBag} />
-            )}
-          </CardContent>
-        </Card>
-      </section>
+          <section className="mt-6 grid gap-6 xl:grid-cols-[1.4fr_0.8fr]">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-4">
+                <div>
+                  <CardTitle>Trending Products</CardTitle>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Fast-moving products across campus this week.
+                  </p>
+                </div>
+                <Button asChild size="sm" variant="secondary">
+                  <Link href="/student/market/browse">View all</Link>
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {trending.length ? (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {trending.map((product) => (
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        onOrder={setOrderProduct}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <Empty filterName={category} icon={FiShoppingBag} />
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Featured Shops</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Trusted sellers with consistent campus activity.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {categoryShops.length ? (
+                  categoryShops.map((shop) => (
+                    <ShopCompactCard key={shop.id} shop={shop} />
+                  ))
+                ) : (
+                  <Empty filterName={category} icon={FiShoppingBag} />
+                )}
+              </CardContent>
+            </Card>
+          </section>
 
-      <section className="mt-6 grid gap-6 xl:grid-cols-2">
-        <ProductStrip title="Recently Added Products" products={recent} />
-        <ProductStrip title="Recommended Products" products={recommended} />
-      </section>
+          <section className="mt-6 grid gap-6 xl:grid-cols-2">
+            <ProductStrip title="Recently Added Products" products={recent} />
+            <ProductStrip title="Recommended Products" products={recommended} />
+          </section>
+        </>
+      )}
 
       <OrderProductModal
         product={orderProduct}
@@ -661,7 +1014,9 @@ function ProductStrip({
                   {product.shopName} · {product.category}
                 </p>
               </div>
-              <p className="text-sm font-semibold text-primary">{product.price}</p>
+              <p className="text-sm font-semibold text-primary">
+                {product.price}
+              </p>
             </div>
           ))
         ) : (
@@ -679,6 +1034,7 @@ export function MarketProductDetailsPageView({
   productName: string;
   productCode: string;
 }) {
+  const { products: marketProducts, isLoading } = useCampusMarketData();
   const decodedCode = decodeURIComponent(productCode);
   const product = marketProducts.find(
     (item) =>
@@ -703,23 +1059,31 @@ export function MarketProductDetailsPageView({
   if (!product) {
     return (
       <MarketShell>
-        <Empty
-          title="Product not found"
-          description="The product link may be outdated or the listing is no longer visible."
-          icon={FiPackage}
-        />
-        <Button asChild className="mt-4" variant="secondary">
-          <Link href="/student/market">
-            <FiArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Back to Market
-          </Link>
-        </Button>
+        {isLoading ? (
+          <LoadingState label="Loading product" />
+        ) : (
+          <>
+            <Empty
+              title="Product not found"
+              description="The product link may be outdated or the listing is no longer visible."
+              icon={FiPackage}
+            />
+            <Button asChild className="mt-4" variant="secondary">
+              <Link href="/student/market">
+                <FiArrowLeft className="h-4 w-4" aria-hidden="true" />
+                Back to Market
+              </Link>
+            </Button>
+          </>
+        )}
       </MarketShell>
     );
   }
 
   const relatedProducts = marketProducts
-    .filter((item) => item.category === product.category && item.id !== product.id)
+    .filter(
+      (item) => item.category === product.category && item.id !== product.id,
+    )
     .slice(0, 3);
 
   const shareProduct = async () => {
@@ -781,7 +1145,8 @@ export function MarketProductDetailsPageView({
                     variant="ghost"
                     className={cn(
                       "h-auto rounded-lg border border-border p-0",
-                      activeImageIndex === index && "border-primary ring-2 ring-primary/20",
+                      activeImageIndex === index &&
+                        "border-primary ring-2 ring-primary/20",
                     )}
                     onClick={() => setActiveImageIndex(index)}
                   >
@@ -822,9 +1187,21 @@ export function MarketProductDetailsPageView({
                     </Button>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <InfoTile icon={FiUser} label="Seller" value={product.seller} />
-                    <InfoTile icon={FiTag} label="Category" value={product.category} />
-                    <InfoTile icon={FiMapPin} label="Location" value={product.location} />
+                    <InfoTile
+                      icon={FiUser}
+                      label="Seller"
+                      value={product.seller}
+                    />
+                    <InfoTile
+                      icon={FiTag}
+                      label="Category"
+                      value={product.category}
+                    />
+                    <InfoTile
+                      icon={FiMapPin}
+                      label="Location"
+                      value={product.location}
+                    />
                     <InfoTile
                       icon={FiStar}
                       label="Trust"
@@ -859,10 +1236,26 @@ export function MarketProductDetailsPageView({
                 <CardTitle>Listing Details</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
-                <InfoTile icon={FiPackage} label="Stock" value={`${product.stock} available`} />
-                <InfoTile icon={FiEye} label="Visibility" value={product.visibility.join(", ")} />
-                <InfoTile icon={FiClock} label="Listed" value={product.createdAt} />
-                <InfoTile icon={FiHeart} label="Saved" value={product.favorite ? "In favorites" : "Not saved"} />
+                <InfoTile
+                  icon={FiPackage}
+                  label="Stock"
+                  value={`${product.stock} available`}
+                />
+                <InfoTile
+                  icon={FiEye}
+                  label="Visibility"
+                  value={product.visibility.join(", ")}
+                />
+                <InfoTile
+                  icon={FiClock}
+                  label="Listed"
+                  value={product.createdAt}
+                />
+                <InfoTile
+                  icon={FiHeart}
+                  label="Saved"
+                  value={product.favorite ? "In favorites" : "Not saved"}
+                />
               </CardContent>
             </Card>
           </div>
@@ -879,7 +1272,11 @@ export function MarketProductDetailsPageView({
           </div>
           <StaggerContainer className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {relatedProducts.map((item) => (
-              <ProductCard key={item.id} product={item} onOrder={setOrderProduct} />
+              <ProductCard
+                key={item.id}
+                product={item}
+                onOrder={setOrderProduct}
+              />
             ))}
           </StaggerContainer>
         </section>
@@ -926,7 +1323,7 @@ function ShopCompactCard({ shop }: { shop: MarketShop }) {
   );
 }
 
-function useProductFilters() {
+function useProductFilters(marketProducts: MarketProduct[]) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
   const filteredProducts = useMemo(() => {
@@ -937,17 +1334,19 @@ function useProductFilters() {
         [product.name, product.seller, product.shopName, product.category].some(
           (value) => value.toLowerCase().includes(normalized),
         );
-      const matchesCategory = category === "All" || product.category === category;
+      const matchesCategory =
+        category === "All" || product.category === category;
       return matchesQuery && matchesCategory;
     });
-  }, [category, query]);
+  }, [category, marketProducts, query]);
 
   return { query, setQuery, category, setCategory, filteredProducts };
 }
 
 export function MarketBrowsePageView() {
+  const { products: marketProducts, isLoading } = useCampusMarketData();
   const { query, setQuery, category, setCategory, filteredProducts } =
-    useProductFilters();
+    useProductFilters(marketProducts);
   const [orderProduct, setOrderProduct] = useState<MarketProduct | null>(null);
 
   return (
@@ -964,7 +1363,9 @@ export function MarketBrowsePageView() {
         />
         <CategoryTabs value={category} onChange={setCategory} />
       </div>
-      {filteredProducts.length > 0 ? (
+      {isLoading ? (
+        <MarketGridSkeleton />
+      ) : filteredProducts.length > 0 ? (
         <StaggerContainer className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {filteredProducts.map((product) => (
             <ProductCard
@@ -975,7 +1376,10 @@ export function MarketBrowsePageView() {
           ))}
         </StaggerContainer>
       ) : (
-        <Empty filterName={category === "All" ? query : category} icon={FiShoppingBag} />
+        <Empty
+          filterName={category === "All" ? query : category}
+          icon={FiShoppingBag}
+        />
       )}
       <OrderProductModal
         product={orderProduct}
@@ -1011,58 +1415,70 @@ function CategoryTabs({
 }
 
 export function MarketCategoriesPageView() {
+  const { products: marketProducts, isLoading } = useCampusMarketData();
   return (
     <MarketShell>
       <MarketPageHeader
         title="Market Categories"
         description="Move quickly between campus commerce categories and discover active listings."
       />
-      <StaggerContainer className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {marketCategories.map((category) => {
-          const products = marketProducts.filter(
-            (product) => product.category === category,
-          );
-          return (
-            <Card key={category} className="overflow-hidden transition-all hover:-translate-y-1 hover:border-primary/40">
-              <CardHeader>
-                <span className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
-                  <FiTag className="h-4 w-4" aria-hidden="true" />
-                </span>
-                <CardTitle>{category}</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  {products.length} active listing{products.length === 1 ? "" : "s"}
-                </p>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {products.slice(0, 3).map((product) => (
-                    <div
-                      key={product.id}
-                      className="flex items-center justify-between gap-3 rounded-md bg-surface-muted px-3 py-2 text-sm"
-                    >
-                      <span className="truncate">{product.name}</span>
-                      <span className="shrink-0 text-primary">{product.price}</span>
-                    </div>
-                  ))}
-                  {products.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No listings yet.
-                    </p>
-                  ) : null}
-                </div>
-                <Button asChild className="mt-4 w-full" variant="secondary">
-                  <Link href="/student/market/browse">Browse category</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </StaggerContainer>
+      {isLoading ? (
+        <MarketGridSkeleton count={4} />
+      ) : (
+        <StaggerContainer className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {marketCategories.map((category) => {
+            const products = marketProducts.filter(
+              (product) => product.category === category,
+            );
+            return (
+              <Card
+                key={category}
+                className="overflow-hidden transition-all hover:-translate-y-1 hover:border-primary/40"
+              >
+                <CardHeader>
+                  <span className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
+                    <FiTag className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <CardTitle>{category}</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {products.length} active listing
+                    {products.length === 1 ? "" : "s"}
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {products.slice(0, 3).map((product) => (
+                      <div
+                        key={product.id}
+                        className="flex items-center justify-between gap-3 rounded-md bg-surface-muted px-3 py-2 text-sm"
+                      >
+                        <span className="truncate">{product.name}</span>
+                        <span className="shrink-0 text-primary">
+                          {product.price}
+                        </span>
+                      </div>
+                    ))}
+                    {products.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        No listings yet.
+                      </p>
+                    ) : null}
+                  </div>
+                  <Button asChild className="mt-4 w-full" variant="secondary">
+                    <Link href="/student/market/browse">Browse category</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </StaggerContainer>
+      )}
     </MarketShell>
   );
 }
 
 export function MarketFavoritesPageView() {
+  const { products: marketProducts, isLoading } = useCampusMarketData();
   const favorites = marketProducts.filter((product) => product.favorite);
   const [orderProduct, setOrderProduct] = useState<MarketProduct | null>(null);
 
@@ -1072,7 +1488,9 @@ export function MarketFavoritesPageView() {
         title="Favorites"
         description="Saved products and services you may want to contact later."
       />
-      {favorites.length > 0 ? (
+      {isLoading ? (
+        <MarketGridSkeleton />
+      ) : favorites.length > 0 ? (
         <StaggerContainer className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {favorites.map((product) => (
             <ProductCard
@@ -1099,9 +1517,28 @@ export function MarketFavoritesPageView() {
 }
 
 export function MarketMyShopPageView() {
+  const {
+    shops: myShops,
+    setShops,
+    deliveryLocations,
+    isLoading,
+  } = useMyShopData();
   const [createOpen, setCreateOpen] = useState(false);
   const [editingShop, setEditingShop] = useState<MarketShop | null>(null);
-  const myShops = marketShops;
+
+  function handleShopSaved(shop: MarketShop) {
+    const normalizedShop = normalizeMarketShop(shop as Record<string, unknown>);
+
+    setShops((current) => {
+      const exists = current.some((item) => item.id === normalizedShop.id);
+
+      return exists
+        ? current.map((item) =>
+            item.id === normalizedShop.id ? normalizedShop : item,
+          )
+        : [normalizedShop, ...current];
+    });
+  }
 
   return (
     <MarketShell>
@@ -1117,55 +1554,105 @@ export function MarketMyShopPageView() {
           </div>
         }
       />
-      <div className="grid auto-rows-fr gap-5 xl:grid-cols-3">
-        {myShops.map((shop) => (
-          <Card key={shop.id} className="flex h-full flex-col overflow-hidden">
-            <MediaBlock
-              image={shop.coverImage}
-              title={shop.name}
-              className="h-44 border-b border-border"
-            />
-            <CardContent className="flex flex-1 flex-col gap-5 p-5">
-              <div className="flex items-start gap-4">
-                <MediaBlock
-                  image={shop.logo}
-                  title={shop.name}
-                  className="h-14 w-14 shrink-0 rounded-lg border border-border"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="truncate text-lg font-semibold">{shop.name}</h2>
-                    <StatusBadge value={shop.availabilityStatus} />
+      {isLoading ? (
+        <MarketGridSkeleton count={3} />
+      ) : myShops.length > 0 ? (
+        <div className="grid auto-rows-fr gap-5 xl:grid-cols-3">
+          {myShops.map((shop) => (
+            <Card
+              key={shop.id}
+              className="flex h-full flex-col overflow-hidden"
+            >
+              <MediaBlock
+                image={shop.coverImage}
+                title={shop.name}
+                className="h-44 border-b border-border"
+              />
+              <CardContent className="flex flex-1 flex-col gap-5 p-5">
+                <div className="flex items-start gap-4">
+                  <MediaBlock
+                    image={shop.logo}
+                    title={shop.name}
+                    className="h-14 w-14 shrink-0 rounded-lg border border-border"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="truncate text-lg font-semibold">
+                        {shop.name}
+                      </h2>
+                      <StatusBadge value={shop.availabilityStatus} />
+                    </div>
+                    <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                      {shop.description}
+                    </p>
                   </div>
-                  <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                    {shop.description}
-                  </p>
                 </div>
-              </div>
-              <div className="grid gap-3">
-                <InfoTile icon={FiTag} label="Category" value={shop.category} />
-                <InfoTile icon={FiMapPin} label="Location" value={shop.location} />
-                <InfoTile icon={FiPackage} label="Products" value={`${shop.products} listings`} />
-              </div>
-              <Button className="mt-auto w-full" type="button" onClick={() => setEditingShop(shop)}>
-                <FiEdit className="h-4 w-4" aria-hidden="true" />
-                Edit Shop
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                <div className="grid gap-3">
+                  <InfoTile
+                    icon={FiTag}
+                    label="Category"
+                    value={shop.category}
+                  />
+                  <InfoTile
+                    icon={FiMapPin}
+                    label="Location"
+                    value={shop.location}
+                  />
+                  <InfoTile
+                    icon={FiPackage}
+                    label="Products"
+                    value={`${shop.products} listings`}
+                  />
+                </div>
+                <Button
+                  className="mt-auto w-full"
+                  type="button"
+                  onClick={() => setEditingShop(shop)}
+                >
+                  <FiEdit className="h-4 w-4" aria-hidden="true" />
+                  Edit Shop
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-lg border border-border bg-surface p-6">
+          <Empty
+            title="No shop created yet"
+            description="Create your student shop profile to start listing products, sharing contact details, and receiving campus buyer requests."
+            icon={FiShoppingBag}
+            className="min-h-[360px]"
+          />
+          <div className="mt-5 flex justify-center">
+            <Button type="button" onClick={() => setCreateOpen(true)}>
+              <FiPlus className="h-4 w-4" aria-hidden="true" />
+              Create Shop
+            </Button>
+          </div>
+        </div>
+      )}
       <ShopFormModal
         open={createOpen}
         onOpenChange={setCreateOpen}
         title="Create Shop"
         description="Set up a student shop profile for campus buyers."
+        deliveryLocations={deliveryLocations}
+        onSaved={handleShopSaved}
       />
       <ShopFormModal
         open={Boolean(editingShop)}
-        onOpenChange={(open) => !open && setEditingShop(null)}
+        onOpenChange={(open) => {
+          if (!open) setEditingShop(null);
+        }}
         title="Edit Shop"
         description="Update shop details and buyer contact information."
+        shopId={editingShop?.id}
+        deliveryLocations={deliveryLocations}
+        onSaved={(shop) => {
+          handleShopSaved(shop);
+          setEditingShop(null);
+        }}
         initialValues={
           editingShop
             ? {
@@ -1174,20 +1661,28 @@ export function MarketMyShopPageView() {
                 contactNumber: editingShop.contactNumber,
                 whatsappNumber: editingShop.whatsappNumber,
                 availabilityStatus: editingShop.availabilityStatus,
-                openingTime: editingShop.availabilityStatus === "Limited Hours" ? "08:00" : "",
-                closingTime: editingShop.availabilityStatus === "Limited Hours" ? "18:00" : "",
+                openingTime:
+                  editingShop.availabilityStatus === "Limited Hours"
+                    ? editingShop.openingTime || "08:00"
+                    : "",
+                closingTime:
+                  editingShop.availabilityStatus === "Limited Hours"
+                    ? editingShop.closingTime || "18:00"
+                    : "",
                 category: editingShop.category,
-                locationType: campusDeliveryLocations.includes(editingShop.location)
+                locationType: deliveryLocations.includes(editingShop.location)
                   ? "Campus Location"
                   : "Outside Campus",
-                campusLocation: campusDeliveryLocations.includes(editingShop.location)
+                campusLocation: deliveryLocations.includes(editingShop.location)
                   ? editingShop.location
-                  : campusDeliveryLocations[1],
-                outsideLocation: campusDeliveryLocations.includes(editingShop.location)
+                  : "",
+                outsideLocation: deliveryLocations.includes(
+                  editingShop.location,
+                )
                   ? ""
                   : editingShop.location,
-                logo: "",
-                coverImage: "",
+                logo: editingShop.logo ?? "",
+                coverImage: editingShop.coverImage ?? "",
               }
             : undefined
         }
@@ -1201,15 +1696,22 @@ function ShopFormModal({
   onOpenChange,
   title,
   description,
+  shopId,
+  deliveryLocations,
+  onSaved,
   initialValues,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
   description: string;
+  shopId?: string;
+  deliveryLocations: string[];
+  onSaved: (shop: MarketShop) => void;
   initialValues?: ShopFormValues;
 }) {
   const [step, setStep] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
   const form = useForm<ShopFormValues>({
     resolver: zodResolver(shopSchema),
     values:
@@ -1224,7 +1726,7 @@ function ShopFormModal({
         closingTime: "",
         category: "Electronics",
         locationType: "Campus Location",
-        campusLocation: "CoICT Lecture Block",
+        campusLocation: "",
         outsideLocation: "",
         logo: "",
         coverImage: "",
@@ -1241,12 +1743,78 @@ function ShopFormModal({
     }
   }, [open]);
 
-  function submit(values: ShopFormValues) {
-    campusToast.success({
-      title: title === "Create Shop" ? "Shop Created" : "Shop Updated",
-      description: `${values.name} is ready for campus buyers.`,
-    });
-    onOpenChange(false);
+  function buildPayload(values: ShopFormValues) {
+    const locationName =
+      values.locationType === "Campus Location"
+        ? values.campusLocation?.trim()
+        : values.outsideLocation?.trim();
+
+    return {
+      name: values.name,
+      description: values.description,
+      category: values.category,
+      contactPhone: values.contactNumber,
+      whatsappNumber: values.whatsappNumber,
+      logo: values.logo || null,
+      bannerImage: values.coverImage || null,
+      openingHours: {
+        availabilityStatus: values.availabilityStatus,
+        openingTime:
+          values.availabilityStatus === "Limited Hours"
+            ? values.openingTime || null
+            : null,
+        closingTime:
+          values.availabilityStatus === "Limited Hours"
+            ? values.closingTime || null
+            : null,
+      },
+      location: locationName
+        ? {
+            name: locationName,
+            address: locationName,
+          }
+        : null,
+    };
+  }
+
+  async function submit(values: ShopFormValues) {
+    setIsSaving(true);
+
+    try {
+      const response = await fetch(
+        shopId ? `/api/shops/${shopId}` : "/api/shops",
+        {
+          method: shopId ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(buildPayload(values)),
+        },
+      );
+      const payload = (await response.json()) as {
+        data?: { shop?: MarketShop };
+        error?: { message?: string } | null;
+      };
+
+      if (!response.ok || !payload.data?.shop) {
+        throw new Error(payload.error?.message ?? "Unable to save shop.");
+      }
+
+      onSaved(payload.data.shop);
+      campusToast.success({
+        title: shopId ? "Shop Updated" : "Shop Created",
+        description: `${values.name} is ready for campus buyers.`,
+      });
+      onOpenChange(false);
+    } catch (error) {
+      campusToast.error({
+        title: shopId ? "Shop Not Updated" : "Shop Not Created",
+        description:
+          error instanceof Error
+            ? error.message
+            : "The shop could not be saved.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   async function goToNextStep() {
@@ -1257,8 +1825,23 @@ function ShopFormModal({
   }
 
   return (
-    <Modal open={open} onOpenChange={onOpenChange} title={title} description={description}>
-      <form className="space-y-6" onSubmit={form.handleSubmit(submit)}>
+    <Modal
+      open={open}
+      onOpenChange={onOpenChange}
+      title={title}
+      description={description}
+    >
+      <form
+        className="space-y-6"
+        onSubmit={(event) => {
+          if (!isLastStep) {
+            event.preventDefault();
+            void goToNextStep();
+            return;
+          }
+          void form.handleSubmit(submit)(event);
+        }}
+      >
         <MultiStepProgress
           activeIndex={step}
           className="mb-8"
@@ -1282,19 +1865,33 @@ function ShopFormModal({
         {step === 0 ? (
           <div className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Shop Name" error={form.formState.errors.name?.message}>
-                <CampusInput placeholder="Neema Tech Deals" {...form.register("name")} />
+              <Field
+                label="Shop Name"
+                error={form.formState.errors.name?.message}
+              >
+                <CampusInput
+                  placeholder="Shop name"
+                  {...form.register("name")}
+                />
               </Field>
-              <Field label="Shop Category" error={form.formState.errors.category?.message}>
+              <Field
+                label="Shop Category"
+                error={form.formState.errors.category?.message}
+              >
                 <RadixSelectField
                   value={form.watch("category")}
-                  onChange={(value) => form.setValue("category", value, { shouldValidate: true })}
+                  onChange={(value) =>
+                    form.setValue("category", value, { shouldValidate: true })
+                  }
                   placeholder="Choose category"
                   options={marketCategories}
                 />
               </Field>
             </div>
-            <Field label="Description" error={form.formState.errors.description?.message}>
+            <Field
+              label="Description"
+              error={form.formState.errors.description?.message}
+            >
               <CampusTextarea
                 rows={5}
                 placeholder="Describe what your shop sells, where buyers can meet you, and when you are available."
@@ -1307,20 +1904,36 @@ function ShopFormModal({
         {step === 1 ? (
           <div className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Contact Number" error={form.formState.errors.contactNumber?.message}>
-                <CampusInput placeholder="+255 744 120 884" {...form.register("contactNumber")} />
+              <Field
+                label="Contact Number"
+                error={form.formState.errors.contactNumber?.message}
+              >
+                <CampusInput
+                  placeholder="+255 744 120 884"
+                  {...form.register("contactNumber")}
+                />
               </Field>
-              <Field label="WhatsApp Number" error={form.formState.errors.whatsappNumber?.message}>
-                <CampusInput placeholder="+255 744 120 884" {...form.register("whatsappNumber")} />
+              <Field
+                label="WhatsApp Number"
+                error={form.formState.errors.whatsappNumber?.message}
+              >
+                <CampusInput
+                  placeholder="+255 744 120 884"
+                  {...form.register("whatsappNumber")}
+                />
               </Field>
             </div>
             <Field label="Availability Status">
               <RadixSelectField
                 value={form.watch("availabilityStatus")}
                 onChange={(value) =>
-                  form.setValue("availabilityStatus", value as ShopFormValues["availabilityStatus"], {
-                    shouldValidate: true,
-                  })
+                  form.setValue(
+                    "availabilityStatus",
+                    value as ShopFormValues["availabilityStatus"],
+                    {
+                      shouldValidate: true,
+                    },
+                  )
                 }
                 placeholder="Availability"
                 options={["Open", "Open 24/7", "Limited Hours", "Closed"]}
@@ -1335,7 +1948,8 @@ function ShopFormModal({
                   <CampusInput type="time" {...form.register("closingTime")} />
                 </Field>
               </div>
-            ) : availabilityStatus === "Open" || availabilityStatus === "Open 24/7" ? (
+            ) : availabilityStatus === "Open" ||
+              availabilityStatus === "Open 24/7" ? (
               <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-primary">
                 This shop will be shown as open 24/7.
               </div>
@@ -1349,9 +1963,13 @@ function ShopFormModal({
               <RadixSelectField
                 value={form.watch("locationType")}
                 onChange={(value) =>
-                  form.setValue("locationType", value as ShopFormValues["locationType"], {
-                    shouldValidate: true,
-                  })
+                  form.setValue(
+                    "locationType",
+                    value as ShopFormValues["locationType"],
+                    {
+                      shouldValidate: true,
+                    },
+                  )
                 }
                 placeholder="Choose location type"
                 options={["Campus Location", "Outside Campus"]}
@@ -1361,9 +1979,13 @@ function ShopFormModal({
               <Field label="Campus Location">
                 <RadixSelectField
                   value={form.watch("campusLocation") ?? ""}
-                  onChange={(value) => form.setValue("campusLocation", value, { shouldValidate: true })}
+                  onChange={(value) =>
+                    form.setValue("campusLocation", value, {
+                      shouldValidate: true,
+                    })
+                  }
                   placeholder="Choose campus location"
-                  options={campusDeliveryLocations.filter((location) => location !== "Use Current Location")}
+                  options={deliveryLocations}
                 />
               </Field>
             ) : (
@@ -1397,16 +2019,25 @@ function ShopFormModal({
             type="button"
             variant="secondary"
             onClick={() => setStep((current) => Math.max(current - 1, 0))}
-            disabled={step === 0}
+            disabled={step === 0 || isSaving}
           >
             Back
           </Button>
           {isLastStep ? (
-            <Button className="w-full sm:w-auto" type="submit">
-              {title}
+            <Button
+              className="w-full sm:w-auto"
+              disabled={isSaving}
+              type="submit"
+            >
+              {isSaving ? "Saving..." : title}
             </Button>
           ) : (
-            <Button className="w-full sm:w-auto" type="button" onClick={goToNextStep}>
+            <Button
+              className="w-full sm:w-auto"
+              disabled={isSaving}
+              type="button"
+              onClick={goToNextStep}
+            >
               Continue
             </Button>
           )}
@@ -1444,11 +2075,13 @@ function RadixSelectField({
 }
 
 export function MarketMyProductsPageView() {
+  const { products: marketProducts, isLoading } = useCampusMarketData();
   const [query, setQuery] = useState("");
   const [viewMode, setViewMode] = useState<MarketView>("table");
   const [createOpen, setCreateOpen] = useState(false);
   const [editProduct, setEditProduct] = useState<MarketProduct | null>(null);
-  const [deactivateProduct, setDeactivateProduct] = useState<MarketProduct | null>(null);
+  const [deactivateProduct, setDeactivateProduct] =
+    useState<MarketProduct | null>(null);
   const myProducts = marketProducts.filter((product) =>
     product.name.toLowerCase().includes(query.toLowerCase()),
   );
@@ -1496,7 +2129,11 @@ export function MarketMyProductsPageView() {
               icon: FiEye,
               onSelect: () => window.location.assign(getProductHref(product)),
             },
-            { label: "Edit", icon: FiEdit, onSelect: () => setEditProduct(product) },
+            {
+              label: "Edit",
+              icon: FiEdit,
+              onSelect: () => setEditProduct(product),
+            },
             {
               label: "Deactivate",
               icon: FiTrash2,
@@ -1522,7 +2159,11 @@ export function MarketMyProductsPageView() {
         }
       />
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <SearchInput value={query} onChange={setQuery} placeholder="Search my products" />
+        <SearchInput
+          value={query}
+          onChange={setQuery}
+          placeholder="Search my products"
+        />
         <ViewToggle value={viewMode} onChange={setViewMode} />
       </div>
       {viewMode === "table" ? (
@@ -1530,9 +2171,11 @@ export function MarketMyProductsPageView() {
           columns={columns}
           data={myProducts}
           getRowId={(product) => product.id}
+          loading={isLoading}
           empty={<Empty filterName={query || "products"} icon={FiPackage} />}
-          pageSize={5}
         />
+      ) : isLoading ? (
+        <MarketGridSkeleton />
       ) : myProducts.length > 0 ? (
         <StaggerContainer className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {myProducts.map((product) => (
@@ -1542,7 +2185,8 @@ export function MarketMyProductsPageView() {
               onOrder={() =>
                 campusToast.info({
                   title: "Seller Preview",
-                  description: "Orders are created by buyers from browse pages.",
+                  description:
+                    "Orders are created by buyers from browse pages.",
                 })
               }
             />
@@ -1551,7 +2195,11 @@ export function MarketMyProductsPageView() {
       ) : (
         <Empty filterName={query || "products"} icon={FiPackage} />
       )}
-      <ProductFormModal open={createOpen} onOpenChange={setCreateOpen} title="Create Product" />
+      <ProductFormModal
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        title="Create Product"
+      />
       <ProductFormModal
         open={Boolean(editProduct)}
         onOpenChange={(open) => !open && setEditProduct(null)}
@@ -1627,35 +2275,62 @@ function ProductFormModal({
     >
       <form className="space-y-5" onSubmit={form.handleSubmit(submit)}>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Product Name" error={form.formState.errors.name?.message}>
-            <CampusInput placeholder="MacBook Pro M1 13-inch" {...form.register("name")} />
+          <Field
+            label="Product Name"
+            error={form.formState.errors.name?.message}
+          >
+            <CampusInput
+              placeholder="MacBook Pro M1 13-inch"
+              {...form.register("name")}
+            />
           </Field>
           <Field label="Price" error={form.formState.errors.price?.message}>
-            <CampusInput placeholder="TZS 1,850,000" {...form.register("price")} />
+            <CampusInput
+              placeholder="TZS 1,850,000"
+              {...form.register("price")}
+            />
           </Field>
-          <Field label="Category" error={form.formState.errors.category?.message}>
+          <Field
+            label="Category"
+            error={form.formState.errors.category?.message}
+          >
             <RadixSelectField
               value={form.watch("category")}
-              onChange={(value) => form.setValue("category", value, { shouldValidate: true })}
+              onChange={(value) =>
+                form.setValue("category", value, { shouldValidate: true })
+              }
               placeholder="Choose category"
               options={marketCategories}
             />
           </Field>
-          <Field label="Stock Quantity" error={form.formState.errors.stock?.message}>
-            <CampusInput min={0} type="number" placeholder="8" {...form.register("stock")} />
+          <Field
+            label="Stock Quantity"
+            error={form.formState.errors.stock?.message}
+          >
+            <CampusInput
+              min={0}
+              type="number"
+              placeholder="8"
+              {...form.register("stock")}
+            />
           </Field>
         </div>
         <Field label="Status">
           <RadixSelectField
             value={form.watch("status")}
             onChange={(value) =>
-              form.setValue("status", value as MarketStatus, { shouldValidate: true })
+              form.setValue("status", value as MarketStatus, {
+                shouldValidate: true,
+              })
             }
             placeholder="Product status"
             options={["ACTIVE", "DRAFT", "PAUSED", "SOLD OUT"]}
           />
         </Field>
-        <Field label="Description" error={form.formState.errors.description?.message}>
+        <Field
+          label="Description"
+          error={form.formState.errors.description?.message}
+        >
           <CampusTextarea
             rows={4}
             placeholder="Describe condition, pickup location, what is included, and any buyer requirements."
@@ -1730,6 +2405,7 @@ function ViewToggle({
 }
 
 export function MarketOrdersPageView() {
+  const { orders: marketOrders, isLoading } = useCampusMarketData();
   const [query, setQuery] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<MarketOrder | null>(null);
   const filteredOrders = marketOrders.filter((order) =>
@@ -1756,7 +2432,11 @@ export function MarketOrdersPageView() {
       cell: (order) => (
         <AdminActionMenu
           items={[
-            { label: "View", icon: FiEye, onSelect: () => setSelectedOrder(order) },
+            {
+              label: "View",
+              icon: FiEye,
+              onSelect: () => setSelectedOrder(order),
+            },
             {
               label: "Accept",
               icon: FiCheckCircle,
@@ -1789,14 +2469,18 @@ export function MarketOrdersPageView() {
         description="Track buyer requests. Payments and final delivery coordination happen directly between students."
       />
       <div className="mb-5">
-        <SearchInput value={query} onChange={setQuery} placeholder="Search orders" />
+        <SearchInput
+          value={query}
+          onChange={setQuery}
+          placeholder="Search orders"
+        />
       </div>
       <CampusDataTable
         columns={columns}
         data={filteredOrders}
         getRowId={(order) => order.id}
+        loading={isLoading}
         empty={<Empty filterName={query || "orders"} icon={FiShoppingBag} />}
-        pageSize={5}
       />
       <Drawer
         open={Boolean(selectedOrder)}
@@ -1807,14 +2491,22 @@ export function MarketOrdersPageView() {
       >
         {selectedOrder ? (
           <div className="space-y-3">
-            <InfoTile icon={FiPackage} label="Product" value={selectedOrder.product} />
+            <InfoTile
+              icon={FiPackage}
+              label="Product"
+              value={selectedOrder.product}
+            />
             <InfoTile icon={FiUser} label="Buyer" value={selectedOrder.buyer} />
             <InfoTile
               icon={FiShoppingBag}
               label="Quantity"
               value={String(selectedOrder.quantity)}
             />
-            <InfoTile icon={FiMapPin} label="Location" value={selectedOrder.location} />
+            <InfoTile
+              icon={FiMapPin}
+              label="Location"
+              value={selectedOrder.location}
+            />
             <InfoTile icon={FiClock} label="Date" value={selectedOrder.date} />
           </div>
         ) : null}

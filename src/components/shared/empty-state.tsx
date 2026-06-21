@@ -1,6 +1,7 @@
 import { FiInbox } from "react-icons/fi";
 
 import { Button } from "@/components/ui/button";
+import { KiboEmptyState } from "@/lib/kibo";
 import { cn } from "@/lib/utils";
 
 type EmptyStateProps = {
@@ -18,6 +19,30 @@ export function EmptyState({
   onAction,
   className,
 }: EmptyStateProps) {
+  const normalized = `${title} ${description ?? ""}`.toLowerCase();
+  const kiboMood = normalized.includes("project")
+    ? "curious"
+    : normalized.includes("product") || normalized.includes("marketplace")
+      ? "thinking"
+      : normalized.includes("notification") ||
+          normalized.includes("caught up") ||
+          normalized.includes("nothing new")
+        ? "happy"
+        : null;
+
+  if (kiboMood) {
+    return (
+      <KiboEmptyState
+        mood={kiboMood}
+        title={title}
+        description={description}
+        actionLabel={actionLabel}
+        onAction={onAction}
+        className={className}
+      />
+    );
+  }
+
   return (
     <div
       className={cn(

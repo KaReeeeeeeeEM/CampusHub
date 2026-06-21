@@ -14,7 +14,7 @@ import interactionPlugin, {
 import FullCalendar from "@fullcalendar/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Image from "next/image";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import type { IconType } from "react-icons";
 import {
@@ -65,6 +65,7 @@ import {
 } from "@/components/campushub";
 import { Drawer } from "@/components/shared/drawer";
 import { Empty } from "@/components/shared/empty";
+import { LoadingState } from "@/components/shared/loading-state";
 import { Modal } from "@/components/shared/modal";
 import { Button } from "@/components/ui/button";
 import {
@@ -91,7 +92,6 @@ import {
   alumniDirectory,
   alumniEvents,
   alumniForumTopics,
-  alumniNotifications,
   alumniOpportunities,
   alumniProjects,
   alumniStats,
@@ -100,6 +100,17 @@ import {
   mockAlumniProfile,
   universityUpdates,
 } from "@/features/alumni-portal/lib/mock-data";
+import { NotificationTabs } from "@/features/notifications/components/notification-tabs";
+import {
+  deleteClientNotification,
+  deleteClientNotifications,
+  fetchClientNotifications,
+  filterNotificationsByTab,
+  getNotificationTabs,
+  markAllClientNotificationsRead,
+  markClientNotificationRead,
+  type ClientNotification,
+} from "@/features/notifications/lib/client-notification-utils";
 import { cn } from "@/lib/utils";
 
 const ALL_VALUE = "all";
@@ -110,7 +121,7 @@ type AlumniProject = (typeof alumniProjects)[number];
 type AlumniEvent = (typeof alumniEvents)[number];
 type AlumniOpportunity = (typeof alumniOpportunities)[number];
 type AlumniForumTopic = (typeof alumniForumTopics)[number];
-type AlumniNotification = (typeof alumniNotifications)[number];
+type AlumniNotification = ClientNotification;
 type ChartView = "bar" | "line" | "area";
 type AlumniEventsViewMode = "cards" | "list" | "calendar";
 
@@ -130,53 +141,33 @@ const alumniEventsViewOptions = [
   icon: IconType;
 }>;
 
-const alumniEngagementChartData = [
-  { label: "Jan", community: 420, mentorship: 88, opportunities: 18 },
-  { label: "Feb", community: 510, mentorship: 96, opportunities: 22 },
-  { label: "Mar", community: 610, mentorship: 112, opportunities: 28 },
-  { label: "Apr", community: 760, mentorship: 130, opportunities: 33 },
-  { label: "May", community: 840, mentorship: 148, opportunities: 42 },
-  { label: "Jun", community: 930, mentorship: 162, opportunities: 48 },
-];
+const alumniEngagementChartData: Array<{
+  label: string;
+  community: number;
+  mentorship: number;
+  opportunities: number;
+}> = [];
 
-const showcaseAnalyticsChartData = [
-  { label: "Jan", views: 1840, stars: 126, matches: 8 },
-  { label: "Feb", views: 2320, stars: 168, matches: 11 },
-  { label: "Mar", views: 2680, stars: 214, matches: 14 },
-  { label: "Apr", views: 3040, stars: 238, matches: 18 },
-  { label: "May", views: 3360, stars: 251, matches: 23 },
-  { label: "Jun", views: 3770, stars: 252, matches: 31 },
-];
+const showcaseAnalyticsChartData: Array<{
+  label: string;
+  views: number;
+  stars: number;
+  matches: number;
+}> = [];
 
-const showcaseDepartmentDemand = [
-  { label: "Computer Science", views: 8240, matches: 14 },
-  { label: "Information Systems", views: 4980, matches: 9 },
-  { label: "Agricultural Engineering", views: 3790, matches: 8 },
-];
+const showcaseDepartmentDemand: Array<{
+  label: string;
+  views: number;
+  matches: number;
+}> = [];
 
-const mentorMatchActivity = [
-  {
-    student: "Aisha Mrema",
-    project: "AfyaTrack AI",
-    signal: "Health AI validation",
-    matches: 14,
-    response: "86%",
-  },
-  {
-    student: "Brian Macha",
-    project: "Smart Almanac Engine",
-    signal: "Product discovery",
-    matches: 9,
-    response: "74%",
-  },
-  {
-    student: "Rehema Kileo",
-    project: "AgriSense Lab",
-    signal: "Research commercialization",
-    matches: 8,
-    response: "68%",
-  },
-];
+const mentorMatchActivity: Array<{
+  student: string;
+  project: string;
+  signal: string;
+  matches: number;
+  response: string;
+}> = [];
 
 const opportunitySchema = z.object({
   title: z.string().min(3, "Enter an opportunity title."),
@@ -1227,7 +1218,11 @@ export function AlumniDashboardView() {
   return (
     <PageShell
       eyebrow="Alumni Network"
-      title={`Welcome back, ${mockAlumniProfile.name.split(" ")[0]}.`}
+      title={
+        mockAlumniProfile.name
+          ? `Welcome back, ${mockAlumniProfile.name.split(" ")[0]}.`
+          : "Alumni dashboard."
+      }
       description="Stay connected to your university, mentor promising students, discover projects, and share opportunities with the CampusHub ecosystem."
     >
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
@@ -2158,7 +2153,7 @@ function CreateOpportunityModal({
           </label>
           <label className="space-y-2 text-sm font-medium">
             Organization
-            <CampusInput {...form.register("company")} placeholder="Kijani Labs" />
+            <CampusInput {...form.register("company")} placeholder="Organization name" />
           </label>
           <label className="space-y-2 text-sm font-medium">
             Deadline
@@ -2408,9 +2403,14 @@ export function AlumniProfileView() {
         <Card>
           <CardContent className="space-y-5 p-5">
             <div className="flex items-center gap-4">
-              <AvatarBadge initials="FL" className="h-16 w-16 text-lg" />
+              <AvatarBadge
+                initials={mockAlumniProfile.name ? mockAlumniProfile.name.slice(0, 2) : "A"}
+                className="h-16 w-16 text-lg"
+              />
               <div>
-                <h2 className="text-xl font-semibold">{mockAlumniProfile.name}</h2>
+                <h2 className="text-xl font-semibold">
+                  {mockAlumniProfile.name || "Alumni profile"}
+                </h2>
                 <p className="text-sm text-muted-foreground">
                   {mockAlumniProfile.position} · {mockAlumniProfile.company}
                 </p>
@@ -2465,34 +2465,102 @@ export function AlumniProfileView() {
 }
 
 export function AlumniNotificationsView() {
-  const [category, setCategory] = useState(ALL_VALUE);
-  const [notifications, setNotifications] = useState(alumniNotifications);
-  const filtered = notifications.filter(
-    (item) => category === ALL_VALUE || item.category === category,
-  );
-  const categories = unique(alumniNotifications.map((item) => item.category));
-  const viewNotification = (item: AlumniNotification) => {
-    setNotifications((current) =>
-      current.map((notification) =>
-        notification.id === item.id ? { ...notification, unread: false } : notification,
-      ),
-    );
+  const [activeTab, setActiveTab] = useState("All");
+  const [notifications, setNotifications] = useState<AlumniNotification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const tabs = getNotificationTabs(notifications);
+  const filtered = filterNotificationsByTab(notifications, activeTab);
+  const unreadCount = notifications.filter((notification) => notification.unread).length;
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadNotifications() {
+      try {
+        setIsLoading(true);
+        const nextNotifications = await fetchClientNotifications();
+        if (mounted) setNotifications(nextNotifications);
+      } catch (error) {
+        campusToast.error(
+          error instanceof Error
+            ? error.message
+            : "Unable to load notifications.",
+        );
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    }
+
+    void loadNotifications();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (tabs.some((tab) => tab.key === activeTab)) return;
+    setActiveTab("All");
+  }, [activeTab, tabs]);
+
+  const viewNotification = async (item: AlumniNotification) => {
+    if (item.unread) await markNotificationRead(item.id);
+
     campusToast.info({
       title: item.title,
       description: item.description,
     });
   };
-  const markNotificationRead = (id: string) => {
-    setNotifications((current) =>
-      current.map((notification) =>
-        notification.id === id ? { ...notification, unread: false } : notification,
-      ),
-    );
+  const markNotificationRead = async (id: string) => {
+    try {
+      const updated = await markClientNotificationRead(id);
+      setNotifications((current) =>
+        current.map((notification) =>
+          notification.id === id ? updated : notification,
+        ),
+      );
+    } catch (error) {
+      campusToast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to mark notification as read.",
+      );
+    }
   };
-  const clearNotification = (id: string) => {
-    setNotifications((current) =>
-      current.filter((notification) => notification.id !== id),
-    );
+  const markAllRead = async () => {
+    try {
+      await markAllClientNotificationsRead();
+      setNotifications((items) =>
+        items.map((item) => ({ ...item, unread: false, status: "READ" })),
+      );
+    } catch (error) {
+      campusToast.error(
+        error instanceof Error ? error.message : "Unable to mark notifications read.",
+      );
+    }
+  };
+  const clearNotification = async (id: string) => {
+    try {
+      await deleteClientNotification(id);
+      setNotifications((current) =>
+        current.filter((notification) => notification.id !== id),
+      );
+    } catch (error) {
+      campusToast.error(
+        error instanceof Error ? error.message : "Unable to clear notification.",
+      );
+    }
+  };
+  const clearAll = async () => {
+    try {
+      await deleteClientNotifications(notifications.map((notification) => notification.id));
+      setNotifications([]);
+      setActiveTab("All");
+    } catch (error) {
+      campusToast.error(
+        error instanceof Error ? error.message : "Unable to clear notifications.",
+      );
+    }
   };
 
   return (
@@ -2506,53 +2574,29 @@ export function AlumniNotificationsView() {
             size="sm"
             type="button"
             variant="secondary"
-            onClick={() =>
-              setNotifications((items) =>
-                items.map((item) => ({ ...item, unread: false })),
-              )
-            }
+            disabled={unreadCount === 0}
+            onClick={markAllRead}
           >
             Mark read
           </Button>
-          <Button size="sm" type="button" variant="secondary" onClick={() => setNotifications([])}>
+          <Button
+            size="sm"
+            type="button"
+            variant="secondary"
+            disabled={notifications.length === 0}
+            onClick={clearAll}
+          >
             Clear all
           </Button>
         </div>
       }
     >
-      <div className="grid gap-4 xl:grid-cols-[18rem_1fr]">
-        <Card className="h-fit xl:sticky xl:top-24">
-          <CardContent className="space-y-2 p-4">
-            <Button
-              className={cn(
-                "h-auto w-full justify-between rounded-lg px-3 py-2 text-left text-sm",
-                category === ALL_VALUE && "bg-primary/10 text-primary",
-              )}
-              type="button"
-              variant="ghost"
-              onClick={() => setCategory(ALL_VALUE)}
-            >
-              All <span>{notifications.length}</span>
-            </Button>
-            {categories.map((item) => (
-              <Button
-                key={item}
-                className={cn(
-                  "h-auto w-full justify-between rounded-lg px-3 py-2 text-left text-sm",
-                  category === item && "bg-primary/10 text-primary",
-                )}
-                type="button"
-                variant="ghost"
-                onClick={() => setCategory(item)}
-              >
-                {item}
-                <span>{notifications.filter((notification) => notification.category === item).length}</span>
-              </Button>
-            ))}
-          </CardContent>
-        </Card>
+      <div className="space-y-4">
+        <NotificationTabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
         <div className="space-y-3">
-          {filtered.length ? (
+          {isLoading ? (
+            <LoadingState label="Loading notifications" />
+          ) : filtered.length ? (
             filtered.map((item) => (
               <Card key={item.id}>
                 <CardContent className="flex gap-4 p-5">
@@ -2601,7 +2645,15 @@ export function AlumniNotificationsView() {
               </Card>
             ))
           ) : (
-            <Empty filterName={category === ALL_VALUE ? "notifications" : category} />
+            <Empty
+              title="No notifications"
+              description={
+                activeTab === "All"
+                  ? "Mentorship, opportunity, community, showcase, and event activity will appear here."
+                  : `No notifications for the "${activeTab}" tab.`
+              }
+              filterName={activeTab === "All" ? "notifications" : activeTab}
+            />
           )}
         </div>
       </div>

@@ -2,10 +2,9 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import type { ComponentPropsWithoutRef } from "react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { FiEye, FiEyeOff, FiLoader } from "react-icons/fi";
+import { FiLoader } from "react-icons/fi";
 import type { z } from "zod";
 
 import { CampusInput } from "@/components/campushub";
@@ -21,11 +20,6 @@ import {
 type InvitedAccountActivationFormProps = {
   token: string;
   submitLabel: string;
-};
-
-type PasswordInputProps = ComponentPropsWithoutRef<typeof CampusInput> & {
-  visible: boolean;
-  onToggleVisible: () => void;
 };
 
 type ApiResponse<T> = {
@@ -51,41 +45,12 @@ function getInvitationStatusMessage(status: string) {
   }
 }
 
-function PasswordInput({
-  visible,
-  onToggleVisible,
-  className,
-  ...props
-}: PasswordInputProps) {
-  const Icon = visible ? FiEyeOff : FiEye;
-
-  return (
-    <div className="relative">
-      <CampusInput
-        {...props}
-        className={["pr-11", className].filter(Boolean).join(" ")}
-        type={visible ? "text" : "password"}
-      />
-      <button
-        aria-label={visible ? "Hide password" : "Show password"}
-        className="absolute right-3 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring/25"
-        onClick={onToggleVisible}
-        type="button"
-      >
-        <Icon className="h-4 w-4" aria-hidden="true" />
-      </button>
-    </div>
-  );
-}
-
 export function InvitedAccountActivationForm({
   token,
   submitLabel,
 }: InvitedAccountActivationFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const [passwordVisible, setPasswordVisible] = useState(false);
-  const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
 
   const {
     register,
@@ -204,13 +169,12 @@ export function InvitedAccountActivationForm({
         </AuthField>
       </div>
       <AuthField label="Password" error={errors.password?.message}>
-        <PasswordInput
+        <CampusInput
           {...register("password")}
           autoComplete="new-password"
           invalid={Boolean(errors.password)}
-          onToggleVisible={() => setPasswordVisible((visible) => !visible)}
           placeholder="Create your password"
-          visible={passwordVisible}
+          type="password"
         />
       </AuthField>
       <PasswordChecklist password={password} />
@@ -218,15 +182,12 @@ export function InvitedAccountActivationForm({
         label="Confirm password"
         error={errors.confirmPassword?.message}
       >
-        <PasswordInput
+        <CampusInput
           {...register("confirmPassword")}
           autoComplete="new-password"
           invalid={Boolean(errors.confirmPassword)}
-          onToggleVisible={() =>
-            setConfirmPasswordVisible((visible) => !visible)
-          }
           placeholder="Confirm your password"
-          visible={confirmPasswordVisible}
+          type="password"
         />
       </AuthField>
       <Button className="w-full" disabled={isSubmitting} type="submit">

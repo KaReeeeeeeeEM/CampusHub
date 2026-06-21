@@ -1,3 +1,4 @@
+import { AuthReadyGate } from "@/components/auth/auth-ready-gate";
 import { requireCompletedOnboarding } from "@/lib/auth/route-guards";
 import { DashboardThemeProvider } from "@/providers/dashboard-theme-provider";
 
@@ -8,5 +9,9 @@ export default async function AppGroupLayout({
 }) {
   await requireCompletedOnboarding();
 
-  return <DashboardThemeProvider>{children}</DashboardThemeProvider>;
+  return (
+    <DashboardThemeProvider>
+      <AuthReadyGate>{children}</AuthReadyGate>
+    </DashboardThemeProvider>
+  );
 }

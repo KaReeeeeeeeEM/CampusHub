@@ -19,6 +19,7 @@ import {
   CampusSelect,
 } from "@/components/campushub";
 import { MultiStepProgress } from "@/components/shared/multi-step-progress";
+import { PageLoadingState } from "@/components/shared/page-loading-state";
 import { Button } from "@/components/ui/button";
 import { AuthAlert } from "@/features/auth/components/auth-alert";
 import {
@@ -34,6 +35,7 @@ import {
   type OnboardingRole,
   roleLabels,
 } from "@/features/onboarding/lib/types";
+import { KiboAvatar } from "@/lib/kibo";
 import { useOnboardingStore } from "@/store/onboarding-store";
 
 const steps = [
@@ -544,12 +546,10 @@ export function OnboardingFlow() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4">
-        <div className="flex items-center gap-3 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          Loading onboarding progress
-        </div>
-      </div>
+      <PageLoadingState
+        title="Loading onboarding"
+        description="Fetching your role, university, college, and department setup."
+      />
     );
   }
 
@@ -614,6 +614,18 @@ export function OnboardingFlow() {
             <p className="mt-2 text-sm text-muted-foreground">
               This determines the onboarding questions shown next.
             </p>
+            <div className="mt-6 flex flex-col items-center gap-4 rounded-lg border border-border bg-background p-5 text-center sm:flex-row sm:text-left">
+              <KiboAvatar mood="happy" size="lg" className="shrink-0" />
+              <div>
+                <h3 className="text-base font-semibold">Meet Kibo</h3>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Kibo is the CampusHub companion for onboarding, empty states,
+                  streaks, badge unlocks, reminders, and important celebration
+                  moments. Kibo is not a chatbot and will only appear when it
+                  helps.
+                </p>
+              </div>
+            </div>
             <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {ONBOARDING_ROLES.map((item) => {
                 const Icon = roleIcons[item];

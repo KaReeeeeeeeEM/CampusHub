@@ -1113,7 +1113,6 @@ export function ShowcaseMyProjectsPageView() {
           data={projects}
           getRowId={(project) => project.id}
           empty={<Empty filterName={query || "projects"} icon={FiBookOpen} />}
-          pageSize={6}
         />
       ) : projects.length > 0 ? (
         <StaggerContainer
@@ -1239,6 +1238,7 @@ function ProjectFormModal({
     "Resources",
     "Media",
   ];
+  const isLastStep = step === steps.length - 1;
 
   function toggleRole(value: ShowcaseRoleAudience) {
     const next = selectedRoles.includes(value)
@@ -1314,7 +1314,17 @@ function ProjectFormModal({
       title={title}
       description="Publish portfolio work, research, innovation, or startup progress."
     >
-      <form className="space-y-6" onSubmit={form.handleSubmit(submit)}>
+      <form
+        className="space-y-6"
+        onSubmit={(event) => {
+          if (!isLastStep) {
+            event.preventDefault();
+            setStep((current) => Math.min(steps.length - 1, current + 1));
+            return;
+          }
+          void form.handleSubmit(submit)(event);
+        }}
+      >
         <MultiStepProgress
           activeIndex={step}
           className="mb-8"
@@ -1409,7 +1419,7 @@ function ProjectFormModal({
             addLabel="Add Member"
             items={teamMembers}
             label="Team Members"
-            placeholder="Aisha Mrema"
+            placeholder="Team member name"
             onAdd={() => addListItem(setTeamMembers)}
             onRemove={(index) =>
               removeListItem(teamMembers, index, setTeamMembers, "teamMembers")
@@ -1436,7 +1446,7 @@ function ProjectFormModal({
           <div className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Demo Link">
-                <CampusInput placeholder="https://demo.example.com" {...form.register("demoLink")} />
+                <CampusInput placeholder="Demo URL" {...form.register("demoLink")} />
               </Field>
               <Field label="Website Link">
                 <CampusInput placeholder="https://project.example.com" {...form.register("websiteLink")} />
@@ -1498,7 +1508,7 @@ function ProjectFormModal({
           >
             Back
           </Button>
-          {step < steps.length - 1 ? (
+          {!isLastStep ? (
             <Button
               className="flex-1"
               type="button"

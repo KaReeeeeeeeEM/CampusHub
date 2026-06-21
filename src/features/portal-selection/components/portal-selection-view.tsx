@@ -14,6 +14,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { PageLoadingState } from "@/components/shared/page-loading-state";
 import { Button } from "@/components/ui/button";
 import {
   ROLE_LABELS,
@@ -370,6 +371,16 @@ export function PortalSelectionView() {
     } finally {
       setIsResetting(false);
     }
+  }
+
+  if (isLoadingPreferences) {
+    return (
+      <PageLoadingState
+        title="Loading portal preferences"
+        description="Fetching your available portals, default portal, and quick access choices."
+        withSidebar={false}
+      />
+    );
   }
 
   return (

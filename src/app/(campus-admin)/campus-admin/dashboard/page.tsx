@@ -42,8 +42,8 @@ function EmptyDashboardPanel({
 }) {
   return (
     <div className="dashboard-card flex min-h-[18rem] flex-col items-center justify-center rounded-xl border border-border bg-surface p-6 text-center">
-      <span className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-background">
-        <FiInbox className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+      <span className="flex h-11 w-11 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary">
+        <FiInbox className="h-5 w-5" aria-hidden="true" />
       </span>
       <h3 className="mt-4 text-base font-semibold">{title}</h3>
       <p className="mt-2 max-w-xs text-sm leading-6 text-muted-foreground">
@@ -104,7 +104,7 @@ export default async function CampusAdminDashboardPage() {
                   <span className="dashboard-icon-tile flex h-9 w-9 items-center justify-center">
                     <Icon className="h-4 w-4" aria-hidden="true" />
                   </span>
-                  <span className="rounded-full bg-success/10 px-2 py-1 text-xs font-semibold text-success">
+                  <span className="rounded-full bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
                     live
                   </span>
                 </div>
@@ -161,7 +161,7 @@ export default async function CampusAdminDashboardPage() {
                   <Icon
                     className={
                       item.complete
-                        ? "h-5 w-5 text-success"
+                        ? "h-5 w-5 text-primary"
                         : "h-5 w-5 text-muted-foreground"
                     }
                     aria-hidden="true"

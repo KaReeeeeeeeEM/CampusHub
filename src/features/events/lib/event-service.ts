@@ -93,6 +93,12 @@ function serializeEvent(event: Record<string, unknown>) {
       : [],
     organizerId: String(event.organizerId ?? event.createdById),
     venue: String(event.venue ?? event.locationName ?? ""),
+    locationId: (event.locationId as string | null) ?? null,
+    locationName: (event.locationName as string | null) ?? null,
+    latitude:
+      typeof event.latitude === "number" ? Number(event.latitude) : null,
+    longitude:
+      typeof event.longitude === "number" ? Number(event.longitude) : null,
     startDate: serializeDate(event.startDate ?? event.startAt),
     endDate: serializeDate(event.endDate ?? event.endAt),
     registrationDeadline: serializeDate(event.registrationDeadline),
@@ -262,28 +268,90 @@ function assertCanMutate(actor: AuthUser, event: Record<string, unknown>) {
 }
 
 async function emitEventNotification(
-  type:
+type:
     | "EVENT_CREATED"
     | "EVENT_REMINDER"
     | "EVENT_REGISTRATION_CONFIRMATION"
+    | "EVENT_JOINED"
+    | "EVENT_WAITLISTED"
+    | "EVENT_LEFT"
+    | "EVENT_CHECKED_IN"
     | "EVENT_FULL"
     | "EVENT_CANCELLED",
   actor: AuthUser,
   event: Record<string, unknown>,
-  recipientId?: string,
+  options: {
+    recipientId?: string;
+    roles?: Array<"SUPER_ADMIN" | "CAMPUS_ADMIN">;
+    universityScoped?: boolean;
+    metadata?: Record<string, unknown>;
+  } = {},
 ) {
   await emitNotificationEvent({
     type,
-    universityId: String(event.universityId),
+    universityId:
+      options.universityScoped === false ? null : String(event.universityId),
     actorId: actor.id,
-    recipientId,
+    recipientId: options.recipientId,
+    roles: options.roles,
     entityType: "event",
     entityId: String(event._id),
     metadata: {
       title: event.title,
       eventType: event.eventType,
       status: event.status,
+      ...options.metadata,
     },
+  });
+}
+
+async function emitEventAdminNotifications(
+  type:
+    | "EVENT_CREATED"
+    | "EVENT_JOINED"
+    | "EVENT_WAITLISTED"
+    | "EVENT_LEFT"
+    | "EVENT_CHECKED_IN"
+    | "EVENT_FULL",
+  actor: AuthUser,
+  event: Record<string, unknown>,
+  metadata: Record<string, unknown> = {},
+) {
+  await Promise.all([
+    emitEventNotification(type, actor, event, {
+      roles: ["CAMPUS_ADMIN"],
+      metadata,
+    }),
+    emitEventNotification(type, actor, event, {
+      roles: ["SUPER_ADMIN"],
+      universityScoped: false,
+      metadata,
+    }),
+  ]);
+}
+
+async function emitEventOrganizerNotification(
+  type:
+    | "EVENT_JOINED"
+    | "EVENT_WAITLISTED"
+    | "EVENT_LEFT"
+    | "EVENT_CHECKED_IN",
+  actor: AuthUser,
+  event: Record<string, unknown>,
+  metadata: Record<string, unknown> = {},
+) {
+  const organizerId =
+    typeof event.organizerId === "string"
+      ? event.organizerId
+      : typeof event.createdById === "string"
+        ? event.createdById
+        : null;
+
+  if (!organizerId || organizerId === actor.id) return;
+
+  await emitEventNotification(type, actor, event, {
+    recipientId: organizerId,
+    metadata,
   });
 }
 
@@ -392,7 +460,10 @@ export async function createEvent(input: CreateEventInput) {
     eventType: payload.eventType,
     organizerId: actor.id,
     venue: payload.venue,
-    locationName: payload.venue,
+    locationId: payload.locationId ?? null,
+    locationName: payload.locationName ?? payload.venue,
+    latitude: payload.latitude ?? null,
+    longitude: payload.longitude ?? null,
     startDate: payload.startDate,
     endDate: payload.endDate,
     startAt: payload.startDate,
@@ -423,7 +494,18 @@ export async function createEvent(input: CreateEventInput) {
     entityId: String(event._id),
     after: serializeEvent(event.toObject()),
   });
-  await emitEventNotification("EVENT_CREATED", actor, event.toObject());
+  await Promise.all([
+    emitEventNotification("EVENT_CREATED", actor, event.toObject(), {
+      metadata: {
+        notificationTitle: String(event.title),
+        notificationMessage: "A new campus event is available.",
+      },
+    }),
+    emitEventAdminNotifications("EVENT_CREATED", actor, event.toObject(), {
+      notificationTitle: "New event created",
+      notificationMessage: `${actor.name ?? actor.email} created ${event.title}.`,
+    }),
+  ]);
 
   return serializeEvent(event.toObject());
 }
@@ -505,8 +587,11 @@ export async function updateEvent(eventId: string, input: UpdateEventInput) {
   if (payload.eventType !== undefined) update.eventType = payload.eventType;
   if (payload.venue !== undefined) {
     update.venue = payload.venue;
-    update.locationName = payload.venue;
+    update.locationName = payload.locationName ?? payload.venue;
   }
+  if (payload.locationId !== undefined) update.locationId = payload.locationId;
+  if (payload.latitude !== undefined) update.latitude = payload.latitude;
+  if (payload.longitude !== undefined) update.longitude = payload.longitude;
   if (payload.startDate !== undefined) {
     update.startDate = payload.startDate;
     update.startAt = payload.startDate;
@@ -706,11 +791,56 @@ export async function joinEvent(eventId: string) {
     "EVENT_REGISTRATION_CONFIRMATION",
     actor,
     refreshed ?? event,
-    actor.id,
+    {
+      recipientId: actor.id,
+      metadata: {
+        notificationTitle:
+          attendanceStatus === "WAITLISTED"
+            ? "You joined the waitlist"
+            : "Registration confirmed",
+        notificationMessage:
+          attendanceStatus === "WAITLISTED"
+            ? `You are on the waitlist for ${String(event.title)}.`
+            : `You are registered for ${String(event.title)}.`,
+      },
+    },
   );
 
+  const joinedEventType =
+    attendanceStatus === "WAITLISTED" ? "EVENT_WAITLISTED" : "EVENT_JOINED";
+  const joinedMetadata = {
+    notificationTitle:
+      attendanceStatus === "WAITLISTED"
+        ? "Event waitlist updated"
+        : "Event registration received",
+    notificationMessage: `${actor.name ?? actor.email} ${
+      attendanceStatus === "WAITLISTED" ? "joined the waitlist for" : "registered for"
+    } ${String(event.title)}.`,
+    attendeeId: actor.id,
+    attendeeName: actor.name ?? actor.email,
+    attendanceStatus,
+  };
+
+  await Promise.all([
+    emitEventOrganizerNotification(
+      joinedEventType,
+      actor,
+      refreshed ?? event,
+      joinedMetadata,
+    ),
+    emitEventAdminNotifications(
+      joinedEventType,
+      actor,
+      refreshed ?? event,
+      joinedMetadata,
+    ),
+  ]);
+
   if (refreshed?.status === "FULL") {
-    await emitEventNotification("EVENT_FULL", actor, refreshed);
+    await emitEventAdminNotifications("EVENT_FULL", actor, refreshed, {
+      notificationTitle: "Event reached capacity",
+      notificationMessage: `${String(refreshed.title)} is now full.`,
+    });
   }
 
   return {
@@ -776,6 +906,23 @@ export async function leaveEvent(eventId: string) {
     entityId: String(attendance._id),
     after: serializeAttendance(attendance as Record<string, unknown>),
   });
+
+  const leftMetadata = {
+    notificationTitle: "Event registration cancelled",
+    notificationMessage: `${actor.name ?? actor.email} cancelled registration for ${String(event.title)}.`,
+    attendeeId: actor.id,
+    attendeeName: actor.name ?? actor.email,
+  };
+
+  await Promise.all([
+    emitEventOrganizerNotification(
+      "EVENT_LEFT",
+      actor,
+      refreshed ?? event,
+      leftMetadata,
+    ),
+    emitEventAdminNotifications("EVENT_LEFT", actor, refreshed ?? event, leftMetadata),
+  ]);
 
   return {
     event: serializeEvent((refreshed ?? event) as Record<string, unknown>),
@@ -872,6 +1019,34 @@ export async function checkInEventAttendance(eventId: string, input: unknown) {
   });
 
   const refreshed = await EventModel.findById(eventId).lean();
+  const checkedInMetadata = {
+    notificationTitle: "Event check-in recorded",
+    notificationMessage: `${userId === actor.id ? (actor.name ?? actor.email) : "An attendee"} checked in to ${String(event.title)}.`,
+    attendeeId: userId,
+    checkedInBy: actor.id,
+  };
+
+  await Promise.all([
+    emitEventNotification("EVENT_CHECKED_IN", actor, refreshed ?? event, {
+      recipientId: userId,
+      metadata: {
+        notificationTitle: "You are checked in",
+        notificationMessage: `Your check-in for ${String(event.title)} was recorded.`,
+      },
+    }),
+    emitEventOrganizerNotification(
+      "EVENT_CHECKED_IN",
+      actor,
+      refreshed ?? event,
+      checkedInMetadata,
+    ),
+    emitEventAdminNotifications(
+      "EVENT_CHECKED_IN",
+      actor,
+      refreshed ?? event,
+      checkedInMetadata,
+    ),
+  ]);
 
   return {
     event: serializeEvent((refreshed ?? event) as Record<string, unknown>),

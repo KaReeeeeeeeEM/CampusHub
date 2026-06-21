@@ -73,7 +73,7 @@ export const superAdminNavSections: SuperAdminNavSection[] = [
         eyebrow: "Analytics",
         title: "Reports",
         description:
-          "Platform-wide reporting for users, universities, marketplace activity, employability, communities, and governance.",
+          "Platform-wide reporting for users, universities, marketplace activity, employability, and governance.",
       },
     ],
   },
@@ -231,18 +231,8 @@ export const superAdminNavSections: SuperAdminNavSection[] = [
         eyebrow: "Engagement",
         title: "Maps",
         description:
-          "View and manage campus map locations across every university.",
+          "View campus maps and saved location points across every university.",
         contentType: "map-locations",
-      },
-      {
-        label: "Communities",
-        href: "/super-admin/communities",
-        icon: FiUsers,
-        eyebrow: "Engagement",
-        title: "Communities",
-        description:
-          "View and manage communities across every university.",
-        contentType: "communities",
       },
       {
         label: "Forums",
@@ -406,15 +396,6 @@ export const superAdminNavSections: SuperAdminNavSection[] = [
     label: "Platform",
     items: [
       {
-        label: "Platform Content",
-        href: "/super-admin/platform-content",
-        icon: FiDatabase,
-        eyebrow: "Platform oversight",
-        title: "Platform Content",
-        description:
-          "Manage announcements, events, almanac records, map locations, polls, suggestions, forums, communities, and committees from one Super Admin workspace.",
-      },
-      {
         label: "Audit Logs",
         href: "/super-admin/audit-logs",
         icon: FiActivity,
@@ -454,10 +435,10 @@ export const superAdminNavSections: SuperAdminNavSection[] = [
         label: "Settings",
         href: "/super-admin/settings",
         icon: FiSettings,
-        eyebrow: "Platform configuration",
+        eyebrow: "Account settings",
         title: "Settings",
         description:
-          "Global configuration for platform operations, security, branding, notifications, integrations, gamification, marketplace, showcase, and audit behavior.",
+          "Manage active account security and notification preferences.",
       },
       {
         label: "System Health",

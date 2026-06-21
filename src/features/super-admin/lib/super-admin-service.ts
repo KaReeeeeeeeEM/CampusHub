@@ -6,11 +6,15 @@ import type { RoleKey } from "@/features/authorization/roles";
 import type {
   CampusAdminActivationInput,
   CampusAdminInvitationInput,
+  SuperAdminCollegeInput,
+  SuperAdminDepartmentInput,
   UniversityInput,
 } from "@/features/super-admin/lib/schemas";
 import {
   campusAdminActivationSchema,
   campusAdminInvitationInputSchema,
+  superAdminCollegeInputSchema,
+  superAdminDepartmentInputSchema,
   universityInputSchema,
 } from "@/features/super-admin/lib/schemas";
 import { auth, getAcquisitionSecret } from "@/lib/auth/auth";
@@ -21,7 +25,9 @@ import {
   AnnouncementModel,
   ApplicationModel,
   CommitteeModel,
+  CommitteeMemberModel,
   CommunityModel,
+  CommunityMemberModel,
   CampusAdminInvitationModel,
   CollegeModel,
   DepartmentModel,
@@ -40,6 +46,7 @@ import {
 } from "@/lib/db/models";
 import { emitNotificationEvent } from "@/lib/notifications/notification-events";
 import { forbidden, notFound, unauthorized } from "@/lib/api/response";
+import { ApiError } from "@/lib/errors/api-error";
 import type { AuthSession } from "@/types/auth";
 
 const campusAdminInvitationTtlMs = 1000 * 60 * 60 * 24;
@@ -104,6 +111,67 @@ export type SerializedSuperAdminCollege = {
   updatedAt: string | null;
 };
 
+export type SerializedSuperAdminDepartment = {
+  id: string;
+  universityId: string;
+  universityName: string;
+  collegeId: string;
+  collegeName: string;
+  name: string;
+  code: string;
+  slug: string | null;
+  description: string | null;
+  status: "ACTIVE" | "INACTIVE";
+  usersCount: number;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type SerializedSuperAdminCommitteeCommunity = {
+  id: string;
+  universityId: string;
+  universityName: string;
+  name: string;
+  description: string | null;
+  visibility: string;
+  status: string;
+  ownerName: string;
+  communityMembers: number;
+  moderators: number;
+  committees: number;
+  committeeMembers: number;
+  createdAt: string | null;
+};
+
+export type SerializedSuperAdminCommitteeMember = {
+  id: string;
+  committeeId: string;
+  userId: string;
+  name: string;
+  email: string;
+  role: string;
+  status: string;
+  joinedAt: string | null;
+};
+
+export type SerializedSuperAdminCommittee = {
+  id: string;
+  universityId: string;
+  name: string;
+  description: string | null;
+  scopeType: string;
+  category: string;
+  status: string;
+  memberCount: number;
+  members: SerializedSuperAdminCommitteeMember[];
+  createdAt: string | null;
+};
+
+export type SerializedSuperAdminCommitteeCommunityDetail = {
+  community: SerializedSuperAdminCommitteeCommunity;
+  committees: SerializedSuperAdminCommittee[];
+};
+
 export type SerializedCampusAdminInvitation = {
   id: string;
   universityId: string;
@@ -156,12 +224,34 @@ function createToken() {
   return randomBytes(32).toString("base64url");
 }
 
+function assignedName(
+  names: Map<string, string>,
+  value: unknown,
+  fallback = "Not assigned",
+) {
+  const id = String(value ?? "");
+
+  if (!id) {
+    return fallback;
+  }
+
+  return names.get(id) ?? fallback;
+}
+
 function slugify(value: string) {
   return value
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
+}
+
+function normalizeCode(value: string) {
+  return value.trim().toUpperCase().replace(/\s+/g, "-");
+}
+
+function resolveCollegeCode(input: Pick<SuperAdminCollegeInput, "code" | "shortName" | "name">) {
+  return normalizeCode(input.code || input.shortName || input.name);
 }
 
 function serializeDate(value: unknown) {
@@ -274,6 +364,31 @@ function serializeSuperAdminCollege(
     createdAt: serializeDate(college.createdAt),
     updatedAt: serializeDate(college.updatedAt),
   } satisfies SerializedSuperAdminCollege;
+}
+
+function serializeSuperAdminDepartment(
+  department: Record<string, unknown>,
+  universityName: string,
+  collegeName: string,
+  usersCount: number,
+) {
+  return {
+    id: String(department._id),
+    universityId: String(department.universityId),
+    universityName,
+    collegeId: String(department.collegeId),
+    collegeName,
+    name: String(department.name),
+    code: String(department.code),
+    slug: serializeOptionalString(department.slug),
+    description: serializeOptionalString(department.description),
+    status:
+      (department.status as SerializedSuperAdminDepartment["status"]) ??
+      "ACTIVE",
+    usersCount,
+    createdAt: serializeDate(department.createdAt),
+    updatedAt: serializeDate(department.updatedAt),
+  } satisfies SerializedSuperAdminDepartment;
 }
 
 function serializeInvitation(
@@ -426,6 +541,881 @@ export async function listSuperAdminColleges() {
   });
 }
 
+export async function createSuperAdminCollege(input: SuperAdminCollegeInput) {
+  const session = await requireSuperAdminSession();
+  await connectMongo();
+  const payload = superAdminCollegeInputSchema.parse(input);
+  const university = await UniversityModel.findOne({
+    _id: payload.universityId,
+    deletedAt: null,
+  }).lean();
+
+  if (!university) {
+    throw notFound("University not found.");
+  }
+
+  const slug = slugify(payload.name);
+  const code = resolveCollegeCode(payload);
+  const existing = await CollegeModel.findOne({
+    universityId: payload.universityId,
+    deletedAt: null,
+    $or: [{ slug }, { code }, { name: payload.name }],
+  }).lean();
+
+  if (existing) {
+    throw new ApiError({
+      statusCode: 409,
+      code: "COLLEGE_ALREADY_EXISTS",
+      message: "A college with this name or code already exists.",
+    });
+  }
+
+  const college = await CollegeModel.create({
+    _id: randomUUID(),
+    universityId: payload.universityId,
+    name: payload.name,
+    slug,
+    code,
+    shortName: payload.shortName,
+    description: payload.description,
+    logo: payload.logo || null,
+    status: payload.status,
+    createdById: session.user.id,
+    updatedById: session.user.id,
+  });
+
+  await writeAuditLog({
+    actorId: session.user.id,
+    universityId: payload.universityId,
+    action: "COLLEGE_CREATE",
+    entityType: "college",
+    entityId: String(college._id),
+    after: college.toObject(),
+  });
+
+  return serializeSuperAdminCollege(
+    college.toObject(),
+    String(university.name),
+    0,
+    0,
+  );
+}
+
+export async function updateSuperAdminCollege(
+  collegeId: string,
+  input: SuperAdminCollegeInput,
+) {
+  const session = await requireSuperAdminSession();
+  await connectMongo();
+  const payload = superAdminCollegeInputSchema.parse(input);
+  const university = await UniversityModel.findOne({
+    _id: payload.universityId,
+    deletedAt: null,
+  }).lean();
+
+  if (!university) {
+    throw notFound("University not found.");
+  }
+
+  const before = await CollegeModel.findOne({
+    _id: collegeId,
+    deletedAt: null,
+  }).lean();
+
+  if (!before) {
+    throw notFound("College not found.");
+  }
+
+  const slug = slugify(payload.name);
+  const code = resolveCollegeCode(payload);
+  const duplicate = await CollegeModel.findOne({
+    _id: { $ne: collegeId },
+    universityId: payload.universityId,
+    deletedAt: null,
+    $or: [{ slug }, { code }, { name: payload.name }],
+  }).lean();
+
+  if (duplicate) {
+    throw new ApiError({
+      statusCode: 409,
+      code: "COLLEGE_ALREADY_EXISTS",
+      message: "A college with this name or code already exists.",
+    });
+  }
+
+  const college = await CollegeModel.findOneAndUpdate(
+    { _id: collegeId, deletedAt: null },
+    {
+      $set: {
+        universityId: payload.universityId,
+        name: payload.name,
+        slug,
+        code,
+        shortName: payload.shortName,
+        description: payload.description,
+        logo: payload.logo || null,
+        status: payload.status,
+        updatedById: session.user.id,
+      },
+    },
+    { new: true },
+  ).lean();
+
+  if (!college) {
+    throw notFound("College not found.");
+  }
+
+  await writeAuditLog({
+    actorId: session.user.id,
+    universityId: payload.universityId,
+    action: "COLLEGE_UPDATE",
+    entityType: "college",
+    entityId: collegeId,
+    before,
+    after: college,
+  });
+
+  const [departmentsCount, usersCount] = await Promise.all([
+    DepartmentModel.countDocuments({ collegeId, deletedAt: null }),
+    UserModel.countDocuments({ collegeId, deletedAt: null }),
+  ]);
+
+  return serializeSuperAdminCollege(
+    college as Record<string, unknown>,
+    String(university.name),
+    departmentsCount,
+    usersCount,
+  );
+}
+
+export async function deactivateSuperAdminCollege(collegeId: string) {
+  const college = await updateSuperAdminCollegeStatus(collegeId, "INACTIVE");
+  return college;
+}
+
+export async function deleteSuperAdminCollege(collegeId: string) {
+  const session = await requireSuperAdminSession();
+  await connectMongo();
+  const before = await CollegeModel.findOne({
+    _id: collegeId,
+    deletedAt: null,
+  }).lean();
+
+  if (!before) {
+    throw notFound("College not found.");
+  }
+
+  const college = await CollegeModel.findOneAndUpdate(
+    { _id: collegeId, deletedAt: null },
+    {
+      $set: {
+        status: "INACTIVE",
+        deletedAt: new Date(),
+        deletedById: session.user.id,
+        updatedById: session.user.id,
+      },
+    },
+    { new: true },
+  ).lean();
+
+  await writeAuditLog({
+    actorId: session.user.id,
+    universityId: String(before.universityId),
+    action: "COLLEGE_DELETE",
+    entityType: "college",
+    entityId: collegeId,
+    before,
+    after: college,
+  });
+
+  return { id: collegeId };
+}
+
+async function updateSuperAdminCollegeStatus(
+  collegeId: string,
+  status: SerializedSuperAdminCollege["status"],
+) {
+  const session = await requireSuperAdminSession();
+  await connectMongo();
+  const before = await CollegeModel.findOne({
+    _id: collegeId,
+    deletedAt: null,
+  }).lean();
+
+  if (!before) {
+    throw notFound("College not found.");
+  }
+
+  const college = await CollegeModel.findOneAndUpdate(
+    { _id: collegeId, deletedAt: null },
+    {
+      $set: {
+        status,
+        updatedById: session.user.id,
+      },
+    },
+    { new: true },
+  ).lean();
+
+  if (!college) {
+    throw notFound("College not found.");
+  }
+
+  await writeAuditLog({
+    actorId: session.user.id,
+    universityId: String(before.universityId),
+    action: "COLLEGE_UPDATE",
+    entityType: "college",
+    entityId: collegeId,
+    before,
+    after: college,
+  });
+
+  const [university, departmentsCount, usersCount] = await Promise.all([
+    UniversityModel.findById(String(college.universityId)).select({ name: 1 }).lean(),
+    DepartmentModel.countDocuments({ collegeId, deletedAt: null }),
+    UserModel.countDocuments({ collegeId, deletedAt: null }),
+  ]);
+
+  return serializeSuperAdminCollege(
+    college as Record<string, unknown>,
+    university ? String(university.name) : "Unknown university",
+    departmentsCount,
+    usersCount,
+  );
+}
+
+export async function listSuperAdminDepartments() {
+  await requireSuperAdminSession();
+  await connectMongo();
+
+  const departments = await DepartmentModel.find({ deletedAt: null })
+    .sort({ createdAt: -1 })
+    .lean();
+  const departmentIds = departments.map((department) => String(department._id));
+  const universityIds = Array.from(
+    new Set(
+      departments
+        .map((department) => String(department.universityId ?? ""))
+        .filter(Boolean),
+    ),
+  );
+  const collegeIds = Array.from(
+    new Set(
+      departments
+        .map((department) => String(department.collegeId ?? ""))
+        .filter(Boolean),
+    ),
+  );
+
+  const [universities, colleges, userCounts] = await Promise.all([
+    UniversityModel.find({ _id: { $in: universityIds } })
+      .select({ name: 1 })
+      .lean(),
+    CollegeModel.find({ _id: { $in: collegeIds } })
+      .select({ name: 1 })
+      .lean(),
+    UserModel.aggregate<{ _id: string; count: number }>([
+      { $match: { departmentId: { $in: departmentIds }, deletedAt: null } },
+      { $group: { _id: "$departmentId", count: { $sum: 1 } } },
+    ]),
+  ]);
+
+  const universityNames = new Map(
+    universities.map((university) => [
+      String(university._id),
+      String(university.name),
+    ]),
+  );
+  const collegeNames = new Map(
+    colleges.map((college) => [String(college._id), String(college.name)]),
+  );
+  const usersByDepartment = new Map(
+    userCounts.map((item) => [String(item._id), item.count]),
+  );
+
+  return departments.map((department) => {
+    const record = department as Record<string, unknown>;
+    const departmentId = String(department._id);
+    const universityId = String(department.universityId);
+    const collegeId = String(department.collegeId);
+
+    return serializeSuperAdminDepartment(
+      record,
+      universityNames.get(universityId) ?? "Unknown university",
+      collegeNames.get(collegeId) ?? "Unknown college",
+      usersByDepartment.get(departmentId) ?? 0,
+    );
+  });
+}
+
+export async function createSuperAdminDepartment(
+  input: SuperAdminDepartmentInput,
+) {
+  const session = await requireSuperAdminSession();
+  await connectMongo();
+  const payload = superAdminDepartmentInputSchema.parse(input);
+  const [university, college] = await Promise.all([
+    UniversityModel.findOne({ _id: payload.universityId, deletedAt: null }).lean(),
+    CollegeModel.findOne({
+      _id: payload.collegeId,
+      universityId: payload.universityId,
+      deletedAt: null,
+    }).lean(),
+  ]);
+
+  if (!university) {
+    throw notFound("University not found.");
+  }
+
+  if (!college) {
+    throw notFound("College not found in the selected university.");
+  }
+
+  const code = normalizeCode(payload.code);
+  const slug = slugify(payload.name);
+  const duplicateName = await DepartmentModel.findOne({
+    universityId: payload.universityId,
+    collegeId: payload.collegeId,
+    deletedAt: null,
+    $or: [{ slug }, { name: payload.name }],
+  }).lean();
+
+  if (duplicateName) {
+    throw new ApiError({
+      statusCode: 409,
+      code: "DEPARTMENT_ALREADY_EXISTS",
+      message: "A department with this name already exists in this college.",
+    });
+  }
+
+  const duplicateCode = await DepartmentModel.findOne({
+    universityId: payload.universityId,
+    code,
+    deletedAt: null,
+  }).lean();
+
+  if (duplicateCode) {
+    throw new ApiError({
+      statusCode: 409,
+      code: "DEPARTMENT_CODE_ALREADY_EXISTS",
+      message: "A department with this code already exists.",
+    });
+  }
+
+  const department = await DepartmentModel.create({
+    _id: randomUUID(),
+    universityId: payload.universityId,
+    collegeId: payload.collegeId,
+    name: payload.name,
+    code,
+    slug,
+    description: payload.description,
+    status: payload.status,
+    createdById: session.user.id,
+    updatedById: session.user.id,
+  });
+
+  await writeAuditLog({
+    actorId: session.user.id,
+    universityId: payload.universityId,
+    action: "DEPARTMENT_CREATE",
+    entityType: "department",
+    entityId: String(department._id),
+    after: department.toObject(),
+  });
+
+  return serializeSuperAdminDepartment(
+    department.toObject(),
+    String(university.name),
+    String(college.name),
+    0,
+  );
+}
+
+export async function updateSuperAdminDepartment(
+  departmentId: string,
+  input: SuperAdminDepartmentInput,
+) {
+  const session = await requireSuperAdminSession();
+  await connectMongo();
+  const payload = superAdminDepartmentInputSchema.parse(input);
+  const [university, college, before] = await Promise.all([
+    UniversityModel.findOne({ _id: payload.universityId, deletedAt: null }).lean(),
+    CollegeModel.findOne({
+      _id: payload.collegeId,
+      universityId: payload.universityId,
+      deletedAt: null,
+    }).lean(),
+    DepartmentModel.findOne({ _id: departmentId, deletedAt: null }).lean(),
+  ]);
+
+  if (!university) {
+    throw notFound("University not found.");
+  }
+
+  if (!college) {
+    throw notFound("College not found in the selected university.");
+  }
+
+  if (!before) {
+    throw notFound("Department not found.");
+  }
+
+  const code = normalizeCode(payload.code);
+  const slug = slugify(payload.name);
+  const duplicateName = await DepartmentModel.findOne({
+    _id: { $ne: departmentId },
+    universityId: payload.universityId,
+    collegeId: payload.collegeId,
+    deletedAt: null,
+    $or: [{ slug }, { name: payload.name }],
+  }).lean();
+
+  if (duplicateName) {
+    throw new ApiError({
+      statusCode: 409,
+      code: "DEPARTMENT_ALREADY_EXISTS",
+      message: "A department with this name already exists in this college.",
+    });
+  }
+
+  const duplicateCode = await DepartmentModel.findOne({
+    _id: { $ne: departmentId },
+    universityId: payload.universityId,
+    code,
+    deletedAt: null,
+  }).lean();
+
+  if (duplicateCode) {
+    throw new ApiError({
+      statusCode: 409,
+      code: "DEPARTMENT_CODE_ALREADY_EXISTS",
+      message: "A department with this code already exists.",
+    });
+  }
+
+  const department = await DepartmentModel.findOneAndUpdate(
+    { _id: departmentId, deletedAt: null },
+    {
+      $set: {
+        universityId: payload.universityId,
+        collegeId: payload.collegeId,
+        name: payload.name,
+        code,
+        slug,
+        description: payload.description,
+        status: payload.status,
+        updatedById: session.user.id,
+      },
+    },
+    { new: true },
+  ).lean();
+
+  if (!department) {
+    throw notFound("Department not found.");
+  }
+
+  await writeAuditLog({
+    actorId: session.user.id,
+    universityId: payload.universityId,
+    action: "DEPARTMENT_UPDATE",
+    entityType: "department",
+    entityId: departmentId,
+    before,
+    after: department,
+  });
+
+  const usersCount = await UserModel.countDocuments({
+    departmentId,
+    deletedAt: null,
+  });
+
+  return serializeSuperAdminDepartment(
+    department as Record<string, unknown>,
+    String(university.name),
+    String(college.name),
+    usersCount,
+  );
+}
+
+export async function deactivateSuperAdminDepartment(departmentId: string) {
+  return updateSuperAdminDepartmentStatus(departmentId, "INACTIVE");
+}
+
+async function updateSuperAdminDepartmentStatus(
+  departmentId: string,
+  status: SerializedSuperAdminDepartment["status"],
+) {
+  const session = await requireSuperAdminSession();
+  await connectMongo();
+  const before = await DepartmentModel.findOne({
+    _id: departmentId,
+    deletedAt: null,
+  }).lean();
+
+  if (!before) {
+    throw notFound("Department not found.");
+  }
+
+  const department = await DepartmentModel.findOneAndUpdate(
+    { _id: departmentId, deletedAt: null },
+    {
+      $set: {
+        status,
+        updatedById: session.user.id,
+      },
+    },
+    { new: true },
+  ).lean();
+
+  if (!department) {
+    throw notFound("Department not found.");
+  }
+
+  await writeAuditLog({
+    actorId: session.user.id,
+    universityId: String(before.universityId),
+    action: "DEPARTMENT_UPDATE",
+    entityType: "department",
+    entityId: departmentId,
+    before,
+    after: department,
+  });
+
+  const [university, college, usersCount] = await Promise.all([
+    UniversityModel.findById(String(department.universityId)).select({ name: 1 }).lean(),
+    CollegeModel.findById(String(department.collegeId)).select({ name: 1 }).lean(),
+    UserModel.countDocuments({ departmentId, deletedAt: null }),
+  ]);
+
+  return serializeSuperAdminDepartment(
+    department as Record<string, unknown>,
+    university ? String(university.name) : "Unknown university",
+    college ? String(college.name) : "Unknown college",
+    usersCount,
+  );
+}
+
+export async function deleteSuperAdminDepartment(departmentId: string) {
+  const session = await requireSuperAdminSession();
+  await connectMongo();
+  const before = await DepartmentModel.findOne({
+    _id: departmentId,
+    deletedAt: null,
+  }).lean();
+
+  if (!before) {
+    throw notFound("Department not found.");
+  }
+
+  const department = await DepartmentModel.findOneAndUpdate(
+    { _id: departmentId, deletedAt: null },
+    {
+      $set: {
+        status: "INACTIVE",
+        deletedAt: new Date(),
+        deletedById: session.user.id,
+        updatedById: session.user.id,
+      },
+    },
+    { new: true },
+  ).lean();
+
+  await writeAuditLog({
+    actorId: session.user.id,
+    universityId: String(before.universityId),
+    action: "DEPARTMENT_DELETE",
+    entityType: "department",
+    entityId: departmentId,
+    before,
+    after: department,
+  });
+
+  return { id: departmentId };
+}
+
+function metadataCommitteeId(record: Record<string, unknown>) {
+  const metadata = record.metadata;
+  if (!metadata || typeof metadata !== "object") return null;
+
+  const committeeId = (metadata as Record<string, unknown>).committeeId;
+  return typeof committeeId === "string" && committeeId.trim()
+    ? committeeId
+    : null;
+}
+
+function serializeSuperAdminCommitteeCommunity(
+  community: Record<string, unknown>,
+  universityName: string,
+  ownerName: string,
+  committees: number,
+  committeeMembers: number,
+): SerializedSuperAdminCommitteeCommunity {
+  return {
+    id: String(community._id),
+    universityId: String(community.universityId),
+    universityName,
+    name: String(community.name),
+    description: serializeOptionalString(community.description),
+    visibility: String(community.visibility ?? "UNIVERSITY"),
+    status: String(community.status ?? "ACTIVE"),
+    ownerName,
+    communityMembers: Number(community.memberCount ?? 0),
+    moderators: Number(community.moderatorCount ?? 0),
+    committees,
+    committeeMembers,
+    createdAt: serializeDate(community.createdAt),
+  };
+}
+
+function serializeSuperAdminCommitteeMember(
+  member: Record<string, unknown>,
+  user: Record<string, unknown> | undefined,
+): SerializedSuperAdminCommitteeMember {
+  return {
+    id: String(member._id),
+    committeeId: String(member.committeeId),
+    userId: String(member.userId),
+    name: user ? getDisplayName(user) : String(member.userId),
+    email: user ? String(user.email ?? "Not available") : "Not available",
+    role: String(member.role ?? "MEMBER"),
+    status: String(member.status ?? "ACTIVE"),
+    joinedAt: serializeDate(member.joinedAt),
+  };
+}
+
+function serializeSuperAdminCommittee(
+  committee: Record<string, unknown>,
+  members: SerializedSuperAdminCommitteeMember[],
+): SerializedSuperAdminCommittee {
+  return {
+    id: String(committee._id),
+    universityId: String(committee.universityId),
+    name: String(committee.name),
+    description: serializeOptionalString(committee.description),
+    scopeType: String(committee.scopeType ?? "UNIVERSITY"),
+    category: String(committee.category ?? committee.committeeType ?? "GENERAL"),
+    status: String(committee.status ?? "ACTIVE"),
+    memberCount: Number(committee.memberCount ?? members.length),
+    members,
+    createdAt: serializeDate(committee.createdAt),
+  };
+}
+
+export async function listSuperAdminCommitteeCommunities() {
+  await requireSuperAdminSession();
+  await connectMongo();
+
+  const communities = await CommunityModel.find({ deletedAt: null })
+    .sort({ universityId: 1, name: 1 })
+    .lean();
+  const universityIds = Array.from(
+    new Set(
+      communities
+        .map((community) => String(community.universityId ?? ""))
+        .filter(Boolean),
+    ),
+  );
+  const ownerIds = Array.from(
+    new Set(
+      communities
+        .map((community) => String(community.ownerId ?? ""))
+        .filter(Boolean),
+    ),
+  );
+
+  const [universities, owners, committeeCounts, committeeMemberCounts] =
+    await Promise.all([
+      UniversityModel.find({ _id: { $in: universityIds } })
+        .select({ name: 1 })
+        .lean(),
+      UserModel.find({ _id: { $in: ownerIds } })
+        .select({ name: 1, email: 1, firstName: 1, lastName: 1 })
+        .lean(),
+      CommitteeModel.aggregate<{ _id: string; count: number }>([
+        { $match: { universityId: { $in: universityIds }, deletedAt: null } },
+        { $group: { _id: "$universityId", count: { $sum: 1 } } },
+      ]),
+      CommitteeMemberModel.aggregate<{ _id: string; count: number }>([
+        { $match: { universityId: { $in: universityIds }, status: "ACTIVE" } },
+        { $group: { _id: "$universityId", count: { $sum: 1 } } },
+      ]),
+    ]);
+
+  const universityNames = new Map(
+    universities.map((university) => [
+      String(university._id),
+      String(university.name),
+    ]),
+  );
+  const ownerNames = new Map(
+    owners.map((owner) => [
+      String(owner._id),
+      getDisplayName(owner as Record<string, unknown>),
+    ]),
+  );
+  const committeesByUniversity = new Map(
+    committeeCounts.map((item) => [String(item._id), item.count]),
+  );
+  const committeeMembersByUniversity = new Map(
+    committeeMemberCounts.map((item) => [String(item._id), item.count]),
+  );
+
+  return communities.map((community) => {
+    const record = community as Record<string, unknown>;
+    const universityId = String(record.universityId);
+
+    return serializeSuperAdminCommitteeCommunity(
+      record,
+      universityNames.get(universityId) ?? "Unknown university",
+      ownerNames.get(String(record.ownerId)) ?? "Unknown owner",
+      committeesByUniversity.get(universityId) ?? 0,
+      committeeMembersByUniversity.get(universityId) ?? 0,
+    );
+  });
+}
+
+export async function getSuperAdminCommitteeCommunityDetail(
+  communityId: string,
+): Promise<SerializedSuperAdminCommitteeCommunityDetail> {
+  await requireSuperAdminSession();
+  await connectMongo();
+
+  const community = await CommunityModel.findOne({
+    _id: communityId,
+    deletedAt: null,
+  }).lean();
+
+  if (!community) {
+    throw notFound("Community not found.");
+  }
+
+  const communityRecord = community as Record<string, unknown>;
+  const universityId = String(communityRecord.universityId);
+  const linkedCommitteeId = metadataCommitteeId(communityRecord);
+  const committeeFilter: Record<string, unknown> = {
+    universityId,
+    deletedAt: null,
+  };
+  if (linkedCommitteeId) {
+    committeeFilter._id = linkedCommitteeId;
+  }
+
+  const [university, owner, committees, communityMembers] = await Promise.all([
+    UniversityModel.findById(universityId).select({ name: 1 }).lean(),
+    UserModel.findById(String(communityRecord.ownerId))
+      .select({ name: 1, email: 1, firstName: 1, lastName: 1 })
+      .lean(),
+    CommitteeModel.find(committeeFilter).sort({ name: 1 }).lean(),
+    CommunityMemberModel.countDocuments({ communityId, status: "ACTIVE" }),
+  ]);
+  const committeeIds = committees.map((committee) => String(committee._id));
+  const members = await CommitteeMemberModel.find({
+    committeeId: { $in: committeeIds },
+    status: "ACTIVE",
+  })
+    .sort({ committeeId: 1, role: 1, joinedAt: 1 })
+    .lean();
+  const userIds = Array.from(
+    new Set(members.map((member) => String(member.userId)).filter(Boolean)),
+  );
+  const users = await UserModel.find({ _id: { $in: userIds } })
+    .select({ name: 1, email: 1, firstName: 1, lastName: 1 })
+    .lean();
+  const usersById = new Map(
+    users.map((user) => [String(user._id), user as Record<string, unknown>]),
+  );
+  const membersByCommittee = new Map<string, SerializedSuperAdminCommitteeMember[]>();
+
+  for (const member of members) {
+    const record = member as Record<string, unknown>;
+    const committeeId = String(record.committeeId);
+    const committeeMembers = membersByCommittee.get(committeeId) ?? [];
+    committeeMembers.push(
+      serializeSuperAdminCommitteeMember(
+        record,
+        usersById.get(String(record.userId)),
+      ),
+    );
+    membersByCommittee.set(committeeId, committeeMembers);
+  }
+
+  const committeeItems = committees.map((committee) => {
+    const committeeId = String(committee._id);
+    return serializeSuperAdminCommittee(
+      committee as Record<string, unknown>,
+      membersByCommittee.get(committeeId) ?? [],
+    );
+  });
+
+  return {
+    community: {
+      ...serializeSuperAdminCommitteeCommunity(
+        communityRecord,
+        university ? String(university.name) : "Unknown university",
+        owner ? getDisplayName(owner as Record<string, unknown>) : "Unknown owner",
+        committeeItems.length,
+        committeeItems.reduce((sum, committee) => sum + committee.members.length, 0),
+      ),
+      communityMembers,
+    },
+    committees: committeeItems,
+  };
+}
+
+export async function removeSuperAdminCommitteeMember(
+  committeeId: string,
+  memberId: string,
+) {
+  const session = await requireSuperAdminSession();
+  await connectMongo();
+
+  const committee = await CommitteeModel.findOne({
+    _id: committeeId,
+    deletedAt: null,
+  }).lean();
+
+  if (!committee) {
+    throw notFound("Committee not found.");
+  }
+
+  const member = await CommitteeMemberModel.findOneAndUpdate(
+    {
+      _id: memberId,
+      committeeId,
+      status: "ACTIVE",
+    },
+    {
+      $set: {
+        status: "REMOVED",
+        leftAt: new Date(),
+      },
+    },
+    { new: true },
+  ).lean();
+
+  if (!member) {
+    throw notFound("Committee member not found.");
+  }
+
+  await CommitteeModel.updateOne(
+    { _id: committeeId, memberCount: { $gt: 0 } },
+    { $inc: { memberCount: -1 } },
+  );
+  await writeAuditLog({
+    actorId: session.user.id,
+    universityId: String(committee.universityId),
+    action: "COMMITTEE_MEMBER_REMOVED",
+    entityType: "committee_member",
+    entityId: memberId,
+    before: null,
+    after: member,
+  });
+
+  return { id: memberId };
+}
+
 export async function getUniversityProfile(universityId: string) {
   await requireSuperAdminSession();
   await connectMongo();
@@ -508,13 +1498,36 @@ export async function listSuperAdminUsers() {
   const universityIds = Array.from(
     new Set(users.map((user) => String(user.universityId ?? "")).filter(Boolean)),
   );
-  const universities = await UniversityModel.find({ _id: { $in: universityIds } })
-    .select({ name: 1 })
-    .lean();
+  const collegeIds = Array.from(
+    new Set(users.map((user) => String(user.collegeId ?? "")).filter(Boolean)),
+  );
+  const departmentIds = Array.from(
+    new Set(users.map((user) => String(user.departmentId ?? "")).filter(Boolean)),
+  );
+  const [universities, colleges, departments] = await Promise.all([
+    UniversityModel.find({ _id: { $in: universityIds } })
+      .select({ name: 1 })
+      .lean(),
+    CollegeModel.find({ _id: { $in: collegeIds } })
+      .select({ name: 1 })
+      .lean(),
+    DepartmentModel.find({ _id: { $in: departmentIds } })
+      .select({ name: 1 })
+      .lean(),
+  ]);
   const universityNames = new Map(
     universities.map((university) => [
       String(university._id),
       String(university.name),
+    ]),
+  );
+  const collegeNames = new Map(
+    colleges.map((college) => [String(college._id), String(college.name)]),
+  );
+  const departmentNames = new Map(
+    departments.map((department) => [
+      String(department._id),
+      String(department.name),
     ]),
   );
 
@@ -532,11 +1545,9 @@ export async function listSuperAdminUsers() {
       email: String(record.email),
       role,
       position: String(record.position ?? "NONE"),
-      university:
-        universityNames.get(String(record.universityId ?? "")) ??
-        String(record.universityId ?? "Not assigned"),
-      college: String(record.collegeId ?? "Not assigned"),
-      department: String(record.departmentId ?? "Not assigned"),
+      university: assignedName(universityNames, record.universityId),
+      college: assignedName(collegeNames, record.collegeId),
+      department: assignedName(departmentNames, record.departmentId),
       status:
         status === "SUSPENDED"
           ? "Suspended"

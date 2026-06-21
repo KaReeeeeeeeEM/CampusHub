@@ -40,7 +40,7 @@ type DashboardNotification = {
 };
 
 export const studentProfile = {
-  name: "Student",
+  name: "",
   university: "",
   college: "",
   department: "",

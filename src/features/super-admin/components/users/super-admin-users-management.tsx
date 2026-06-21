@@ -63,6 +63,20 @@ function uniqueOptions(users: SuperAdminUser[], key: keyof SuperAdminUser) {
   return Array.from(new Set(users.map((user) => String(user[key]))));
 }
 
+function displayAssignedValue(value: string) {
+  if (
+    value === "Not assigned" ||
+    /^[0-9a-f]{24}$/i.test(value) ||
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      value,
+    )
+  ) {
+    return "Not assigned";
+  }
+
+  return value;
+}
+
 function StatusBadge({ status }: { status: SuperAdminUser["status"] }) {
   const classes = {
     Active: "border-primary/30 bg-primary/10 text-primary",
@@ -305,9 +319,21 @@ export function SuperAdminUsersManagement({
     { key: "email", header: "Email" },
     { key: "role", header: "Role" },
     { key: "position", header: "Position" },
-    { key: "university", header: "University" },
-    { key: "college", header: "College" },
-    { key: "department", header: "Department" },
+    {
+      key: "university",
+      header: "University",
+      cell: (user) => displayAssignedValue(user.university),
+    },
+    {
+      key: "college",
+      header: "College",
+      cell: (user) => displayAssignedValue(user.college),
+    },
+    {
+      key: "department",
+      header: "Department",
+      cell: (user) => displayAssignedValue(user.department),
+    },
     {
       key: "status",
       header: "Status",
@@ -404,7 +430,6 @@ export function SuperAdminUsersManagement({
         columns={columns}
         data={filteredUsers}
         getRowId={(user) => user.id}
-        pageSize={6}
         empty={
           <Empty
             filterName={search || "selected filters"}
@@ -444,9 +469,9 @@ export function SuperAdminUsersManagement({
             {[
               ["Role", viewing.role],
               ["Position", viewing.position],
-              ["University", viewing.university],
-              ["College", viewing.college],
-              ["Department", viewing.department],
+              ["University", displayAssignedValue(viewing.university)],
+              ["College", displayAssignedValue(viewing.college)],
+              ["Department", displayAssignedValue(viewing.department)],
               ["Status", viewing.status],
               ["Last Active", viewing.lastActive],
               ["Phone", viewing.phone],

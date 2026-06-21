@@ -1,0 +1,30 @@
+{
+  "name": "Kibo media",
+  "basePath": "/kibo",
+  "videos": {
+    "idle": "/kibo/videos/idle.mp4",
+    "wave": "/kibo/videos/wave.mp4",
+    "celebrate": "/kibo/videos/celebrate.mp4",
+    "streak": "/kibo/videos/streak.mp4",
+    "badge": "/kibo/videos/badge.mp4",
+    "announcement": "/kibo/videos/announcement.mp4",
+    "marketplace": "/kibo/videos/marketplace.mp4",
+    "project-star": "/kibo/videos/project-star.mp4",
+    "warning": "/kibo/videos/warning.mp4",
+    "sleeping": "/kibo/videos/sleeping.mp4",
+    "thinking": "/kibo/videos/thinking.mp4"
+  },
+  "images": {
+    "happy": "/kibo/images/happy.png",
+    "thinking": "/kibo/images/thinking.png",
+    "proud": "/kibo/images/proud.png",
+    "sleepy": "/kibo/images/sleepy.png",
+    "curious": "/kibo/images/curious.png",
+    "celebrate": "/kibo/images/celebrate.png"
+  },
+  "notes": [
+    "Generated source files are retained in this folder for traceability.",
+    "celebrate.mp4 currently uses the closest available badge celebration clip.",
+    "sleeping.mp4 and thinking.mp4 currently use the closest available inactivity clip until dedicated animations are exported."
+  ]
+}

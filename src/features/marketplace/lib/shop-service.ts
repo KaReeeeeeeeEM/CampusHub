@@ -127,6 +127,12 @@ function serializeShop(shop: Record<string, unknown>) {
       typeof shop.contactPhone === "string" ? shop.contactPhone : null,
     contactEmail:
       typeof shop.contactEmail === "string" ? shop.contactEmail : null,
+    whatsappNumber:
+      typeof shop.whatsappNumber === "string" ? shop.whatsappNumber : null,
+    openingHours:
+      typeof shop.openingHours === "object" && shop.openingHours
+        ? shop.openingHours
+        : null,
     location: location
       ? {
           locationId:
@@ -191,6 +197,8 @@ export async function createShop(input: unknown) {
     category: payload.category,
     contactPhone: payload.contactPhone ?? null,
     contactEmail: payload.contactEmail ?? actor.email,
+    whatsappNumber: payload.whatsappNumber ?? null,
+    openingHours: payload.openingHours ?? null,
     locationId: payload.location?.locationId ?? null,
     location: payload.location ?? null,
     status: "ACTIVE",
@@ -293,6 +301,12 @@ export async function updateShop(shopIdOrSlug: string, input: unknown) {
   }
   if (payload.contactEmail !== undefined) {
     update.contactEmail = payload.contactEmail ?? null;
+  }
+  if (payload.whatsappNumber !== undefined) {
+    update.whatsappNumber = payload.whatsappNumber ?? null;
+  }
+  if (payload.openingHours !== undefined) {
+    update.openingHours = payload.openingHours ?? null;
   }
   if (payload.location !== undefined) {
     update.location = payload.location ?? null;

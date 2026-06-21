@@ -5,6 +5,7 @@ export default function CampusAdminLoading() {
     <PageLoadingState
       title="Loading Campus Admin workspace"
       description="Fetching university operations, colleges, departments, and invitations."
+      withSidebar={false}
     />
   );
 }

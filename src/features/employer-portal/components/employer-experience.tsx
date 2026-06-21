@@ -11,7 +11,7 @@ import {
 } from "@tanstack/react-table";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Image from "next/image";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import type { IconType } from "react-icons";
 import {
@@ -57,6 +57,7 @@ import {
 import { HoverCard } from "@/components/motion/hover-card";
 import { StaggerContainer } from "@/components/motion/stagger-container";
 import { Empty } from "@/components/shared/empty";
+import { LoadingState } from "@/components/shared/loading-state";
 import { Modal } from "@/components/shared/modal";
 import { Button } from "@/components/ui/button";
 import {
@@ -81,7 +82,6 @@ import {
 } from "@/components/ui/radix-select";
 import {
   employerAnalytics,
-  employerNotifications,
   employerOpportunities,
   employerProjects,
   employerStats,
@@ -89,11 +89,21 @@ import {
   mockEmployerProfile,
   opportunityTabs,
   talentInsights,
-  type EmployerNotification,
   type EmployerOpportunity,
   type EmployerProject,
   type EmployerStudent,
 } from "@/features/employer-portal/lib/mock-data";
+import { NotificationTabs } from "@/features/notifications/components/notification-tabs";
+import {
+  deleteClientNotification,
+  deleteClientNotifications,
+  fetchClientNotifications,
+  filterNotificationsByTab,
+  getNotificationTabs,
+  markAllClientNotificationsRead,
+  markClientNotificationRead,
+  type ClientNotification,
+} from "@/features/notifications/lib/client-notification-utils";
 import { cn } from "@/lib/utils";
 
 const ALL_VALUE = "all";
@@ -107,23 +117,19 @@ const chartViewLabels: Record<ChartView, string> = {
   area: "Area chart",
 };
 
-const employerChartData = [
-  { label: "Jan", candidates: 18, projects: 40, opportunities: 8 },
-  { label: "Feb", candidates: 24, projects: 52, opportunities: 11 },
-  { label: "Mar", candidates: 31, projects: 64, opportunities: 14 },
-  { label: "Apr", candidates: 37, projects: 73, opportunities: 18 },
-  { label: "May", candidates: 42, projects: 88, opportunities: 21 },
-  { label: "Jun", candidates: 54, projects: 104, opportunities: 26 },
-];
+const employerChartData: Array<{
+  label: string;
+  candidates: number;
+  projects: number;
+  opportunities: number;
+}> = [];
 
-const analyticsTrendData = [
-  { label: "Jan", profile: 420, opportunity: 260, project: 760 },
-  { label: "Feb", profile: 510, opportunity: 320, project: 980 },
-  { label: "Mar", profile: 640, opportunity: 410, project: 1240 },
-  { label: "Apr", profile: 790, opportunity: 520, project: 1480 },
-  { label: "May", profile: 960, opportunity: 680, project: 1860 },
-  { label: "Jun", profile: 1240, opportunity: 914, project: 2310 },
-];
+const analyticsTrendData: Array<{
+  label: string;
+  profile: number;
+  opportunity: number;
+  project: number;
+}> = [];
 
 const opportunitySchema = z.object({
   title: z.string().min(4, "Enter a title."),
@@ -659,7 +665,7 @@ function OpportunityModal({ open, onOpenChange, onCreate }: { open: boolean; onO
     <Modal open={open} onOpenChange={onOpenChange} title="Create Opportunity" description="Publish a job, internship, graduate program, scholarship, competition, or hackathon.">
       <form className="space-y-5" onSubmit={form.handleSubmit((values) => { onCreate(values); form.reset(); })}>
         <div className="grid gap-5 md:grid-cols-2">
-          <label className="grid gap-2 text-sm font-medium">Title<CampusInput placeholder="Frontend Engineering Internship" {...form.register("title")} /></label>
+          <label className="grid gap-2 text-sm font-medium">Title<CampusInput placeholder="Opportunity title" {...form.register("title")} /></label>
           <label className="grid gap-2 text-sm font-medium">Type
             <Select value={form.watch("type")} onValueChange={(value) => form.setValue("type", value)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -759,7 +765,7 @@ export function EmployerDashboardView() {
   const [chartView, setChartView] = useState<ChartView>("bar");
 
   return (
-    <PageShell eyebrow="Employer Portal" title={`${mockEmployerProfile.company} recruiting dashboard.`} description="Track talent matches, project engagement, opportunities, and hiring signals from the university ecosystem.">
+    <PageShell eyebrow="Employer Portal" title={mockEmployerProfile.company ? `${mockEmployerProfile.company} recruiting dashboard.` : "Recruiting dashboard."} description="Track talent matches, project engagement, opportunities, and hiring signals from the university ecosystem.">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {employerStats.map((stat, index) => (
           <MetricCard key={stat.label} label={stat.label} value={stat.value} trend={stat.trend} icon={[FiUsers, FiBookmark, FiBriefcase, FiStar, FiBarChart2][index]} />
@@ -1054,7 +1060,7 @@ export function EmployerSavedCandidatesView() {
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>(() =>
     saved.slice(0, 2).map((student) => student.id),
   );
-  const pageSize = 12;
+  const pageSize = 8;
   const shortlistOptions = compareValues(
     saved
       .map((student) => student.shortlist)
@@ -1606,9 +1612,9 @@ export function EmployerAnalyticsView() {
 
 export function EmployerProfileView() {
   return (
-    <PageShell eyebrow="Company Profile" title={mockEmployerProfile.company} description="Manage company information, recruitment interests, talent preferences, and activity statistics.">
+    <PageShell eyebrow="Company Profile" title={mockEmployerProfile.company || "Company profile"} description="Manage company information, recruitment interests, talent preferences, and activity statistics.">
       <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
-        <Card><CardHeader><CardTitle>Company Information</CardTitle></CardHeader><CardContent className="space-y-5"><div className="grid gap-4 md:grid-cols-2"><MetricMini label="Industry" value={mockEmployerProfile.industry} /><MetricMini label="Location" value={mockEmployerProfile.location} /><MetricMini label="Website" value={mockEmployerProfile.website} /><MetricMini label="Contact" value={mockEmployerProfile.email} /></div><p className="text-sm leading-6 text-muted-foreground">{mockEmployerProfile.description}</p><Button type="button" onClick={() => campusToast.success({ title: "Profile Updated", description: "Company profile changes saved locally." })}>Update Profile</Button></CardContent></Card>
+        <Card><CardHeader><CardTitle>Company Information</CardTitle></CardHeader><CardContent className="space-y-5"><div className="grid gap-4 md:grid-cols-2"><MetricMini label="Industry" value={mockEmployerProfile.industry} /><MetricMini label="Location" value={mockEmployerProfile.location} /><MetricMini label="Website" value={mockEmployerProfile.website} /><MetricMini label="Contact" value={mockEmployerProfile.email} /></div><p className="text-sm leading-6 text-muted-foreground">{mockEmployerProfile.description}</p><Button type="button" onClick={() => campusToast.info({ title: "Profile endpoint required", description: "Employer profile updates will save when backend integration is connected." })}>Update Profile</Button></CardContent></Card>
         <InfoList title="Recruitment Interests" items={mockEmployerProfile.interests} />
       </div>
       <div className="grid gap-5 md:grid-cols-3"><InfoList title="Talent Preferences" items={[]} /><InfoList title="Activity Statistics" items={[]} /><InfoList title="University Network" items={[]} /></div>
@@ -1617,25 +1623,143 @@ export function EmployerProfileView() {
 }
 
 export function EmployerNotificationsView() {
-  const [notifications, setNotifications] = useState(employerNotifications);
-  const viewNotification = (notification: EmployerNotification) => {
-    setNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, unread: false } : item));
+  const [activeTab, setActiveTab] = useState("All");
+  const [notifications, setNotifications] = useState<ClientNotification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const tabs = getNotificationTabs(notifications);
+  const filtered = filterNotificationsByTab(notifications, activeTab);
+  const unreadCount = notifications.filter((notification) => notification.unread).length;
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadNotifications() {
+      try {
+        setIsLoading(true);
+        const nextNotifications = await fetchClientNotifications();
+        if (mounted) setNotifications(nextNotifications);
+      } catch (error) {
+        campusToast.error(
+          error instanceof Error
+            ? error.message
+            : "Unable to load notifications.",
+        );
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    }
+
+    void loadNotifications();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (tabs.some((tab) => tab.key === activeTab)) return;
+    setActiveTab("All");
+  }, [activeTab, tabs]);
+
+  const markNotificationRead = async (id: string) => {
+    try {
+      const updated = await markClientNotificationRead(id);
+      setNotifications((current) =>
+        current.map((item) => (item.id === id ? updated : item)),
+      );
+    } catch (error) {
+      campusToast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to mark notification as read.",
+      );
+    }
+  };
+  const viewNotification = async (notification: ClientNotification) => {
+    if (notification.unread) await markNotificationRead(notification.id);
     campusToast.info({ title: notification.title, description: notification.body });
   };
-  const clearNotification = (id: string) => setNotifications((current) => current.filter((item) => item.id !== id));
+  const clearNotification = async (id: string) => {
+    try {
+      await deleteClientNotification(id);
+      setNotifications((current) => current.filter((item) => item.id !== id));
+    } catch (error) {
+      campusToast.error(
+        error instanceof Error ? error.message : "Unable to clear notification.",
+      );
+    }
+  };
+  const markAllRead = async () => {
+    try {
+      await markAllClientNotificationsRead();
+      setNotifications((current) =>
+        current.map((notification) => ({
+          ...notification,
+          unread: false,
+          status: "READ",
+        })),
+      );
+    } catch (error) {
+      campusToast.error(
+        error instanceof Error ? error.message : "Unable to mark notifications read.",
+      );
+    }
+  };
+  const clearAll = async () => {
+    try {
+      await deleteClientNotifications(notifications.map((notification) => notification.id));
+      setNotifications([]);
+      setActiveTab("All");
+    } catch (error) {
+      campusToast.error(
+        error instanceof Error ? error.message : "Unable to clear notifications.",
+      );
+    }
+  };
 
   return (
-    <PageShell eyebrow="Notifications" title="Employer notifications." description="Review new talent matches, new projects, project updates, opportunity engagement, applications, and platform alerts.">
-      <div className="space-y-3">
-        {notifications.length ? notifications.map((notification) => (
+    <PageShell
+      eyebrow="Notifications"
+      title="Employer notifications."
+      description="Review new talent matches, new projects, project updates, opportunity engagement, applications, and platform alerts."
+      action={
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            type="button"
+            variant="secondary"
+            disabled={unreadCount === 0}
+            onClick={markAllRead}
+          >
+            Mark read
+          </Button>
+          <Button
+            size="sm"
+            type="button"
+            variant="secondary"
+            disabled={notifications.length === 0}
+            onClick={clearAll}
+          >
+            Clear all
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <NotificationTabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+        <div className="space-y-3">
+        {isLoading ? (
+          <LoadingState label="Loading notifications" />
+        ) : filtered.length ? filtered.map((notification) => (
           <Card key={notification.id} className={notification.unread ? "border-primary/40" : undefined}>
             <CardContent className="flex items-start gap-4 p-5">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"><FiBell className="h-4 w-4" /></span>
               <div className="min-w-0 flex-1"><div className="flex flex-wrap gap-2"><StatusBadge>{notification.category}</StatusBadge>{notification.unread ? <StatusBadge>Unread</StatusBadge> : null}</div><h3 className="mt-3 font-semibold">{notification.title}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{notification.body}</p><p className="mt-3 text-xs text-muted-foreground">{notification.time}</p></div>
-              <DropdownMenu><DropdownMenuTrigger asChild><Button aria-label={`Open actions for ${notification.title}`} className="h-9 w-9 shrink-0 p-0" type="button" variant="ghost"><FiMoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => viewNotification(notification)}><FiEye className="h-4 w-4" />View</DropdownMenuItem><DropdownMenuItem onClick={() => clearNotification(notification.id)}><FiTrash2 className="h-4 w-4" />Clear</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+              <DropdownMenu><DropdownMenuTrigger asChild><Button aria-label={`Open actions for ${notification.title}`} className="h-9 w-9 shrink-0 p-0" type="button" variant="ghost"><FiMoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => viewNotification(notification)}><FiEye className="h-4 w-4" />View</DropdownMenuItem><DropdownMenuItem disabled={!notification.unread} onClick={() => markNotificationRead(notification.id)}><FiCheckCircle className="h-4 w-4" />Mark as read</DropdownMenuItem><DropdownMenuItem onClick={() => clearNotification(notification.id)}><FiTrash2 className="h-4 w-4" />Clear</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
             </CardContent>
           </Card>
-        )) : <Empty title="No Notifications" description="New talent matches and employer updates will appear here." icon={FiBell} />}
+        )) : <Empty title="No Notifications" description={activeTab === "All" ? "New talent matches and employer updates will appear here." : `No notifications for the "${activeTab}" tab.`} icon={FiBell} />}
+        </div>
       </div>
     </PageShell>
   );

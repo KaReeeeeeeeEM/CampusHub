@@ -391,7 +391,6 @@ export function AdminReportsDashboard({
               columns={columns}
               data={selectedSection.rows}
               getRowId={(row) => row.id}
-              pageSize={8}
               empty={
                 <Empty
                   title="No report rows"

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const rewardEventTriggerSchema = z.enum([
+  "XP_EARNED",
   "BADGE_EARNED",
   "ACHIEVEMENT_UNLOCKED",
   "LEVEL_UP",
@@ -17,11 +18,7 @@ export const rewardAnimationTypeSchema = z.enum([
   "SPOTLIGHT",
 ]);
 
-export const rewardEventStatusSchema = z.enum([
-  "UNSEEN",
-  "SEEN",
-  "ARCHIVED",
-]);
+export const rewardEventStatusSchema = z.enum(["UNSEEN", "SEEN", "ARCHIVED"]);
 
 export const createRewardEventSchema = z.object({
   userId: z.string().trim().min(1),

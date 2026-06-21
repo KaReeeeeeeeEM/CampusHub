@@ -1,17 +1,22 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { IconType } from "react-icons";
 import {
   FiArchive,
+  FiArrowLeft,
+  FiArrowRight,
   FiCheckCircle,
   FiClock,
   FiEdit,
   FiEye,
+  FiFileText,
   FiFilter,
   FiGrid,
+  FiImage,
   FiList,
   FiMapPin,
+  FiPhone,
   FiPlus,
   FiSearch,
   FiShield,
@@ -34,6 +39,8 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import type { DataTableColumn } from "@/components/shared/data-table";
 import { Drawer } from "@/components/shared/drawer";
 import { Modal } from "@/components/shared/modal";
+import { MultiStepProgress } from "@/components/shared/multi-step-progress";
+import { Skeleton } from "@/components/shared/skeleton";
 import {
   Select,
   SelectContent,
@@ -44,7 +51,11 @@ import {
 import { AdminActionMenu } from "@/features/administration/components/admin-action-menu";
 import { cn } from "@/lib/utils";
 
-type LostFoundPortal = "student" | "campus-admin" | "representative" | "committee";
+type LostFoundPortal =
+  | "student"
+  | "campus-admin"
+  | "representative"
+  | "committee";
 type LostFoundType = "Lost" | "Found";
 type LostFoundStatus = "Open" | "Matched" | "Returned" | "Under Review";
 type LostFoundViewMode = "table" | "cards";
@@ -66,10 +77,41 @@ type LostFoundItem = {
   location: string;
   reportedBy: string;
   reportedAt: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
   description: string;
   contact: string;
   verification: string;
   images: string[];
+};
+
+type LostFoundFormValues = {
+  title: string;
+  type: LostFoundType;
+  category: string;
+  status: LostFoundStatus;
+  location: string;
+  description: string;
+  verification: string;
+  contact: string;
+  images: string[];
+};
+
+type LostFoundApiPayload = {
+  data?: {
+    items?: LostFoundItem[];
+    item?: LostFoundItem;
+  };
+  error?: {
+    message?: string;
+  } | null;
+};
+
+type LostFoundConfirmAction = "archive" | "return" | "reopen";
+
+type LostFoundConfirmState = {
+  item: LostFoundItem;
+  action: LostFoundConfirmAction;
 };
 
 const categories = [
@@ -81,6 +123,7 @@ const categories = [
   "Clothing",
   "Bags",
   "Accessories",
+  "Other",
 ];
 
 const itemTypes = ["All", "Lost", "Found"];
@@ -113,7 +156,25 @@ const lostFoundViewOptions = [
   icon: IconType;
 }>;
 
-const lostFoundItems: LostFoundItem[] = [];
+const lostFoundFormSteps = [
+  {
+    title: "Item",
+    description:
+      "Capture the item name, type, category, and current handling status.",
+    icon: FiTag,
+  },
+  {
+    title: "Details",
+    description:
+      "Add the location, description, and verification clues needed for recovery.",
+    icon: FiFileText,
+  },
+  {
+    title: "Photos",
+    description: "Attach clear item photos to help people identify it quickly.",
+    icon: FiImage,
+  },
+];
 
 const statusStyles: Record<LostFoundStatus, string> = {
   Open: "border-primary/25 bg-primary/10 text-primary",
@@ -160,15 +221,52 @@ function StatCard({
   );
 }
 
+function StatCardSkeleton() {
+  return (
+    <div
+      className="rounded-lg border border-border bg-surface p-4"
+      aria-hidden="true"
+    >
+      <Skeleton className="h-9 w-9 rounded-md" />
+      <Skeleton className="mt-4 h-8 w-16" />
+      <Skeleton className="mt-2 h-3 w-28" />
+    </div>
+  );
+}
+
+function LostFoundStatsSkeleton() {
+  return (
+    <>
+      {Array.from({ length: 4 }).map((_, index) => (
+        <StatCardSkeleton key={index} />
+      ))}
+    </>
+  );
+}
+
 function ItemPhoto({
   src,
   title,
   className,
 }: {
-  src: string;
+  src?: string;
   title: string;
   className?: string;
 }) {
+  if (!src) {
+    return (
+      <div
+        aria-label={`${title} photo placeholder`}
+        className={cn(
+          "flex items-center justify-center rounded-lg border border-border bg-surface-muted text-muted-foreground",
+          className,
+        )}
+      >
+        <FiImage className="h-5 w-5" aria-hidden="true" />
+      </div>
+    );
+  }
+
   return (
     <div
       aria-label={`${title} photo`}
@@ -182,8 +280,7 @@ function ItemPhoto({
         backgroundPosition: "center",
         backgroundSize: "cover",
       }}
-    >
-    </div>
+    ></div>
   );
 }
 
@@ -216,7 +313,10 @@ function LostFoundSelect<T extends string>({
   onValueChange: (value: T) => void;
 }) {
   return (
-    <Select value={value} onValueChange={(nextValue) => onValueChange(nextValue as T)}>
+    <Select
+      value={value}
+      onValueChange={(nextValue) => onValueChange(nextValue as T)}
+    >
       <SelectTrigger>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
@@ -232,10 +332,12 @@ function LostFoundSelect<T extends string>({
 }
 
 function LostFoundForm({
+  isSubmitting,
   onSubmit,
   portal,
 }: {
-  onSubmit: () => void;
+  isSubmitting: boolean;
+  onSubmit: (values: LostFoundFormValues) => void;
   portal: LostFoundPortal;
 }) {
   const isManagement = portal !== "student";
@@ -244,18 +346,40 @@ function LostFoundForm({
   const [itemType, setItemType] = useState<LostFoundType>("Lost");
   const [itemCategory, setItemCategory] = useState("Electronics");
   const [status, setStatus] = useState<LostFoundStatus>("Open");
+  const [step, setStep] = useState(0);
+  const isLastStep = step === lostFoundFormSteps.length - 1;
+
+  function goNext() {
+    setStep((current) => Math.min(current + 1, lostFoundFormSteps.length - 1));
+  }
 
   return (
     <form
       className="space-y-5"
       onSubmit={(event) => {
         event.preventDefault();
-        onSubmit();
+        if (!isLastStep) {
+          goNext();
+        }
       }}
     >
-      <div className="grid gap-5 md:grid-cols-2">
+      <MultiStepProgress
+        activeIndex={step}
+        className="mb-8"
+        maxClickableIndex={step}
+        steps={lostFoundFormSteps.map((item) => ({
+          label: item.title,
+          icon: item.icon,
+        }))}
+        onStepClick={setStep}
+      />
+      <div className={cn("grid gap-5 md:grid-cols-2", step !== 0 && "hidden")}>
         <Field label="Item Title">
-          <CampusInput placeholder="Describe the missing or found item" />
+          <CampusInput
+            name="title"
+            placeholder="e.g. Black HP laptop in a grey sleeve"
+            required
+          />
         </Field>
         <Field label="Item Type">
           <LostFoundSelect
@@ -265,9 +389,10 @@ function LostFoundForm({
             onValueChange={setItemType}
           />
         </Field>
-      </div>
-      <div className="grid gap-5 md:grid-cols-2">
-        <Field label="Category">
+        <Field
+          label="Category"
+          className={!isManagement ? "md:col-span-2" : undefined}
+        >
           <LostFoundSelect
             value={itemCategory}
             options={categories.filter((category) => category !== "All")}
@@ -275,33 +400,42 @@ function LostFoundForm({
             onValueChange={setItemCategory}
           />
         </Field>
-        <Field label="Last Seen / Found Location">
-          <CampusInput placeholder="Where was the item last seen or found?" />
-        </Field>
+        {isManagement ? (
+          <Field label="Status">
+            <LostFoundSelect
+              value={status}
+              options={statusOptions}
+              placeholder="Select status"
+              onValueChange={setStatus}
+            />
+          </Field>
+        ) : null}
       </div>
-      {isManagement ? (
-        <Field label="Status">
-          <LostFoundSelect
-            value={status}
-            options={statusOptions}
-            placeholder="Select status"
-            onValueChange={setStatus}
+      <div className={cn("grid gap-5", step !== 1 && "hidden")}>
+        <Field label="Last Seen / Found Location">
+          <CampusInput
+            name="location"
+            placeholder="e.g. Main library reception desk"
+            required
           />
         </Field>
-      ) : null}
-      <Field label="Description">
-        <CampusTextarea
-          placeholder="Describe the item, where it was lost or found, and any details that can help verify ownership."
-          rows={5}
-        />
-      </Field>
-      <Field label="Verification Details">
-        <CampusTextarea
-          placeholder="Ask claimants to identify a hidden mark, serial detail, contents, or ownership clue."
-          rows={3}
-        />
-      </Field>
-      <div className="grid gap-5 md:grid-cols-2">
+        <Field label="Description">
+          <CampusTextarea
+            name="description"
+            placeholder="Describe the item, where it was lost or found, and any details that can help verify ownership."
+            required
+            rows={5}
+          />
+        </Field>
+        <Field label="Verification Details">
+          <CampusTextarea
+            name="verification"
+            placeholder="Ask claimants to identify a hidden mark, serial detail, contents, or ownership clue."
+            rows={3}
+          />
+        </Field>
+      </div>
+      <div className={cn("grid gap-5 md:grid-cols-2", step !== 2 && "hidden")}>
         <Field label="Primary Item Photo">
           <CampusFileUpload
             accept="image/png,image/jpeg,image/webp"
@@ -319,9 +453,58 @@ function LostFoundForm({
           />
         </Field>
       </div>
-      <Button className="w-full" type="submit">
-        {isManagement ? "Save Item" : "Submit Report"}
-      </Button>
+      <div className="flex flex-col-reverse gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <Button
+          disabled={step === 0 || isSubmitting}
+          type="button"
+          variant="secondary"
+          onClick={() => setStep((current) => Math.max(current - 1, 0))}
+        >
+          <FiArrowLeft className="h-4 w-4" aria-hidden="true" />
+          Back
+        </Button>
+        {isLastStep ? (
+          <Button
+            className="w-full sm:w-auto"
+            disabled={isSubmitting}
+            type="button"
+            onClick={(event) => {
+              const form = event.currentTarget.form;
+              if (!form?.reportValidity()) return;
+
+              const formData = new FormData(form);
+
+              onSubmit({
+                title: String(formData.get("title") ?? "").trim(),
+                type: itemType,
+                category: itemCategory,
+                status,
+                location: String(formData.get("location") ?? "").trim(),
+                description: String(formData.get("description") ?? "").trim(),
+                verification: String(formData.get("verification") ?? "").trim(),
+                contact: "",
+                images: [primaryImage, supportingImage].filter(Boolean),
+              });
+            }}
+          >
+            {isSubmitting
+              ? "Saving..."
+              : isManagement
+                ? "Save Item"
+                : "Submit Report"}
+          </Button>
+        ) : (
+          <Button
+            className="w-full sm:w-auto"
+            disabled={isSubmitting}
+            type="button"
+            onClick={goNext}
+          >
+            Continue
+            <FiArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Button>
+        )}
+      </div>
     </form>
   );
 }
@@ -336,7 +519,11 @@ function ItemDetails({ item }: { item: LostFoundItem }) {
     { label: "Location", value: item.location, icon: FiMapPin },
     { label: "Reported By", value: item.reportedBy, icon: FiUser },
     { label: "Reported", value: item.reportedAt, icon: FiClock },
-    { label: "Contact", value: item.contact, icon: FiArchive },
+    {
+      label: "Phone / Email",
+      value: item.contact || "Not provided",
+      icon: FiPhone,
+    },
     { label: "Verification", value: item.verification, icon: FiShield },
   ];
 
@@ -404,12 +591,19 @@ function ItemCard({
 }) {
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-surface">
-      <ItemPhoto src={item.images[0]} title={item.title} className="h-44 rounded-none border-0" />
+      <ItemPhoto
+        src={item.images[0]}
+        title={item.title}
+        className="h-44 rounded-none border-0"
+      />
       <div className="flex flex-1 flex-col p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2">
             <Pill value={item.type} className={typeStyles[item.type]} />
-            <Pill value={item.category} className="border-border bg-surface-muted text-muted-foreground" />
+            <Pill
+              value={item.category}
+              className="border-border bg-surface-muted text-muted-foreground"
+            />
           </div>
           <Pill value={item.status} className={statusStyles[item.status]} />
         </div>
@@ -451,7 +645,13 @@ function filtersMatch(
   const search = query.trim().toLowerCase();
   const matchesSearch =
     !search ||
-    [item.title, item.description, item.category, item.location, item.reportedBy]
+    [
+      item.title,
+      item.description,
+      item.category,
+      item.location,
+      item.reportedBy,
+    ]
       .join(" ")
       .toLowerCase()
       .includes(search);
@@ -505,6 +705,38 @@ function matchesDateFilter(
   return daysAgo > 30;
 }
 
+function LostFoundCardGridSkeleton() {
+  return (
+    <div
+      className="grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-3"
+      aria-busy="true"
+      aria-label="Loading lost and found records"
+    >
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div
+          key={index}
+          className="rounded-lg border border-border bg-surface p-5"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <Skeleton className="h-10 w-10 rounded-md" />
+            <Skeleton className="h-6 w-20 rounded-full" />
+          </div>
+          <div className="mt-6 space-y-3">
+            <Skeleton className="h-5 w-44" />
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-2/3" />
+          </div>
+          <div className="mt-6 flex items-center justify-between gap-3">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-9 w-20" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function LostFoundExperience({
   portal,
   title,
@@ -523,31 +755,36 @@ export function LostFoundExperience({
   );
   const [createOpen, setCreateOpen] = useState(false);
   const [viewing, setViewing] = useState<LostFoundItem | null>(null);
-  const [confirming, setConfirming] = useState<LostFoundItem | null>(null);
+  const [confirming, setConfirming] = useState<LostFoundConfirmState | null>(
+    null,
+  );
+  const [items, setItems] = useState<LostFoundItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const isManagement = portal !== "student";
-  const activeReports = lostFoundItems.filter(
+  const activeReports = items.filter(
     (item) => item.status !== "Returned",
   ).length;
-  const returnedReports = lostFoundItems.filter(
+  const returnedReports = items.filter(
     (item) => item.status === "Returned",
   ).length;
-  const verifiedClaims = lostFoundItems.filter((item) =>
+  const verifiedClaims = items.filter((item) =>
     ["Matched", "Returned"].includes(item.status),
   ).length;
   const pickupPoints = new Set(
-    lostFoundItems.map((item) => item.location).filter(Boolean),
+    items.map((item) => item.location).filter(Boolean),
   ).size;
   const verifiedClaimRate =
-    lostFoundItems.length > 0
-      ? `${Math.round((verifiedClaims / lostFoundItems.length) * 100)}%`
+    items.length > 0
+      ? `${Math.round((verifiedClaims / items.length) * 100)}%`
       : "N/A";
   const filteredItems = useMemo(
     () =>
-      lostFoundItems.filter((item) =>
+      items.filter((item) =>
         filtersMatch(item, query, type, category, dateFilter),
       ),
-    [category, dateFilter, query, type],
+    [category, dateFilter, items, query, type],
   );
   const emptyFilter =
     query ||
@@ -558,6 +795,159 @@ export function LostFoundExperience({
         : dateFilter !== "All"
           ? dateFilter
           : undefined);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadItems() {
+      setLoading(true);
+
+      try {
+        const response = await fetch("/api/lost-found?limit=100", {
+          cache: "no-store",
+        });
+        const payload = (await response.json()) as LostFoundApiPayload;
+
+        if (!active) return;
+
+        if (!response.ok) {
+          throw new Error(payload.error?.message ?? "Unable to load items.");
+        }
+
+        setItems(payload.data?.items ?? []);
+      } catch (error) {
+        if (!active) return;
+
+        setItems([]);
+        campusToast.error({
+          title: "Lost & Found Not Loaded",
+          description:
+            error instanceof Error
+              ? error.message
+              : "The lost and found records could not be loaded.",
+        });
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    void loadItems();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function createItem(values: LostFoundFormValues) {
+    setSaving(true);
+
+    try {
+      const response = await fetch("/api/lost-found", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+      const payload = (await response.json()) as LostFoundApiPayload;
+
+      if (!response.ok || !payload.data?.item) {
+        throw new Error(payload.error?.message ?? "Unable to save item.");
+      }
+
+      const createdItem = payload.data.item;
+
+      setItems((current) => [createdItem, ...current]);
+      setCreateOpen(false);
+      campusToast.success({
+        title: isManagement ? "Item Saved" : "Report Submitted",
+        description: isManagement
+          ? "The lost and found item has been saved to the management queue."
+          : "Your item report has been shared with the campus lost and found queue.",
+      });
+    } catch (error) {
+      campusToast.error({
+        title: isManagement ? "Item Not Saved" : "Report Not Submitted",
+        description:
+          error instanceof Error
+            ? error.message
+            : "The lost and found item could not be saved.",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function updateItemStatus(
+    item: LostFoundItem,
+    status: LostFoundStatus,
+  ) {
+    const response = await fetch("/api/lost-found", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: item.id, status }),
+    });
+    const payload = (await response.json()) as LostFoundApiPayload;
+
+    if (!response.ok || !payload.data?.item) {
+      throw new Error(payload.error?.message ?? "Unable to update item.");
+    }
+
+    setItems((current) =>
+      current.map((entry) =>
+        entry.id === payload.data?.item?.id ? payload.data.item : entry,
+      ),
+    );
+    if (viewing?.id === payload.data.item.id) {
+      setViewing(payload.data.item);
+    }
+  }
+
+  async function archiveItem(item: LostFoundItem) {
+    const response = await fetch("/api/lost-found", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: item.id }),
+    });
+    const payload = (await response.json()) as LostFoundApiPayload;
+
+    if (!response.ok) {
+      throw new Error(payload.error?.message ?? "Unable to archive item.");
+    }
+
+    setItems((current) => current.filter((entry) => entry.id !== item.id));
+    if (viewing?.id === item.id) {
+      setViewing(null);
+    }
+  }
+
+  async function confirmItemAction() {
+    if (!confirming) return;
+
+    try {
+      if (confirming.action === "archive") {
+        await archiveItem(confirming.item);
+      } else {
+        await updateItemStatus(
+          confirming.item,
+          confirming.action === "reopen" ? "Open" : "Returned",
+        );
+      }
+
+      campusToast.success({
+        title: "Lost & Found Updated",
+        description: `${confirming.item.title} has been updated.`,
+      });
+    } catch (error) {
+      campusToast.error({
+        title: "Lost & Found Not Updated",
+        description:
+          error instanceof Error
+            ? error.message
+            : "The lost and found item could not be updated.",
+      });
+    } finally {
+      setConfirming(null);
+    }
+  }
 
   const columns: DataTableColumn<LostFoundItem>[] = [
     {
@@ -606,7 +996,7 @@ export function LostFoundExperience({
       key: "actions",
       header: "Actions",
       className: "w-20 text-right",
-      cell: (item: LostFoundItem) => (
+      cell: (item: LostFoundItem) =>
         isManagement ? (
           <AdminActionMenu
             items={[
@@ -623,13 +1013,17 @@ export function LostFoundExperience({
               {
                 label: item.status === "Returned" ? "Reopen" : "Mark returned",
                 icon: FiCheckCircle,
-                onSelect: () => setConfirming(item),
+                onSelect: () =>
+                  setConfirming({
+                    item,
+                    action: item.status === "Returned" ? "reopen" : "return",
+                  }),
               },
               {
                 label: "Archive",
                 icon: FiTrash2,
                 destructive: true,
-                onSelect: () => setConfirming(item),
+                onSelect: () => setConfirming({ item, action: "archive" }),
               },
             ]}
           />
@@ -644,8 +1038,7 @@ export function LostFoundExperience({
             <FiEye className="h-4 w-4" aria-hidden="true" />
             View
           </Button>
-        )
-      ),
+        ),
     },
   ];
 
@@ -671,26 +1064,32 @@ export function LostFoundExperience({
       </div>
 
       <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          icon={FiArchive}
-          label="Active reports"
-          value={activeReports.toLocaleString()}
-        />
-        <StatCard
-          icon={FiCheckCircle}
-          label="Returned this month"
-          value={returnedReports.toLocaleString()}
-        />
-        <StatCard
-          icon={FiShield}
-          label="Verified claims"
-          value={verifiedClaimRate}
-        />
-        <StatCard
-          icon={FiMapPin}
-          label="Campus pickup points"
-          value={pickupPoints.toLocaleString()}
-        />
+        {loading ? (
+          <LostFoundStatsSkeleton />
+        ) : (
+          <>
+            <StatCard
+              icon={FiArchive}
+              label="Active reports"
+              value={activeReports.toLocaleString()}
+            />
+            <StatCard
+              icon={FiCheckCircle}
+              label="Returned this month"
+              value={returnedReports.toLocaleString()}
+            />
+            <StatCard
+              icon={FiShield}
+              label="Verified claims"
+              value={verifiedClaimRate}
+            />
+            <StatCard
+              icon={FiMapPin}
+              label="Campus pickup points"
+              value={pickupPoints.toLocaleString()}
+            />
+          </>
+        )}
       </section>
 
       <section className="mt-6 rounded-lg border border-border bg-background p-4">
@@ -736,13 +1135,21 @@ export function LostFoundExperience({
       </section>
 
       <section className="mt-6">
-        {viewMode === "table" ? (
+        {loading && viewMode !== "table" ? (
+          <LostFoundCardGridSkeleton />
+        ) : viewMode === "table" ? (
           <CampusDataTable
             columns={columns}
             data={filteredItems}
             getRowId={(item) => item.id}
-            pageSize={6}
-            empty={<Empty filterName={emptyFilter ?? "lost and found"} icon={FiFilter} />}
+            loading={loading}
+            skeletonRows={6}
+            empty={
+              <Empty
+                filterName={emptyFilter ?? "lost and found"}
+                icon={FiFilter}
+              />
+            }
           />
         ) : filteredItems.length > 0 ? (
           <div className="grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -758,20 +1165,15 @@ export function LostFoundExperience({
       <Modal
         open={createOpen}
         onOpenChange={setCreateOpen}
-        title={isManagement ? "Add Lost & Found Item" : "Report Lost or Found Item"}
+        title={
+          isManagement ? "Add Lost & Found Item" : "Report Lost or Found Item"
+        }
         description="Provide enough context to help the right person verify and recover the item."
       >
         <LostFoundForm
+          isSubmitting={saving}
           portal={portal}
-          onSubmit={() => {
-            setCreateOpen(false);
-            campusToast.success({
-              title: isManagement ? "Item Saved" : "Report Submitted",
-              description: isManagement
-                ? "The lost and found item has been saved to the management queue."
-                : "Your item report has been shared with the campus lost and found queue.",
-            });
-          }}
+          onSubmit={createItem}
         />
       </Modal>
 
@@ -781,7 +1183,11 @@ export function LostFoundExperience({
           if (!open) setViewing(null);
         }}
         title={viewing?.title ?? "Item Details"}
-        description={viewing ? `${viewing.type} item reported ${viewing.reportedAt}` : undefined}
+        description={
+          viewing
+            ? `${viewing.type} item reported ${viewing.reportedAt}`
+            : undefined
+        }
         className="max-w-xl"
       >
         {viewing ? <ItemDetails item={viewing} /> : null}
@@ -792,15 +1198,22 @@ export function LostFoundExperience({
         onOpenChange={(open) => {
           if (!open) setConfirming(null);
         }}
-        title="Update item status"
-        description="This is a UI-only action. In production this would update the lost and found record and notify the reporter."
-        confirmLabel="Confirm Update"
-        onConfirm={() => {
-          campusToast.info({
-            title: "Lost & Found Updated",
-            description: `${confirming?.title ?? "The item"} has been updated successfully.`,
-          });
-        }}
+        title={
+          confirming?.action === "archive"
+            ? "Archive item"
+            : "Update item status"
+        }
+        description={
+          confirming?.action === "archive"
+            ? `Archive ${confirming.item.title}? It will be removed from the active lost and found queue.`
+            : `Update ${confirming?.item.title ?? "this item"} to ${
+                confirming?.action === "reopen" ? "Open" : "Returned"
+              }?`
+        }
+        confirmLabel={
+          confirming?.action === "archive" ? "Archive Item" : "Confirm Update"
+        }
+        onConfirm={confirmItemAction}
       />
     </main>
   );

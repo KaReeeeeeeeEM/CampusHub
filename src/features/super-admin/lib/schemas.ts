@@ -89,10 +89,48 @@ export const campusAdminActivationSchema = z
     path: ["confirmPassword"],
   });
 
+export const superAdminCampusEntityStatusSchema = z.enum([
+  "ACTIVE",
+  "INACTIVE",
+]);
+
+const optionalCollegeCodeSchema = z.preprocess(
+  (value) =>
+    typeof value === "string" && value.trim().length === 0
+      ? undefined
+      : value,
+  z.string().trim().min(2, "College code is required.").optional(),
+);
+
+export const superAdminCollegeInputSchema = z.object({
+  universityId: z.string().trim().min(1, "Select a university."),
+  name: z.string().trim().min(2, "College name is required."),
+  shortName: z.string().trim().min(2, "Short name is required."),
+  code: optionalCollegeCodeSchema,
+  description: z.string().trim().min(10, "Add a short description."),
+  logo: optionalImageReferenceSchema,
+  status: superAdminCampusEntityStatusSchema.default("ACTIVE"),
+});
+
+export const superAdminDepartmentInputSchema = z.object({
+  universityId: z.string().trim().min(1, "Select a university."),
+  collegeId: z.string().trim().min(1, "Select a college."),
+  name: z.string().trim().min(2, "Department name is required."),
+  code: z.string().trim().min(2, "Department code is required."),
+  description: z.string().trim().min(10, "Add a short description."),
+  status: superAdminCampusEntityStatusSchema.default("ACTIVE"),
+});
+
 export type UniversityInput = z.infer<typeof universityInputSchema>;
 export type CampusAdminInvitationInput = z.infer<
   typeof campusAdminInvitationInputSchema
 >;
 export type CampusAdminActivationInput = z.infer<
   typeof campusAdminActivationSchema
+>;
+export type SuperAdminCollegeInput = z.infer<
+  typeof superAdminCollegeInputSchema
+>;
+export type SuperAdminDepartmentInput = z.infer<
+  typeof superAdminDepartmentInputSchema
 >;

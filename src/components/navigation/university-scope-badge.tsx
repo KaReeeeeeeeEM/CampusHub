@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { FiMapPin } from "react-icons/fi";
 
+import { Skeleton } from "@/components/shared/skeleton";
 import { cn } from "@/lib/utils";
 
 type UniversityScopeBadgeProps = {
@@ -87,11 +88,8 @@ export function UniversityScopeBadge({
 
   if (isLoading) {
     return (
-      <div
-        className={cn(
-          "h-9 w-44 animate-pulse rounded-md bg-surface-muted",
-          className,
-        )}
+      <Skeleton
+        className={cn("h-9 w-44 rounded-md", className)}
         aria-label="Loading university"
       />
     );

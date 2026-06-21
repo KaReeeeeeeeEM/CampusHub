@@ -15,10 +15,11 @@ export const announcementCategories = [
   "Career",
   "Health",
   "General",
+  "Other",
 ] as const;
 
 export const mockStudentProfile = {
-  name: "Student",
+  name: "",
   email: "",
   university: "",
   college: "",

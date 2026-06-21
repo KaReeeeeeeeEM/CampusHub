@@ -2,22 +2,27 @@
 // @ts-nocheck
 "use client";
 
-
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMemo, useState, useTransition } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import {
   FiArchive,
+  FiArrowLeft,
+  FiArrowRight,
   FiBarChart2,
   FiCheckCircle,
   FiCopy,
   FiEdit,
   FiEye,
+  FiGrid,
   FiLoader,
   FiLock,
+  FiList,
+  FiMail,
   FiPauseCircle,
   FiPieChart,
   FiPlus,
+  FiRefreshCw,
   FiSearch,
   FiSlash,
   FiTrash2,
@@ -41,12 +46,14 @@ import {
   CampusCheckbox,
   CampusInput,
   CampusTextarea,
+  CampusViewToggle,
   campusToast,
 } from "@/components/campushub";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Drawer } from "@/components/shared/drawer";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Modal } from "@/components/shared/modal";
+import { MultiStepProgress } from "@/components/shared/multi-step-progress";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -69,13 +76,6 @@ import {
   type Suggestion,
 } from "@/features/representative/lib/mock-data";
 import type { DataTableColumn } from "@/components/shared/data-table";
-
-const departments = [
-  "All Departments",
-  "Computer Science",
-  "Electronics and Telecommunications",
-  "Information Systems",
-] as const;
 
 const pollTargetColleges = [
   "College of ICT",
@@ -208,9 +208,15 @@ function SelectField<T extends string>({
   );
 }
 
-function DetailsGrid({ rows }: { rows: [string, React.ReactNode][] }) {
+function DetailsGrid({
+  rows,
+  className = "sm:grid-cols-2",
+}: {
+  rows: [string, React.ReactNode][];
+  className?: string;
+}) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className={`grid gap-3 ${className}`}>
       {rows.map(([label, value]) => (
         <div key={label} className="rounded-md border border-border p-3">
           <p className="text-xs uppercase tracking-normal text-muted-foreground">
@@ -703,21 +709,68 @@ export function StudentsManagement({
 }
 
 const invitationSchema = z.object({
-  name: z.string().min(2, "Link name is required."),
-  department: z.enum(departments),
-  maxUsage: z.coerce.number().int().min(1).max(5000),
-  expiresAt: z.string().min(1, "Expiry date is required."),
-  description: z.string().min(10, "Description is required."),
+  expiresInDays: z.coerce.number().int().min(1).max(180),
+  maxUsageCount: z.preprocess(
+    (value) => (value === "" || value == null ? undefined : Number(value)),
+    z.number().int().min(1).max(5000).optional(),
+  ),
 });
 
 type InvitationInput = z.infer<typeof invitationSchema>;
 
+const invitationExpiryOptions = [
+  { label: "7 days", value: "7" },
+  { label: "14 days", value: "14" },
+  { label: "30 days", value: "30" },
+  { label: "60 days", value: "60" },
+  { label: "90 days", value: "90" },
+] as const;
+
+const invitationViewOptions = [
+  { value: "table", label: "Table view", icon: FiList },
+  { value: "cards", label: "Card view", icon: FiGrid },
+] as const;
+
+type InvitationScope = {
+  universityId: string;
+  universityName: string;
+  collegeId: string;
+  collegeName: string;
+};
+
+type InvitationApiResponse = {
+  invitation?: StudentInvitation;
+  invitations?: StudentInvitation[];
+  error?: string;
+};
+
+function getInvitationStatus(invitation: StudentInvitation) {
+  if (invitation.status === "DISABLED") return "DISABLED";
+  if (
+    invitation.expiresAt &&
+    new Date(invitation.expiresAt).getTime() < Date.now()
+  ) {
+    return "EXPIRED";
+  }
+  if (
+    typeof invitation.maxUsageCount === "number" &&
+    invitation.usageCount >= invitation.maxUsageCount
+  ) {
+    return "FULL";
+  }
+  return invitation.status ?? "ACTIVE";
+}
+
+function formatNullableDate(value?: string | null) {
+  return value ? formatDate(value) : "No expiry";
+}
+
 function InvitationForm({
-  invitation,
+  scope,
   onSubmit,
   isSubmitting,
 }: {
-  invitation?: StudentInvitation;
+  scope: InvitationScope;
   onSubmit: (values: InvitationInput) => void;
   isSubmitting: boolean;
 }) {
@@ -728,75 +781,76 @@ function InvitationForm({
   >({
     resolver: zodResolver(invitationSchema),
     defaultValues: {
-      name: invitation?.name ?? "",
-      department:
-        (invitation?.department as InvitationInput["department"] | undefined) ??
-        "All Departments",
-      maxUsage: invitation?.maxUsage ?? 250,
-      expiresAt: invitation?.expiresAt ?? "",
-      description: invitation?.description ?? "",
+      expiresInDays: 14,
+      maxUsageCount: undefined,
     },
   });
 
   return (
     <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
+      <div className="rounded-lg border border-primary/20 bg-primary/10 p-4">
+        <p className="text-sm font-semibold text-primary">
+          Student invitation for {scope.collegeName}
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Students who join through this link will be attached to{" "}
+          {scope.universityName} and {scope.collegeName}.
+        </p>
+      </div>
       <div className="grid gap-4 md:grid-cols-2">
         <label className="space-y-2">
-          <span className="text-sm font-medium">Link Name</span>
-          <CampusInput
-            {...register("name")}
-            invalid={Boolean(formState.errors.name)}
-            placeholder="CoICT 2026 Intake"
-          />
+          <span className="text-sm font-medium">Expiry</span>
+          <Select
+            value={String(watch("expiresInDays") ?? 14)}
+            onValueChange={(value) =>
+              setValue("expiresInDays", Number(value), {
+                shouldDirty: true,
+                shouldValidate: true,
+              })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select expiry" />
+            </SelectTrigger>
+            <SelectContent>
+              {invitationExpiryOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </label>
-        <SelectField
-          label="Department"
-          value={watch("department")}
-          options={departments}
-          onValueChange={(value) => setValue("department", value)}
-        />
         <label className="space-y-2">
-          <span className="text-sm font-medium">Maximum Usage</span>
+          <span className="text-sm font-medium">Usage limit</span>
           <CampusInput
-            {...register("maxUsage")}
+            {...register("maxUsageCount")}
             type="number"
-            invalid={Boolean(formState.errors.maxUsage)}
-            placeholder="250"
-          />
-        </label>
-        <label className="space-y-2">
-          <span className="text-sm font-medium">Expiry Date</span>
-          <CampusInput
-            {...register("expiresAt")}
-            type="date"
-            invalid={Boolean(formState.errors.expiresAt)}
-            placeholder="Select expiry date"
-          />
-        </label>
-        <label className="space-y-2 md:col-span-2">
-          <span className="text-sm font-medium">Description</span>
-          <CampusTextarea
-            {...register("description")}
-            invalid={Boolean(formState.errors.description)}
-            placeholder="Describe who should use this invitation link."
+            min={1}
+            max={5000}
+            invalid={Boolean(formState.errors.maxUsageCount)}
+            placeholder="Leave blank for unlimited uses"
           />
         </label>
       </div>
       <Button className="w-full" disabled={isSubmitting} type="submit">
         {isSubmitting ? <FiLoader className="h-4 w-4 animate-spin" /> : null}
-        {invitation ? "Save Link" : "Generate Link"}
+        Generate Student Link
       </Button>
     </form>
   );
 }
 
 export function InvitationsManagement({
+  invitationScope,
   initialInvitations,
 }: {
+  invitationScope: InvitationScope;
   initialInvitations: StudentInvitation[];
 }) {
   const [invitations, setInvitations] = useState(initialInvitations);
   const [query, setQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
   const [createOpen, setCreateOpen] = useState(false);
   const [viewing, setViewing] = useState<StudentInvitation | null>(null);
   const [deactivating, setDeactivating] = useState<StudentInvitation | null>(
@@ -808,7 +862,12 @@ export function InvitationsManagement({
     const normalized = query.toLowerCase().trim();
     if (!normalized) return invitations;
     return invitations.filter((invitation) =>
-      [invitation.name, invitation.department, invitation.status]
+      [
+        invitation.collegeName,
+        invitation.universityName,
+        invitation.status,
+        invitation.invitationUrl,
+      ]
         .join(" ")
         .toLowerCase()
         .includes(normalized),
@@ -816,61 +875,138 @@ export function InvitationsManagement({
   }, [invitations, query]);
 
   function createInvitation(values: InvitationInput) {
-    startTransition(() => {
-      const slug = values.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-      setInvitations((current) => [
-        {
-          id: `invitation-${Date.now()}`,
-          usageCount: 0,
-          status: "ACTIVE",
-          createdAt: new Date().toISOString().slice(0, 10),
-          link: `https://campushub.local/join/${slug}`,
-          ...values,
-        },
-        ...current,
-      ]);
+    startTransition(async () => {
+      const expiresAt = new Date(
+        Date.now() + values.expiresInDays * 24 * 60 * 60 * 1000,
+      ).toISOString();
+      const response = await fetch("/api/invitations", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          universityId: invitationScope.universityId,
+          collegeId: invitationScope.collegeId,
+          expiresAt,
+          maxUsageCount: values.maxUsageCount,
+        }),
+      });
+      const payload = (await response.json()) as InvitationApiResponse;
+
+      if (!response.ok || !payload.invitation) {
+        campusToast.error({
+          title: "Invitation Not Generated",
+          description: payload.error ?? "Unable to generate student link.",
+        });
+        return;
+      }
+
+      setInvitations((current) => [payload.invitation, ...current]);
       setCreateOpen(false);
-      campusToast.success({
-        title: "Invitation Link Generated",
-        description: "Student enrollment link is ready to share.",
+      setViewing(payload.invitation);
+      campusToast.info({
+        title: "Student Link Generated",
+        description: "Copy and share this link with students.",
       });
     });
   }
 
-  function deactivateInvitation() {
-    if (!deactivating) return;
-    setInvitations((current) =>
-      current.map((invitation) =>
-        invitation.id === deactivating.id
-          ? { ...invitation, status: "INACTIVE" }
-          : invitation,
-      ),
-    );
-    setDeactivating(null);
-    campusToast.warning({
-      title: "Invitation Link Deactivated",
-      description: "Students can no longer use this invitation link.",
+  function patchInvitation(
+    invitation: StudentInvitation,
+    action: "disable" | "regenerate",
+  ) {
+    startTransition(async () => {
+      const response = await fetch(`/api/invitations/${invitation.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const payload = (await response.json()) as InvitationApiResponse;
+
+      if (!response.ok || !payload.invitation) {
+        campusToast.error({
+          title:
+            action === "disable"
+              ? "Invitation Not Deactivated"
+              : "Invitation Not Regenerated",
+          description: payload.error ?? "Unable to update the invitation.",
+        });
+        return;
+      }
+
+      if (action === "regenerate") {
+        setInvitations((current) => [
+          payload.invitation!,
+          ...current.map((item) =>
+            item.id === invitation.id ? { ...item, status: "DISABLED" } : item,
+          ),
+        ]);
+        setViewing(payload.invitation);
+      } else {
+        setInvitations((current) =>
+          current.map((item) =>
+            item.id === invitation.id ? payload.invitation! : item,
+          ),
+        );
+        if (viewing?.id === invitation.id) {
+          setViewing(payload.invitation);
+        }
+      }
+
+      setDeactivating(null);
+      campusToast.info({
+        title:
+          action === "disable"
+            ? "Invitation Deactivated"
+            : "Invitation Regenerated",
+        description:
+          action === "disable"
+            ? "Students can no longer use this link."
+            : "Copy and share the new student invitation link.",
+      });
+    });
+  }
+
+  async function copyInvitation(invitation: StudentInvitation) {
+    await navigator.clipboard.writeText(invitation.invitationUrl);
+    campusToast.info({
+      title: "Invitation Copied",
+      description: "The student join link is ready to share.",
     });
   }
 
   const columns: DataTableColumn<StudentInvitation>[] = [
-    { key: "name", header: "Link Name" },
-    { key: "department", header: "Department" },
+    {
+      key: "collegeName",
+      header: "College",
+      cell: (invitation) => (
+        <div>
+          <p className="font-medium">{invitation.collegeName}</p>
+          <p className="text-xs text-muted-foreground">
+            {invitation.universityName}
+          </p>
+        </div>
+      ),
+    },
     {
       key: "usageCount",
-      header: "Usage Count",
+      header: "Usage",
       cell: (invitation) =>
-        `${invitation.usageCount.toLocaleString()} / ${invitation.maxUsage.toLocaleString()}`,
+        `${invitation.usageCount.toLocaleString()} / ${
+          invitation.maxUsageCount
+            ? invitation.maxUsageCount.toLocaleString()
+            : "Unlimited"
+        }`,
     },
     {
       key: "status",
       header: "Status",
-      cell: (invitation) => <StatusBadge status={invitation.status} />,
+      cell: (invitation) => (
+        <StatusBadge status={getInvitationStatus(invitation)} />
+      ),
     },
     {
-      key: "createdAt",
-      header: "Created Date",
-      cell: (invitation) => formatDate(invitation.createdAt),
+      key: "expiresAt",
+      header: "Expires",
+      cell: (invitation) => formatNullableDate(invitation.expiresAt),
     },
     {
       key: "actions",
@@ -885,9 +1021,21 @@ export function InvitationsManagement({
               onSelect: () => setViewing(invitation),
             },
             {
+              label: "Copy Link",
+              icon: FiCopy,
+              onSelect: () => void copyInvitation(invitation),
+            },
+            {
+              label: "Regenerate Link",
+              icon: FiRefreshCw,
+              disabled: isPending,
+              onSelect: () => patchInvitation(invitation, "regenerate"),
+            },
+            {
               label: "Deactivate",
               icon: FiSlash,
-              disabled: invitation.status === "INACTIVE",
+              destructive: true,
+              disabled: invitation.status === "DISABLED",
               onSelect: () => setDeactivating(invitation),
             },
           ]}
@@ -902,16 +1050,14 @@ export function InvitationsManagement({
         {[
           [
             "Active Links",
-            invitations.filter((item) => item.status === "ACTIVE").length,
+            invitations.filter((item) => getInvitationStatus(item) === "ACTIVE")
+              .length,
           ],
           [
             "Students Joined",
             invitations.reduce((sum, item) => sum + item.usageCount, 0),
           ],
-          [
-            "Departments Covered",
-            new Set(invitations.map((item) => item.department)).size,
-          ],
+          ["Total Links", invitations.length],
         ].map(([label, value]) => (
           <div
             key={label}
@@ -927,39 +1073,118 @@ export function InvitationsManagement({
         onQueryChange={setQuery}
         placeholder="Search invitations"
         action={
-          <Button type="button" onClick={() => setCreateOpen(true)}>
-            <FiPlus className="h-4 w-4" aria-hidden="true" />
-            Generate Link
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <CampusViewToggle
+              value={viewMode}
+              options={invitationViewOptions}
+              onValueChange={setViewMode}
+            />
+            <Button type="button" onClick={() => setCreateOpen(true)}>
+              <FiPlus className="h-4 w-4" aria-hidden="true" />
+              Generate Student Link
+            </Button>
+          </div>
         }
       />
-      <div className="mt-5">
-        <CampusDataTable
-          columns={columns}
-          data={filtered}
-          getRowId={(invitation) => invitation.id}
-          empty={
+      {viewMode === "cards" ? (
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {filtered.length > 0 ? (
+            filtered.map((invitation) => (
+              <article
+                key={invitation.id}
+                className="flex h-full flex-col rounded-lg border border-border bg-surface p-4 transition hover:-translate-y-0.5 hover:border-primary/40"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <FiMail className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <AdminActionMenu
+                    items={[
+                      {
+                        label: "View",
+                        icon: FiEye,
+                        onSelect: () => setViewing(invitation),
+                      },
+                      {
+                        label: "Copy Link",
+                        icon: FiCopy,
+                        onSelect: () => void copyInvitation(invitation),
+                      },
+                      {
+                        label: "Regenerate Link",
+                        icon: FiRefreshCw,
+                        disabled: isPending,
+                        onSelect: () =>
+                          patchInvitation(invitation, "regenerate"),
+                      },
+                      {
+                        label: "Deactivate",
+                        icon: FiSlash,
+                        destructive: true,
+                        disabled: invitation.status === "DISABLED",
+                        onSelect: () => setDeactivating(invitation),
+                      },
+                    ]}
+                  />
+                </div>
+                <h3 className="mt-4 text-base font-semibold">
+                  {invitation.collegeName}
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {invitation.universityName}
+                </p>
+                <p className="mt-4 line-clamp-2 break-all text-sm text-muted-foreground">
+                  {invitation.invitationUrl}
+                </p>
+                <div className="mt-auto flex items-center justify-between gap-3 pt-5">
+                  <StatusBadge status={getInvitationStatus(invitation)} />
+                  <span className="text-xs text-muted-foreground">
+                    {invitation.usageCount} joined
+                  </span>
+                </div>
+              </article>
+            ))
+          ) : (
             <EmptyState
               title={query ? "No matching links" : "No invitation links"}
-              description="Generate student invitation links to onboard verified students."
-              className="mx-auto border-0 bg-transparent"
+              description="Generate student invitation links to onboard verified students into your college."
+              className="mx-auto border-0 bg-transparent md:col-span-2 xl:col-span-3"
             />
-          }
-        />
-      </div>
+          )}
+        </div>
+      ) : (
+        <div className="mt-5">
+          <CampusDataTable
+            columns={columns}
+            data={filtered}
+            getRowId={(invitation) => invitation.id}
+            empty={
+              <EmptyState
+                title={query ? "No matching links" : "No invitation links"}
+                description="Generate student invitation links to onboard verified students into your college."
+                className="mx-auto border-0 bg-transparent"
+              />
+            }
+          />
+        </div>
+      )}
       <Modal
         open={createOpen}
         onOpenChange={setCreateOpen}
         title="Generate Student Invitation"
-        description="Create a department-aware enrollment link for students."
+        description="Create a college-scoped enrollment link for students."
         className="max-h-[90vh] max-w-3xl overflow-y-auto"
       >
-        <InvitationForm onSubmit={createInvitation} isSubmitting={isPending} />
+        <InvitationForm
+          scope={invitationScope}
+          onSubmit={createInvitation}
+          isSubmitting={isPending}
+        />
       </Modal>
       <Drawer
         open={Boolean(viewing)}
         onOpenChange={(open) => !open && setViewing(null)}
-        title={viewing?.name ?? "Invitation link"}
+        title={viewing?.collegeName ?? "Invitation link"}
         description="Enrollment link usage and sharing details."
         className="max-w-xl"
       >
@@ -969,25 +1194,64 @@ export function InvitationsManagement({
               <p className="text-xs uppercase tracking-normal text-muted-foreground">
                 Invitation URL
               </p>
-              <p className="mt-2 break-all text-sm font-medium">
-                {viewing.link}
-              </p>
+              <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <p className="min-w-0 flex-1 break-all text-sm font-medium">
+                  {viewing.invitationUrl}
+                </p>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => void copyInvitation(viewing)}
+                >
+                  <FiCopy className="h-4 w-4" aria-hidden="true" />
+                  Copy
+                </Button>
+              </div>
             </div>
-            <p className="text-sm leading-6 text-muted-foreground">
-              {viewing.description}
-            </p>
             <DetailsGrid
+              className="grid-cols-1"
               rows={[
-                ["Department", viewing.department],
-                ["Usage", `${viewing.usageCount} / ${viewing.maxUsage}`],
+                ["University", viewing.universityName],
+                ["College", viewing.collegeName],
+                [
+                  "Usage",
+                  `${viewing.usageCount} / ${
+                    viewing.maxUsageCount ?? "Unlimited"
+                  }`,
+                ],
                 [
                   "Status",
-                  <StatusBadge key="status" status={viewing.status} />,
+                  <StatusBadge
+                    key="status"
+                    status={getInvitationStatus(viewing)}
+                  />,
                 ],
-                ["Created", formatDate(viewing.createdAt)],
-                ["Expires", formatDate(viewing.expiresAt)],
+                ["Created", formatNullableDate(viewing.createdAt)],
+                ["Expires", formatNullableDate(viewing.expiresAt)],
               ]}
             />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Button
+                className="w-full"
+                type="button"
+                variant="secondary"
+                onClick={() => patchInvitation(viewing, "regenerate")}
+                disabled={isPending}
+              >
+                <FiRefreshCw className="h-4 w-4" aria-hidden="true" />
+                Regenerate Link
+              </Button>
+              <Button
+                className="w-full"
+                type="button"
+                variant="destructive"
+                onClick={() => setDeactivating(viewing)}
+                disabled={viewing.status === "DISABLED"}
+              >
+                <FiSlash className="h-4 w-4" aria-hidden="true" />
+                Deactivate
+              </Button>
+            </div>
           </div>
         ) : null}
       </Drawer>
@@ -995,10 +1259,14 @@ export function InvitationsManagement({
         open={Boolean(deactivating)}
         onOpenChange={(open) => !open && setDeactivating(null)}
         title="Deactivate Invitation Link"
-        description={`Deactivate ${deactivating?.name ?? "this invitation link"}?`}
+        description={`Deactivate the student invitation link for ${
+          deactivating?.collegeName ?? "this college"
+        }?`}
         confirmLabel="Deactivate"
         destructive
-        onConfirm={deactivateInvitation}
+        onConfirm={() =>
+          deactivating ? patchInvitation(deactivating, "disable") : undefined
+        }
       />
     </>
   );
@@ -2087,6 +2355,7 @@ const pollCategories = [
   "Media",
   "General",
   "Campus Governance",
+  "Other",
 ] as const;
 
 const pollAudienceOptions = [
@@ -2119,7 +2388,10 @@ function formatPollVisibility(value: Poll["resultsVisibility"]) {
 }
 
 function pollVotesTotal(poll: Poll) {
-  return Object.values(poll.optionVotes).reduce((total, value) => total + value, 0);
+  return Object.values(poll.optionVotes).reduce(
+    (total, value) => total + value,
+    0,
+  );
 }
 
 function pollOptionPercent(poll: Poll, option: string) {
@@ -2147,13 +2419,16 @@ function getPollAudienceScope(
 }
 
 function getPollTargetCollege(audience?: string) {
-  return pollTargetColleges.find((college) => audience?.includes(college)) ?? "";
+  return (
+    pollTargetColleges.find((college) => audience?.includes(college)) ?? ""
+  );
 }
 
 function getPollTargetDepartment(audience?: string) {
   return (
-    pollTargetDepartments.find((department) => audience?.includes(department)) ??
-    ""
+    pollTargetDepartments.find((department) =>
+      audience?.includes(department),
+    ) ?? ""
   );
 }
 
@@ -2204,10 +2479,7 @@ const pollSchema = z
       });
     }
 
-    if (
-      values.audience === "Specific Department" &&
-      !values.targetDepartment
-    ) {
+    if (values.audience === "Specific Department" && !values.targetDepartment) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Select a department for this audience.",
@@ -2227,11 +2499,16 @@ function PollForm({
   onSubmit: (values: PollInput) => void;
   isSubmitting: boolean;
 }) {
-  const { register, control, handleSubmit, watch, setValue, formState } = useForm<
-    z.input<typeof pollSchema>,
-    unknown,
-    PollInput
-  >({
+  const [step, setStep] = useState(0);
+  const {
+    register,
+    control,
+    handleSubmit,
+    watch,
+    setValue,
+    trigger,
+    formState,
+  } = useForm<z.input<typeof pollSchema>, unknown, PollInput>({
     resolver: zodResolver(pollSchema),
     defaultValues: {
       title: poll?.title ?? "",
@@ -2246,9 +2523,10 @@ function PollForm({
       resultsVisibility: poll?.resultsVisibility ?? "AFTER_VOTING",
       allowMultipleVotes: poll?.allowMultipleVotes ?? false,
       anonymousVoting: poll?.anonymousVoting ?? true,
-      options:
-        poll?.options.map((option) => ({ value: option })) ??
-        [{ value: "" }, { value: "" }],
+      options: poll?.options.map((option) => ({ value: option })) ?? [
+        { value: "" },
+        { value: "" },
+      ],
     },
   });
   const { fields, append, remove } = useFieldArray({
@@ -2256,169 +2534,262 @@ function PollForm({
     name: "options",
   });
   const selectedAudience = watch("audience");
+  const steps = [
+    {
+      title: "Basics",
+      description: "Write the poll title, question, and context.",
+    },
+    {
+      title: "Audience",
+      description: "Set targeting, deadline, status, and result visibility.",
+    },
+    {
+      title: "Options",
+      description: "Add choices and voting rules.",
+    },
+  ];
+  const currentStep = steps[step];
+  const isLastStep = step === steps.length - 1;
+
+  async function goNext() {
+    const valid = await trigger(
+      step === 0
+        ? ["title", "question", "description"]
+        : [
+            "category",
+            "audience",
+            "targetCollege",
+            "targetDepartment",
+            "endDate",
+            "status",
+            "resultsVisibility",
+          ],
+    );
+    if (valid) setStep((current) => Math.min(current + 1, steps.length - 1));
+  }
 
   return (
-    <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className="space-y-2">
-          <span className="text-sm font-medium">Title</span>
-          <CampusInput
-            {...register("title")}
-            invalid={Boolean(formState.errors.title)}
-            placeholder="Preferred event day"
-          />
-        </label>
-        <label className="space-y-2">
-          <span className="text-sm font-medium">End Date</span>
-          <CampusInput
-            {...register("endDate")}
-            type="date"
-            invalid={Boolean(formState.errors.endDate)}
-            placeholder="Select closing date"
-          />
-        </label>
-        <SelectField
-          label="Category"
-          value={watch("category")}
-          options={pollCategories}
-          onValueChange={(value) => setValue("category", value)}
-        />
-        <SelectField
-          label="Audience"
-          value={selectedAudience}
-          options={pollAudienceOptions}
-          onValueChange={(value) => {
-            setValue("audience", value);
-            if (value === "Specific College") {
-              setValue("targetCollege", pollTargetColleges[0]);
-            } else {
-              setValue("targetCollege", "");
-            }
-            if (value === "Specific Department") {
-              setValue("targetDepartment", pollTargetDepartments[0]);
-            } else {
-              setValue("targetDepartment", "");
-            }
-          }}
-        />
-        {selectedAudience === "Specific College" ? (
-          <div className="md:col-span-2">
-            <SelectField
-              label="College"
-              value={watch("targetCollege") || pollTargetColleges[0]}
-              options={pollTargetColleges}
-              onValueChange={(value) => setValue("targetCollege", value)}
-            />
-          </div>
-        ) : null}
-        {selectedAudience === "Specific Department" ? (
-          <div className="md:col-span-2">
-            <SelectField
-              label="Department"
-              value={watch("targetDepartment") || pollTargetDepartments[0]}
-              options={pollTargetDepartments}
-              onValueChange={(value) => setValue("targetDepartment", value)}
-            />
-          </div>
-        ) : null}
-        <SelectField
-          label="Status"
-          value={watch("status")}
-          options={["ACTIVE", "DRAFT", "CLOSED"] as const}
-          onValueChange={(value) => setValue("status", value)}
-        />
-        <SelectField
-          label="Results Visibility"
-          value={watch("resultsVisibility")}
-          options={pollResultVisibilityOptions}
-          onValueChange={(value) => setValue("resultsVisibility", value)}
-        />
-        <label className="space-y-2 md:col-span-2">
-          <span className="text-sm font-medium">Question</span>
-          <CampusTextarea
-            {...register("question")}
-            invalid={Boolean(formState.errors.question)}
-            placeholder="What day works best for college-wide events?"
-          />
-        </label>
-        <label className="space-y-2 md:col-span-2">
-          <span className="text-sm font-medium">Description</span>
-          <CampusTextarea
-            {...register("description")}
-            invalid={Boolean(formState.errors.description)}
-            placeholder="Explain the purpose of the poll and how results will be used."
-          />
-        </label>
-        <div className="space-y-3 md:col-span-2">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <span className="text-sm font-medium">Options</span>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Add each poll option as a separate choice.
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => append({ value: "" })}
-            >
-              <FiPlus className="h-4 w-4" aria-hidden="true" />
-              Add Option
-            </Button>
-          </div>
-          <div className="grid gap-3">
-            {fields.map((field, index) => (
-              <div key={field.id} className="flex items-center gap-3">
-                <CampusInput
-                  {...register(`options.${index}.value`)}
-                  invalid={Boolean(formState.errors.options?.[index]?.value)}
-                  placeholder={`Option ${index + 1}`}
-                />
-                <Button
-                  aria-label={`Remove option ${index + 1}`}
-                  className="shrink-0"
-                  disabled={fields.length <= 2}
-                  size="icon"
-                  type="button"
-                  variant="secondary"
-                  onClick={() => remove(index)}
-                >
-                  <FiTrash2 className="h-4 w-4" aria-hidden="true" />
-                </Button>
-              </div>
-            ))}
-          </div>
-          {formState.errors.options?.message ? (
-            <p className="text-xs font-medium text-destructive">
-              {formState.errors.options.message}
-            </p>
-          ) : null}
-        </div>
-        <div className="grid gap-3 md:col-span-2 md:grid-cols-2">
-          <label className="flex items-center gap-3 rounded-xl border border-border bg-background p-4">
-            <CampusCheckbox
-              checked={watch("allowMultipleVotes")}
-              onChange={(event) =>
-                setValue("allowMultipleVotes", event.target.checked)
-              }
-            />
-            <span className="text-sm font-medium">Allow multiple votes</span>
-          </label>
-          <label className="flex items-center gap-3 rounded-xl border border-border bg-background p-4">
-            <CampusCheckbox
-              checked={watch("anonymousVoting")}
-              onChange={(event) =>
-                setValue("anonymousVoting", event.target.checked)
-              }
-            />
-            <span className="text-sm font-medium">Anonymous voting</span>
-          </label>
-        </div>
+    <form
+      className="space-y-5"
+      onSubmit={(event) => {
+        if (!isLastStep) {
+          event.preventDefault();
+          void goNext();
+          return;
+        }
+        void handleSubmit(onSubmit)(event);
+      }}
+    >
+      <MultiStepProgress
+        activeIndex={step}
+        className="mb-8"
+        maxClickableIndex={step}
+        steps={steps.map((item) => ({
+          label: item.title,
+          icon: FiArrowRight,
+        }))}
+        onStepClick={setStep}
+      />
+      <div className="rounded-lg border border-border bg-background p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+          {currentStep.title}
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {currentStep.description}
+        </p>
       </div>
-      <Button className="w-full" disabled={isSubmitting} type="submit">
-        {isSubmitting ? <FiLoader className="h-4 w-4 animate-spin" /> : null}
-        {poll ? "Save Poll" : "Create Poll"}
-      </Button>
+      {step === 0 ? (
+        <div className="grid gap-4">
+          <label className="space-y-2">
+            <span className="text-sm font-medium">Title</span>
+            <CampusInput
+              {...register("title")}
+              invalid={Boolean(formState.errors.title)}
+              placeholder="Preferred event day"
+            />
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-medium">Question</span>
+            <CampusTextarea
+              {...register("question")}
+              invalid={Boolean(formState.errors.question)}
+              placeholder="What day works best for college-wide events?"
+            />
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-medium">Description</span>
+            <CampusTextarea
+              {...register("description")}
+              invalid={Boolean(formState.errors.description)}
+              placeholder="Explain the purpose of the poll and how results will be used."
+            />
+          </label>
+        </div>
+      ) : null}
+      {step === 1 ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          <SelectField
+            label="Category"
+            value={watch("category")}
+            options={pollCategories}
+            onValueChange={(value) => setValue("category", value)}
+          />
+          <SelectField
+            label="Audience"
+            value={selectedAudience}
+            options={pollAudienceOptions}
+            onValueChange={(value) => {
+              setValue("audience", value);
+              if (value === "Specific College") {
+                setValue("targetCollege", pollTargetColleges[0]);
+              } else {
+                setValue("targetCollege", "");
+              }
+              if (value === "Specific Department") {
+                setValue("targetDepartment", pollTargetDepartments[0]);
+              } else {
+                setValue("targetDepartment", "");
+              }
+            }}
+          />
+          {selectedAudience === "Specific College" ? (
+            <div className="md:col-span-2">
+              <SelectField
+                label="College"
+                value={watch("targetCollege") || pollTargetColleges[0]}
+                options={pollTargetColleges}
+                onValueChange={(value) => setValue("targetCollege", value)}
+              />
+            </div>
+          ) : null}
+          {selectedAudience === "Specific Department" ? (
+            <div className="md:col-span-2">
+              <SelectField
+                label="Department"
+                value={watch("targetDepartment") || pollTargetDepartments[0]}
+                options={pollTargetDepartments}
+                onValueChange={(value) => setValue("targetDepartment", value)}
+              />
+            </div>
+          ) : null}
+          <label className="space-y-2">
+            <span className="text-sm font-medium">End Date</span>
+            <CampusInput
+              {...register("endDate")}
+              type="date"
+              invalid={Boolean(formState.errors.endDate)}
+              placeholder="Select closing date"
+            />
+          </label>
+          <SelectField
+            label="Status"
+            value={watch("status")}
+            options={["ACTIVE", "DRAFT", "CLOSED"] as const}
+            onValueChange={(value) => setValue("status", value)}
+          />
+          <div className="md:col-span-2">
+            <SelectField
+              label="Results Visibility"
+              value={watch("resultsVisibility")}
+              options={pollResultVisibilityOptions}
+              onValueChange={(value) => setValue("resultsVisibility", value)}
+            />
+          </div>
+        </div>
+      ) : null}
+      {step === 2 ? (
+        <div className="grid gap-4">
+          <div className="space-y-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <span className="text-sm font-medium">Options</span>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Add each poll option as a separate choice.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => append({ value: "" })}
+              >
+                <FiPlus className="h-4 w-4" aria-hidden="true" />
+                Add Option
+              </Button>
+            </div>
+            <div className="grid gap-3">
+              {fields.map((field, index) => (
+                <div key={field.id} className="flex items-center gap-3">
+                  <CampusInput
+                    {...register(`options.${index}.value`)}
+                    invalid={Boolean(formState.errors.options?.[index]?.value)}
+                    placeholder={`Option ${index + 1}`}
+                  />
+                  <Button
+                    aria-label={`Remove option ${index + 1}`}
+                    className="shrink-0"
+                    disabled={fields.length <= 2}
+                    size="icon"
+                    type="button"
+                    variant="secondary"
+                    onClick={() => remove(index)}
+                  >
+                    <FiTrash2 className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+            {formState.errors.options?.message ? (
+              <p className="text-xs font-medium text-destructive">
+                {formState.errors.options.message}
+              </p>
+            ) : null}
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="flex items-center gap-3 rounded-xl border border-border bg-background p-4">
+              <CampusCheckbox
+                checked={watch("allowMultipleVotes")}
+                onChange={(event) =>
+                  setValue("allowMultipleVotes", event.target.checked)
+                }
+              />
+              <span className="text-sm font-medium">Allow multiple votes</span>
+            </label>
+            <label className="flex items-center gap-3 rounded-xl border border-border bg-background p-4">
+              <CampusCheckbox
+                checked={watch("anonymousVoting")}
+                onChange={(event) =>
+                  setValue("anonymousVoting", event.target.checked)
+                }
+              />
+              <span className="text-sm font-medium">Anonymous voting</span>
+            </label>
+          </div>
+        </div>
+      ) : null}
+      <div className="flex flex-col-reverse gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <Button
+          disabled={step === 0 || isSubmitting}
+          type="button"
+          variant="secondary"
+          onClick={() => setStep((current) => Math.max(current - 1, 0))}
+        >
+          <FiArrowLeft className="h-4 w-4" aria-hidden="true" />
+          Back
+        </Button>
+        {!isLastStep ? (
+          <Button disabled={isSubmitting} type="button" onClick={goNext}>
+            Continue
+            <FiArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Button>
+        ) : (
+          <Button disabled={isSubmitting} type="submit">
+            {isSubmitting ? (
+              <FiLoader className="h-4 w-4 animate-spin" />
+            ) : null}
+            {poll ? "Save Poll" : "Create Poll"}
+          </Button>
+        )}
+      </div>
     </form>
   );
 }
@@ -2444,7 +2815,10 @@ export function PollsManagement({ initialPolls }: { initialPolls: Poll[] }) {
     );
   }, [polls, query]);
 
-  const totalResponses = polls.reduce((total, poll) => total + poll.responses, 0);
+  const totalResponses = polls.reduce(
+    (total, poll) => total + poll.responses,
+    0,
+  );
   const activePolls = polls.filter((poll) => poll.status === "ACTIVE");
   const closedPolls = polls.filter((poll) => poll.status === "CLOSED");
   const averageParticipation =
@@ -2461,16 +2835,21 @@ export function PollsManagement({ initialPolls }: { initialPolls: Poll[] }) {
     }))
     .filter((item) => item.value > 0);
   const votesOverTime = polls[0]?.votesOverTime ?? [];
-  const topPolls = [...polls].sort((a, b) => b.responses - a.responses).slice(0, 3);
+  const topPolls = [...polls]
+    .sort((a, b) => b.responses - a.responses)
+    .slice(0, 3);
 
   function normalizePoll(values: PollInput, existing?: Poll): Omit<Poll, "id"> {
     const options = values.options
       .map((option) => option.value.trim())
       .filter(Boolean);
-    const optionVotes = options.reduce<Record<string, number>>((acc, option) => {
-      acc[option] = existing?.optionVotes[option] ?? 0;
-      return acc;
-    }, {});
+    const optionVotes = options.reduce<Record<string, number>>(
+      (acc, option) => {
+        acc[option] = existing?.optionVotes[option] ?? 0;
+        return acc;
+      },
+      {},
+    );
 
     return {
       title: values.title,
@@ -2483,13 +2862,14 @@ export function PollsManagement({ initialPolls }: { initialPolls: Poll[] }) {
       createdAt: existing?.createdAt ?? "2026-06-13",
       closedDate:
         values.status === "CLOSED"
-          ? existing?.closedDate ?? values.endDate
+          ? (existing?.closedDate ?? values.endDate)
           : undefined,
       status: values.status,
       responses: existing?.responses ?? 0,
       options,
       optionVotes,
-      visibility: values.audience === "Entire University" ? "Everyone" : "Students",
+      visibility:
+        values.audience === "Entire University" ? "Everyone" : "Students",
       resultsVisibility: values.resultsVisibility,
       allowMultipleVotes: values.allowMultipleVotes,
       anonymousVoting: values.anonymousVoting,
@@ -2568,7 +2948,9 @@ export function PollsManagement({ initialPolls }: { initialPolls: Poll[] }) {
         title: `Copy of ${poll.title}`,
         status: "DRAFT",
         responses: 0,
-        optionVotes: Object.fromEntries(poll.options.map((option) => [option, 0])),
+        optionVotes: Object.fromEntries(
+          poll.options.map((option) => [option, 0]),
+        ),
         participationRate: 0,
         votesOverTime: [],
         departmentParticipation: [],
@@ -2746,12 +3128,14 @@ export function PollsManagement({ initialPolls }: { initialPolls: Poll[] }) {
                   {categoryBreakdown.map((entry, index) => (
                     <Cell
                       key={entry.name}
-                      fill={[
-                        "var(--primary)",
-                        "var(--chart-secondary)",
-                        "var(--chart-tertiary)",
-                        "var(--chart-accent)",
-                      ][index % 4]}
+                      fill={
+                        [
+                          "var(--primary)",
+                          "var(--chart-secondary)",
+                          "var(--chart-tertiary)",
+                          "var(--chart-accent)",
+                        ][index % 4]
+                      }
                     />
                   ))}
                 </Pie>
@@ -2929,7 +3313,7 @@ export function PollsManagement({ initialPolls }: { initialPolls: Poll[] }) {
         open={Boolean(deleting)}
         onOpenChange={(open) => !open && setDeleting(null)}
         title="Delete Poll"
-        description={`Delete ${deleting?.title ?? "this poll"}? This mock action removes it from the table.`}
+        description={`Delete ${deleting?.title ?? "this poll"}? This removes it from the table.`}
         confirmLabel="Delete Poll"
         onConfirm={deletePoll}
       />

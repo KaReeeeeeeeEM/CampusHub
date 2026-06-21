@@ -5,9 +5,9 @@ export default function SuperAdminSettingsPage() {
   return (
     <main className="mx-auto w-full max-w-none px-4 py-6 sm:px-6">
       <SuperAdminPageHeader
-        eyebrow="Platform configuration"
+        eyebrow="Account settings"
         title="Settings"
-        description="Global configuration for platform operations, security, branding, notifications, integrations, gamification, marketplace, showcase, and audit behavior."
+        description="Manage only the account settings that are active today: sign-in security and notification preferences."
       />
       <SuperAdminSettingsManagement />
     </main>

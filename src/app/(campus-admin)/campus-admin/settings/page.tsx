@@ -5,9 +5,9 @@ export default function CampusAdminSettingsPage() {
   return (
     <main className="w-full max-w-none px-4 py-6 sm:px-6">
       <CampusAdminPageHeader
-        eyebrow="University configuration"
+        eyebrow="Account settings"
         title="Settings"
-        description="Campus-level configuration foundation for future onboarding rules, invitation policy, and module access."
+        description="Manage only the settings that are active today: account security and notification preferences."
       />
       <CampusAdminSettings />
     </main>

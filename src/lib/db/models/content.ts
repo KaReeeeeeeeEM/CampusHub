@@ -34,6 +34,7 @@ const announcementSchema = new Schema(
         "CAREER",
         "HEALTH",
         "GENERAL",
+        "OTHER",
       ],
       required: true,
       trim: true,
@@ -113,6 +114,7 @@ const eventSchema = new Schema(
         "SEMINAR",
         "CAREER",
         "SOCIAL",
+        "OTHER",
       ],
       required: true,
       trim: true,
@@ -122,6 +124,8 @@ const eventSchema = new Schema(
     venue: { type: String, required: true, trim: true },
     locationId: { type: String, default: null, index: true },
     locationName: { type: String, default: null, trim: true },
+    latitude: { type: Number, default: null },
+    longitude: { type: Number, default: null },
     onlineUrl: { type: String, default: null, trim: true },
     startDate: { type: Date, required: true, index: true },
     endDate: { type: Date, required: true, index: true },
@@ -191,6 +195,26 @@ const eventAttendanceSchema = new Schema(
   { collection: "event_attendance", timestamps: true },
 );
 
+const almanacSchema = new Schema(
+  {
+    _id: { type: String, required: true },
+    universityId: { type: String, required: true, index: true },
+    title: { type: String, required: true, trim: true },
+    description: { type: String, default: null, trim: true },
+    academicYear: { type: String, default: null, trim: true, index: true },
+    semester: { type: String, default: null, trim: true, index: true },
+    status: {
+      type: String,
+      enum: ["ACTIVE", "ARCHIVED"],
+      default: "ACTIVE",
+      index: true,
+    },
+    metadata: metadataField,
+    ...tenantLifecycleFields,
+  },
+  { collection: "almanacs", timestamps: true },
+);
+
 const almanacEventSchema = new Schema(
   {
     _id: { type: String, required: true },
@@ -216,6 +240,7 @@ const almanacEventSchema = new Schema(
         "HOLIDAY",
         "WORKSHOP",
         "GENERAL",
+        "OTHER",
       ],
       required: true,
       trim: true,
@@ -643,6 +668,41 @@ const suggestionCommentSchema = new Schema(
   { collection: "suggestion_comments", timestamps: true },
 );
 
+const lostFoundItemSchema = new Schema(
+  {
+    _id: { type: String, required: true },
+    universityId: { type: String, required: true, index: true },
+    reporterId: { type: String, required: true, index: true },
+    reporterName: { type: String, default: null, trim: true },
+    reporterEmail: { type: String, default: null, trim: true },
+    reporterPhone: { type: String, default: null, trim: true },
+    title: { type: String, required: true, trim: true },
+    type: {
+      type: String,
+      enum: ["LOST", "FOUND"],
+      required: true,
+      index: true,
+    },
+    category: { type: String, required: true, trim: true, index: true },
+    status: {
+      type: String,
+      enum: ["OPEN", "MATCHED", "RETURNED", "UNDER_REVIEW"],
+      default: "OPEN",
+      index: true,
+    },
+    location: { type: String, required: true, trim: true, index: true },
+    description: { type: String, required: true, trim: true },
+    verification: { type: String, default: null, trim: true },
+    contact: { type: String, default: null, trim: true },
+    images: { type: [String], default: [] },
+    returnedAt: { type: Date, default: null, index: true },
+    matchedAt: { type: Date, default: null, index: true },
+    metadata: metadataField,
+    ...tenantLifecycleFields,
+  },
+  { collection: "lost_found_items", timestamps: true },
+);
+
 announcementSchema.index({ universityId: 1, publishedAt: -1 });
 announcementSchema.index({ universityId: 1, status: 1, expiresAt: 1 });
 announcementSchema.index({ universityId: 1, slug: 1 }, { unique: true });
@@ -674,6 +734,9 @@ eventAttendanceSchema.index({
   attendanceStatus: 1,
 });
 eventAttendanceSchema.index({ userId: 1, joinedAt: -1 });
+almanacSchema.index({ universityId: 1, academicYear: 1, semester: 1 });
+almanacSchema.index({ universityId: 1, status: 1, updatedAt: -1 });
+almanacSchema.index({ title: "text", description: "text" });
 almanacEventSchema.index({ universityId: 1, academicYear: 1, semester: 1 });
 almanacEventSchema.index({ universityId: 1, startDate: 1, endDate: 1 });
 almanacEventSchema.index({ universityId: 1, visibility: 1, status: 1 });
@@ -738,6 +801,16 @@ suggestionSchema.index({ authorId: 1, createdAt: -1 });
 suggestionSchema.index({ title: "text", description: "text" });
 suggestionCommentSchema.index({ suggestionId: 1, createdAt: 1 });
 suggestionCommentSchema.index({ universityId: 1, authorId: 1, createdAt: -1 });
+lostFoundItemSchema.index({ universityId: 1, status: 1, createdAt: -1 });
+lostFoundItemSchema.index({ universityId: 1, type: 1, status: 1 });
+lostFoundItemSchema.index({ universityId: 1, category: 1, status: 1 });
+lostFoundItemSchema.index({ reporterId: 1, createdAt: -1 });
+lostFoundItemSchema.index({
+  title: "text",
+  description: "text",
+  location: "text",
+  reporterName: "text",
+});
 
 export type AnnouncementDocument = InferSchemaType<typeof announcementSchema>;
 export type AnnouncementViewDocument = InferSchemaType<
@@ -747,6 +820,7 @@ export type EventDocument = InferSchemaType<typeof eventSchema>;
 export type EventAttendanceDocument = InferSchemaType<
   typeof eventAttendanceSchema
 >;
+export type AlmanacDocument = InferSchemaType<typeof almanacSchema>;
 export type AlmanacEventDocument = InferSchemaType<typeof almanacEventSchema>;
 export type AlmanacEventViewDocument = InferSchemaType<
   typeof almanacEventViewSchema
@@ -773,6 +847,7 @@ export type SuggestionDocument = InferSchemaType<typeof suggestionSchema>;
 export type SuggestionCommentDocument = InferSchemaType<
   typeof suggestionCommentSchema
 >;
+export type LostFoundItemDocument = InferSchemaType<typeof lostFoundItemSchema>;
 
 export const AnnouncementModel =
   models.Announcement ||
@@ -785,6 +860,8 @@ export const EventModel =
 export const EventAttendanceModel =
   models.EventAttendance ||
   model<EventAttendanceDocument>("EventAttendance", eventAttendanceSchema);
+export const AlmanacModel =
+  models.Almanac || model<AlmanacDocument>("Almanac", almanacSchema);
 export const AlmanacEventModel =
   models.AlmanacEvent ||
   model<AlmanacEventDocument>("AlmanacEvent", almanacEventSchema);
@@ -832,3 +909,6 @@ export const SuggestionCommentModel =
     "SuggestionComment",
     suggestionCommentSchema,
   );
+export const LostFoundItemModel =
+  models.LostFoundItem ||
+  model<LostFoundItemDocument>("LostFoundItem", lostFoundItemSchema);

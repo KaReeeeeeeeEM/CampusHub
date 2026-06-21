@@ -37,7 +37,12 @@ export function CommitteeTopbar({ user }: CommitteeTopbarProps) {
         <AppearanceDrawer />
         <DashboardThemeToggle />
         <NotificationMenu />
-        <UserMenu name={getUserName(user)} email={user.email} />
+        <UserMenu
+          name={getUserName(user)}
+          email={user.email}
+          avatar={user.avatar}
+          image={user.image}
+        />
       </div>
     </header>
   );

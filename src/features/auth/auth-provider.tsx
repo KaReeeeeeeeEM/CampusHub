@@ -34,6 +34,7 @@ type SessionUser = {
   name?: string | null;
   email: string;
   image?: string | null;
+  avatar?: string | null;
   role?: string | null;
   roles?: string[] | null;
   permissions?: string[] | null;
@@ -74,6 +75,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const setUser = useUserStore((state) => state.setUser);
 
   useEffect(() => {
+    if (session.isPending) {
+      return;
+    }
+
     const sessionUser = session.data?.user as SessionUser | undefined;
 
     if (!sessionUser) {
@@ -86,6 +91,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       name: sessionUser.name ?? null,
       email: sessionUser.email,
       image: sessionUser.image,
+      avatar: sessionUser.avatar ?? sessionUser.image ?? null,
       role: normalizeRole(sessionUser.role),
       roles: normalizeRoles(sessionUser),
       permissions: sessionUser.permissions ?? [],
@@ -97,7 +103,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       departmentId: sessionUser.departmentId ?? null,
       onboardingCompleted: Boolean(sessionUser.onboardingCompleted),
     });
-  }, [session.data?.user, setUser]);
+  }, [session.data?.user, session.isPending, setUser]);
 
   useEffect(() => {
     const sessionUser = session.data?.user as SessionUser | undefined;
@@ -139,8 +145,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const value = useMemo<AuthContextValue>(
     () => ({
-      user: storedUser,
-      isAuthenticated: Boolean(storedUser),
+      user: session.isPending ? null : storedUser,
+      isAuthenticated: session.isPending ? false : Boolean(storedUser),
       isPending: session.isPending,
     }),
     [session.isPending, storedUser],

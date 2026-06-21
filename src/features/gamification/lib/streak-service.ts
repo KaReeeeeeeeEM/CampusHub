@@ -18,18 +18,13 @@ import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
 import { connectMongo } from "@/lib/db/mongodb";
 import { StreakModel, UserModel } from "@/lib/db/models";
+import { STREAK_MILESTONE_REWARDS as KIBO_STREAK_MILESTONE_REWARDS } from "@/lib/kibo/config";
 import type { AuthUser } from "@/types/auth";
 
 const deletedFilter = { deletedAt: null };
 const PLATFORM_STREAK_UNIVERSITY_ID = "platform";
 
-const STREAK_MILESTONES = [
-  { days: 3, badgeSlug: "streak-3-days", xpReward: 15 },
-  { days: 7, badgeSlug: "streak-7-days", xpReward: 35 },
-  { days: 30, badgeSlug: "streak-30-days", xpReward: 150 },
-  { days: 100, badgeSlug: "streak-100-days", xpReward: 500 },
-  { days: 365, badgeSlug: "streak-365-days", xpReward: 2000 },
-] as const;
+const STREAK_MILESTONES = KIBO_STREAK_MILESTONE_REWARDS;
 
 function serializeDate(value: unknown) {
   return value instanceof Date ? value.toISOString() : null;
@@ -223,7 +218,10 @@ function assertCanMutateUserStreak(
   universityId: string,
 ) {
   if (actor.id === userId) return;
-  if (canManageStreaks(actor) && (isSuperAdmin(actor) || actor.universityId === universityId)) {
+  if (
+    canManageStreaks(actor) &&
+    (isSuperAdmin(actor) || actor.universityId === universityId)
+  ) {
     return;
   }
 
@@ -247,7 +245,7 @@ async function grantMilestoneRewards(input: {
   universityId: string;
   streakId: string;
   streakType: StreakTypeInput;
-  milestones: typeof STREAK_MILESTONES[number][];
+  milestones: (typeof STREAK_MILESTONES)[number][];
 }) {
   for (const milestone of input.milestones) {
     await awardXpToUser(input.actor, {
@@ -370,7 +368,9 @@ export async function recordStreakActivity(input: unknown) {
     const diff = dayDiff(existing.lastActivityDate, activityDate);
 
     if (diff < 0) {
-      throw forbidden("Cannot record streak activity before the last activity date.");
+      throw forbidden(
+        "Cannot record streak activity before the last activity date.",
+      );
     }
 
     if (diff === 0) {
@@ -390,7 +390,10 @@ export async function recordStreakActivity(input: unknown) {
     }
   }
 
-  const longestCount = Math.max(Number(existing?.longestCount ?? 0), nextCurrentCount);
+  const longestCount = Math.max(
+    Number(existing?.longestCount ?? 0),
+    nextCurrentCount,
+  );
   const milestones = idempotent
     ? []
     : milestoneRewardsForCount(nextCurrentCount, existingMilestones);
@@ -555,7 +558,9 @@ export async function listStreaks(query: unknown = {}) {
     .limit(filters.limit)
     .lean();
 
-  return streaks.map((streak) => serializeStreak(streak as Record<string, unknown>));
+  return streaks.map((streak) =>
+    serializeStreak(streak as Record<string, unknown>),
+  );
 }
 
 export async function getStreakSummary(query: unknown = {}) {

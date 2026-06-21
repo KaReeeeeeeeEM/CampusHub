@@ -95,6 +95,30 @@ function calculateLevel(totalXp: number) {
   return Math.floor(Math.sqrt(totalXp / 100)) + 1;
 }
 
+async function refreshUniversityXpRanks(universityId: string) {
+  const profiles = await UserXpProfileModel.find({ universityId })
+    .select("_id userId")
+    .sort({ totalXp: -1, updatedAt: 1, _id: 1 })
+    .lean();
+
+  if (!profiles.length) return new Map<string, number>();
+
+  const ranks = new Map(
+    profiles.map((profile, index) => [String(profile.userId), index + 1]),
+  );
+
+  await UserXpProfileModel.bulkWrite(
+    profiles.map((profile, index) => ({
+      updateOne: {
+        filter: { _id: profile._id },
+        update: { $set: { rank: index + 1 } },
+      },
+    })),
+  );
+
+  return ranks;
+}
+
 function periodStart(timeframe: "TODAY" | "WEEK" | "MONTH" | "YEAR") {
   const now = new Date();
   const start = new Date(now);
@@ -182,7 +206,8 @@ function serializeProfile(profile: Record<string, unknown> | null) {
       profile && typeof profile.universityId === "string"
         ? profile.universityId
         : null,
-    userId: profile && typeof profile.userId === "string" ? profile.userId : null,
+    userId:
+      profile && typeof profile.userId === "string" ? profile.userId : null,
     totalXp: Number(profile?.totalXp ?? 0),
     level: Number(profile?.level ?? 1),
     rank: typeof profile?.rank === "number" ? profile.rank : null,
@@ -401,6 +426,11 @@ export async function awardXpToUser(
     userId: payload.userId,
     delta: amount,
   });
+  const ranks = await refreshUniversityXpRanks(user.universityId);
+  const rankedProfile = {
+    ...profile,
+    rank: ranks.get(payload.userId) ?? null,
+  };
 
   await writeAuditLog({
     actorId: actor.id,
@@ -424,6 +454,32 @@ export async function awardXpToUser(
     action: payload.action,
     amount,
   });
+
+  if (amount > 0) {
+    await createRewardEventForUser(actor, {
+      userId: payload.userId,
+      trigger: "XP_EARNED",
+      title: `${amount} XP earned`,
+      description: `You earned ${amount} XP for ${ACTION_LABELS[payload.action]}.`,
+      reward: {
+        type: "XP",
+        label: ACTION_LABELS[payload.action],
+        amount,
+      },
+      xp: amount,
+      animationType: "CONFETTI",
+      entityType: "xp_transaction",
+      entityId: transactionId,
+      metadata: {
+        action: payload.action,
+        xpAwarded: amount,
+        totalXp: profile.totalXp,
+        level: profile.level,
+        sourceType: payload.sourceType,
+        sourceId: payload.sourceId ?? null,
+      },
+    });
+  }
 
   if (profile.levelUp) {
     await createRewardEventForUser(actor, {
@@ -452,7 +508,7 @@ export async function awardXpToUser(
 
   return {
     transaction: serializeTransaction(transaction.toObject()),
-    balance: serializeProfile(profile),
+    balance: serializeProfile(rankedProfile),
     idempotent: false,
   };
 }
@@ -526,6 +582,11 @@ export async function removeXp(input: unknown) {
     },
     { new: true },
   ).lean();
+  const ranks = await refreshUniversityXpRanks(user.universityId);
+  const rankedProfile = {
+    ...(profile as Record<string, unknown> | null),
+    rank: ranks.get(payload.userId) ?? null,
+  };
 
   await writeAuditLog({
     actorId: actor.id,
@@ -545,7 +606,7 @@ export async function removeXp(input: unknown) {
 
   return {
     transaction: serializeTransaction(transaction.toObject()),
-    balance: serializeProfile(profile as Record<string, unknown> | null),
+    balance: serializeProfile(rankedProfile),
   };
 }
 
@@ -566,7 +627,8 @@ export async function getXpHistory(query: unknown = {}) {
   if (filters.action) dbFilter.action = filters.action;
   if (filters.sourceType) dbFilter.sourceType = filters.sourceType;
   if (filters.sourceId) dbFilter.sourceId = filters.sourceId;
-  if (filters.transactionType) dbFilter.transactionType = filters.transactionType;
+  if (filters.transactionType)
+    dbFilter.transactionType = filters.transactionType;
   if (filters.cursor) dbFilter.createdAt = { $lt: new Date(filters.cursor) };
 
   const transactions = await XpTransactionModel.find(dbFilter)

@@ -26,7 +26,12 @@ export function RepresentativeTopbar({ user }: RepresentativeTopbarProps) {
         <AppearanceDrawer />
         <DashboardThemeToggle />
         <NotificationMenu />
-        <UserMenu name={user.name} email={user.email} />
+        <UserMenu
+          name={user.name}
+          email={user.email}
+          avatar={user.avatar}
+          image={user.image}
+        />
       </div>
     </header>
   );

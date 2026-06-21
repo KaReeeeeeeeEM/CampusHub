@@ -2,7 +2,6 @@
 // @ts-nocheck
 "use client";
 
-
 import type {
   EventClickArg,
   EventInput as FullCalendarEventInput,
@@ -14,10 +13,12 @@ import interactionPlugin, {
 import FullCalendar from "@fullcalendar/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import {
   FiAward,
+  FiArrowLeft,
+  FiArrowRight,
   FiBell,
   FiBookOpen,
   FiCalendar,
@@ -29,6 +30,7 @@ import {
   FiGrid,
   FiList,
   FiLoader,
+  FiMap,
   FiMapPin,
   FiMessageSquare,
   FiMoreVertical,
@@ -73,10 +75,20 @@ import {
 import { FadeIn } from "@/components/motion/fade-in";
 import { StaggerContainer } from "@/components/motion/stagger-container";
 import { OpenStreetMap } from "@/components/maps/open-street-map";
+import type { CampusMapRoute } from "@/components/maps/open-street-map";
+import {
+  formatRouteDistance,
+  formatRouteDuration,
+  getCampusRoute,
+  type RouteTravelMode,
+  type RouteCoordinate,
+} from "@/components/maps/route-service";
 import { Drawer } from "@/components/shared/drawer";
 import { Empty } from "@/components/shared/empty";
 import { EmptyState } from "@/components/shared/empty-state";
+import { LoadingState } from "@/components/shared/loading-state";
 import { Modal } from "@/components/shared/modal";
+import { MultiStepProgress } from "@/components/shared/multi-step-progress";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -89,6 +101,7 @@ import {
   isLegacyStudentLeadershipRoleKey,
   isStudentLeadershipPosition,
 } from "@/features/authorization/roles";
+import type { CampusAdminAlmanac } from "@/features/almanac/lib/almanac-service";
 import { useAuth } from "@/features/auth/auth-provider";
 import {
   mockAnnouncements as mockLeadershipAnnouncements,
@@ -115,20 +128,27 @@ import {
   announcementCategories,
   mockAlmanacItems,
   mockAnnouncements,
-  mockCampusLocations,
   mockEvents,
   mockForumTopics,
-  mockNotifications,
   mockStudentProfile,
   mockSuggestions,
   type AlmanacItem,
-  type CampusLocation,
   type ForumTopic,
   type StudentAnnouncement,
   type StudentEvent,
-  type StudentNotification,
   type StudentSuggestion,
 } from "@/features/student-portal/lib/mock-data";
+import { NotificationTabs } from "@/features/notifications/components/notification-tabs";
+import {
+  deleteClientNotification,
+  deleteClientNotifications,
+  fetchClientNotifications,
+  filterNotificationsByTab,
+  getNotificationTabs,
+  markAllClientNotificationsRead,
+  markClientNotificationRead,
+  type ClientNotification,
+} from "@/features/notifications/lib/client-notification-utils";
 import type { DataTableColumn } from "@/components/shared/data-table";
 import { cn } from "@/lib/utils";
 
@@ -139,7 +159,9 @@ function toFiniteNumber(value: unknown, fallback = 0) {
 }
 
 function getSafeShowcaseProfile() {
-  const currentXp = toFiniteNumber(showcaseProfile.currentXp ?? showcaseProfile.xp);
+  const currentXp = toFiniteNumber(
+    showcaseProfile.currentXp ?? showcaseProfile.xp,
+  );
   const nextLevelXp = Math.max(
     toFiniteNumber(showcaseProfile.nextLevelXp, 0),
     currentXp,
@@ -436,14 +458,6 @@ function hasLeadershipPosition(
   return Array.from(new Set([...explicit, ...legacy])).includes(position);
 }
 
-type OwnershipFilter = "all" | "mine" | "other";
-
-const ownershipFilters = [
-  { value: "all", label: "All" },
-  { value: "mine", label: "Mine" },
-  { value: "other", label: "Other" },
-] satisfies Array<{ value: OwnershipFilter; label: string }>;
-
 function getCurrentUserName(user: ReturnType<typeof useAuth>["user"]) {
   return (
     user?.name ||
@@ -465,41 +479,6 @@ function canCreateStudentContent(user: ReturnType<typeof useAuth>["user"]) {
       user?.roles,
       "COMMITTEE_MEMBER",
     )
-  );
-}
-
-function matchesOwnership(
-  item: Record<string, unknown>,
-  ownership: OwnershipFilter,
-  currentUserName: string,
-) {
-  if (ownership === "all") return true;
-  const createdBy = String(item.createdBy ?? item.author ?? "");
-  return ownership === "mine"
-    ? createdBy === currentUserName
-    : createdBy !== currentUserName;
-}
-
-function OwnershipTabs({
-  value,
-  onValueChange,
-}: {
-  value: OwnershipFilter;
-  onValueChange: (value: OwnershipFilter) => void;
-}) {
-  return (
-    <div className="flex gap-2 overflow-x-auto pb-1">
-      {ownershipFilters.map((item) => (
-        <Button
-          key={item.value}
-          type="button"
-          variant={value === item.value ? "default" : "secondary"}
-          onClick={() => onValueChange(item.value)}
-        >
-          {item.label}
-        </Button>
-      ))}
-    </div>
   );
 }
 
@@ -589,15 +568,35 @@ function CreateAnnouncementForm({
   );
 }
 
-const createEventSchema = z.object({
-  title: z.string().min(2, "Event title is required."),
-  category: z.string().min(2, "Category is required."),
-  venue: z.string().min(2, "Venue is required."),
-  date: z.string().min(1, "Date is required."),
-  time: z.string().min(1, "Time is required."),
-  expectedAttendees: z.coerce.number().int().min(0),
-  description: z.string().min(10, "Description is required."),
-});
+const createEventSchema = z
+  .object({
+    title: z.string().min(2, "Event title is required."),
+    category: z.string().min(2, "Category is required."),
+    venue: z.string().min(2, "Venue is required."),
+    latitude: z.coerce.number().optional().nullable(),
+    longitude: z.coerce.number().optional().nullable(),
+    date: z.string().min(1, "Date is required."),
+    time: z.string().min(1, "Time is required."),
+    expectedAttendees: z.coerce.number().int().min(0),
+    description: z.string().min(10, "Description is required."),
+  })
+  .superRefine((values, context) => {
+    if (values.latitude === null || values.latitude === undefined) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Latitude is required for directions.",
+        path: ["latitude"],
+      });
+    }
+
+    if (values.longitude === null || values.longitude === undefined) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Longitude is required for directions.",
+        path: ["longitude"],
+      });
+    }
+  });
 
 type CreateEventInput = z.infer<typeof createEventSchema>;
 
@@ -608,191 +607,225 @@ function CreateEventForm({
   onSubmit: (values: CreateEventInput) => void;
   isSubmitting: boolean;
 }) {
-  const { register, handleSubmit, formState } = useForm<
-    z.input<typeof createEventSchema>,
-    unknown,
-    CreateEventInput
-  >({
-    resolver: zodResolver(createEventSchema),
-    defaultValues: {
-      title: "",
-      category: "General",
-      venue: "",
-      date: "",
-      time: "",
-      expectedAttendees: 0,
-      description: "",
+  const [step, setStep] = useState(0);
+  const { register, handleSubmit, trigger, watch, setValue, formState } =
+    useForm<z.input<typeof createEventSchema>, unknown, CreateEventInput>({
+      resolver: zodResolver(createEventSchema),
+      defaultValues: {
+        title: "",
+        category: "General",
+        venue: "",
+        latitude: null,
+        longitude: null,
+        date: "",
+        time: "",
+        expectedAttendees: 0,
+        description: "",
+      },
+    });
+  const venue = watch("venue");
+  const latitude = watch("latitude");
+  const longitude = watch("longitude");
+  const marker =
+    typeof latitude === "number" &&
+    Number.isFinite(latitude) &&
+    typeof longitude === "number" &&
+    Number.isFinite(longitude)
+      ? { lat: latitude, lng: longitude }
+      : null;
+  const steps = [
+    {
+      title: "Basics",
+      description: "Name the event and describe why people should attend.",
     },
-  });
+    {
+      title: "Location",
+      description: "Enter the venue and verify the map pin for directions.",
+    },
+    {
+      title: "Schedule",
+      description: "Set timing and expected attendance.",
+    },
+  ];
+  const currentStep = steps[step];
+  const isLastStep = step === steps.length - 1;
+
+  async function goNext() {
+    const valid = await trigger(
+      step === 0
+        ? ["title", "category", "description"]
+        : ["venue", "latitude", "longitude"],
+    );
+
+    if (valid) setStep((current) => Math.min(current + 1, steps.length - 1));
+  }
 
   return (
-    <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
-      <div className="grid gap-5 md:grid-cols-2">
-        <label className="block space-y-2 md:col-span-2">
-          <span className="text-sm font-medium">Title</span>
-          <CampusInput
-            {...register("title")}
-            invalid={Boolean(formState.errors.title)}
-            placeholder="Event title"
-          />
-        </label>
-        <label className="block space-y-2">
-          <span className="text-sm font-medium">Category</span>
-          <CampusInput
-            {...register("category")}
-            invalid={Boolean(formState.errors.category)}
-            placeholder="Workshop"
-          />
-        </label>
-        <label className="block space-y-2">
-          <span className="text-sm font-medium">Venue</span>
-          <CampusInput
-            {...register("venue")}
-            invalid={Boolean(formState.errors.venue)}
-            placeholder="Main Hall"
-          />
-        </label>
-        <label className="block space-y-2">
-          <span className="text-sm font-medium">Date</span>
-          <CampusInput
-            {...register("date")}
-            type="date"
-            invalid={Boolean(formState.errors.date)}
-          />
-        </label>
-        <label className="block space-y-2">
-          <span className="text-sm font-medium">Time</span>
-          <CampusInput
-            {...register("time")}
-            placeholder="10:00 AM"
-            invalid={Boolean(formState.errors.time)}
-          />
-        </label>
-        <label className="block space-y-2 md:col-span-2">
-          <span className="text-sm font-medium">Expected Attendees</span>
-          <CampusInput
-            {...register("expectedAttendees")}
-            type="number"
-            invalid={Boolean(formState.errors.expectedAttendees)}
-          />
-        </label>
+    <form
+      className="space-y-5"
+      onSubmit={(event) => {
+        if (!isLastStep) {
+          event.preventDefault();
+          void goNext();
+          return;
+        }
+        void handleSubmit(onSubmit)(event);
+      }}
+    >
+      <MultiStepProgress
+        activeIndex={step}
+        className="mb-8"
+        maxClickableIndex={step}
+        steps={steps.map((item) => ({
+          label: item.title,
+          icon: FiArrowRight,
+        }))}
+        onStepClick={setStep}
+      />
+      <div className="rounded-lg border border-border bg-background p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+          {currentStep.title}
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {currentStep.description}
+        </p>
       </div>
-      <label className="block space-y-2">
-        <span className="text-sm font-medium">Description</span>
-        <CampusTextarea
-          {...register("description")}
-          invalid={Boolean(formState.errors.description)}
-          placeholder="Describe the event."
-        />
-      </label>
-      <Button className="w-full" disabled={isSubmitting} type="submit">
-        {isSubmitting ? <FiLoader className="h-4 w-4 animate-spin" /> : null}
-        Create Event
-      </Button>
-    </form>
-  );
-}
-
-const createPollSchema = z.object({
-  title: z.string().min(2, "Title is required."),
-  question: z.string().min(5, "Question is required."),
-  category: z.string().min(2, "Category is required."),
-  audience: z.string().min(2, "Audience is required."),
-  endDate: z.string().min(1, "End date is required."),
-  description: z.string().min(10, "Description is required."),
-  options: z.string().min(3, "Add at least two options."),
-});
-
-type CreatePollInput = z.infer<typeof createPollSchema>;
-
-function CreatePollForm({
-  onSubmit,
-  isSubmitting,
-}: {
-  onSubmit: (values: CreatePollInput) => void;
-  isSubmitting: boolean;
-}) {
-  const { register, handleSubmit, formState } = useForm<
-    z.input<typeof createPollSchema>,
-    unknown,
-    CreatePollInput
-  >({
-    resolver: zodResolver(createPollSchema),
-    defaultValues: {
-      title: "",
-      question: "",
-      category: "General",
-      audience: "All Students",
-      endDate: "",
-      description: "",
-      options: "Yes\nNo",
-    },
-  });
-
-  return (
-    <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
-      <div className="grid gap-5 md:grid-cols-2">
-        <label className="block space-y-2">
-          <span className="text-sm font-medium">Title</span>
-          <CampusInput
-            {...register("title")}
-            invalid={Boolean(formState.errors.title)}
-            placeholder="Poll title"
-          />
-        </label>
-        <label className="block space-y-2">
-          <span className="text-sm font-medium">End Date</span>
-          <CampusInput
-            {...register("endDate")}
-            type="date"
-            invalid={Boolean(formState.errors.endDate)}
-          />
-        </label>
-        <label className="block space-y-2">
-          <span className="text-sm font-medium">Category</span>
-          <CampusInput
-            {...register("category")}
-            invalid={Boolean(formState.errors.category)}
-            placeholder="General"
-          />
-        </label>
-        <label className="block space-y-2">
-          <span className="text-sm font-medium">Audience</span>
-          <CampusInput
-            {...register("audience")}
-            invalid={Boolean(formState.errors.audience)}
-            placeholder="All Students"
-          />
-        </label>
+      {step === 0 ? (
+        <div className="grid gap-5 md:grid-cols-2">
+          <label className="block space-y-2 md:col-span-2">
+            <span className="text-sm font-medium">Title</span>
+            <CampusInput
+              {...register("title")}
+              invalid={Boolean(formState.errors.title)}
+              placeholder="Event title"
+            />
+          </label>
+          <label className="block space-y-2 md:col-span-2">
+            <span className="text-sm font-medium">Category</span>
+            <CampusInput
+              {...register("category")}
+              invalid={Boolean(formState.errors.category)}
+              placeholder="Workshop"
+            />
+          </label>
+          <label className="block space-y-2 md:col-span-2">
+            <span className="text-sm font-medium">Description</span>
+            <CampusTextarea
+              {...register("description")}
+              invalid={Boolean(formState.errors.description)}
+              placeholder="Describe the event."
+            />
+          </label>
+        </div>
+      ) : null}
+      {step === 1 ? (
+        <div className="grid gap-5 md:grid-cols-2">
+          <label className="block space-y-2 md:col-span-2">
+            <span className="text-sm font-medium">Venue</span>
+            <CampusInput
+              {...register("venue")}
+              invalid={Boolean(formState.errors.venue)}
+              placeholder="Main Hall"
+            />
+          </label>
+          <label className="block space-y-2">
+            <span className="text-sm font-medium">Latitude</span>
+            <CampusInput
+              {...register("latitude")}
+              type="number"
+              step="any"
+              invalid={Boolean(formState.errors.latitude)}
+              placeholder="e.g. -6.7704"
+            />
+          </label>
+          <label className="block space-y-2">
+            <span className="text-sm font-medium">Longitude</span>
+            <CampusInput
+              {...register("longitude")}
+              type="number"
+              step="any"
+              invalid={Boolean(formState.errors.longitude)}
+              placeholder="e.g. 39.2410"
+            />
+          </label>
+          <div className="space-y-2 md:col-span-2">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <FiMapPin className="h-4 w-4" aria-hidden="true" />
+              Map Preview
+            </div>
+            <OpenStreetMap
+              className="h-72 overflow-hidden rounded-lg border border-border"
+              locations={[]}
+              editableMarker={marker}
+              editableMarkerLabel={venue || "Event venue"}
+              onEditableMarkerChange={(coordinates) => {
+                setValue("latitude", coordinates.lat);
+                setValue("longitude", coordinates.lng);
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              Enter coordinates to preview the venue, then drag the pin if it
+              needs adjustment.
+            </p>
+          </div>
+        </div>
+      ) : null}
+      {step === 2 ? (
+        <div className="grid gap-5 md:grid-cols-2">
+          <label className="block space-y-2">
+            <span className="text-sm font-medium">Date</span>
+            <CampusInput
+              {...register("date")}
+              type="date"
+              invalid={Boolean(formState.errors.date)}
+            />
+          </label>
+          <label className="block space-y-2">
+            <span className="text-sm font-medium">Time</span>
+            <CampusInput
+              {...register("time")}
+              placeholder="10:00 AM"
+              invalid={Boolean(formState.errors.time)}
+            />
+          </label>
+          <label className="block space-y-2 md:col-span-2">
+            <span className="text-sm font-medium">Expected Attendees</span>
+            <CampusInput
+              {...register("expectedAttendees")}
+              type="number"
+              invalid={Boolean(formState.errors.expectedAttendees)}
+            />
+          </label>
+        </div>
+      ) : null}
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={step === 0 || isSubmitting}
+          onClick={() => setStep((current) => Math.max(current - 1, 0))}
+        >
+          <FiArrowLeft className="h-4 w-4" aria-hidden="true" />
+          Back
+        </Button>
+        {isLastStep ? (
+          <Button
+            className="w-full sm:w-auto"
+            disabled={isSubmitting}
+            type="submit"
+          >
+            {isSubmitting ? (
+              <FiLoader className="h-4 w-4 animate-spin" />
+            ) : null}
+            Create Event
+          </Button>
+        ) : (
+          <Button className="w-full sm:w-auto" type="button" onClick={goNext}>
+            Next
+            <FiArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Button>
+        )}
       </div>
-      <label className="block space-y-2">
-        <span className="text-sm font-medium">Question</span>
-        <CampusInput
-          {...register("question")}
-          invalid={Boolean(formState.errors.question)}
-          placeholder="What should students vote on?"
-        />
-      </label>
-      <label className="block space-y-2">
-        <span className="text-sm font-medium">Description</span>
-        <CampusTextarea
-          {...register("description")}
-          invalid={Boolean(formState.errors.description)}
-          placeholder="Explain the context for the poll."
-        />
-      </label>
-      <label className="block space-y-2">
-        <span className="text-sm font-medium">Options</span>
-        <CampusTextarea
-          {...register("options")}
-          invalid={Boolean(formState.errors.options)}
-          placeholder={"Yes\nNo"}
-        />
-      </label>
-      <Button className="w-full" disabled={isSubmitting} type="submit">
-        {isSubmitting ? <FiLoader className="h-4 w-4 animate-spin" /> : null}
-        Create Poll
-      </Button>
     </form>
   );
 }
@@ -834,7 +867,10 @@ function formatResultVisibility(value: Poll["resultsVisibility"]) {
 }
 
 function getPollTotalVotes(poll: Poll) {
-  return Object.values(poll.optionVotes).reduce((total, value) => total + value, 0);
+  return Object.values(poll.optionVotes).reduce(
+    (total, value) => total + value,
+    0,
+  );
 }
 
 function getPollOptionPercent(poll: Poll, option: string) {
@@ -862,6 +898,70 @@ function getEmptyFilterName(query: string, filter?: string) {
   const normalizedQuery = query.trim();
 
   return normalizedFilter || normalizedQuery || undefined;
+}
+
+type StudentMapLocationRecord = {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  latitude: number;
+  longitude: number;
+  buildingCode: string | null;
+  status: string;
+};
+
+type StudentMapLocation = {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  code: string;
+  coordinates: string;
+  distance: string;
+  openNow: boolean;
+};
+
+function normalizeStudentMapLocation(
+  location: StudentMapLocationRecord,
+): StudentMapLocation {
+  return {
+    id: location.id,
+    name: location.name,
+    description: location.description ?? "",
+    category: location.category,
+    code: location.buildingCode ?? "Not set",
+    coordinates: `${location.latitude}, ${location.longitude}`,
+    distance: "Available on map",
+    openNow: location.status === "ACTIVE",
+  };
+}
+
+const studentCurrentLocationValue = "CURRENT_LOCATION";
+const studentTravelModeOptions = [
+  { value: "foot", label: "On foot", icon: FiNavigation },
+  { value: "car", label: "By car", icon: FiMap },
+] as const;
+const studentLiveRoutePollIntervalMs = 8_000;
+
+function getStudentRouteUnavailableMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+
+  if (!message || message === "fetch failed") {
+    return "Road routing is temporarily unavailable. Please try again shortly.";
+  }
+
+  return message;
+}
+
+function getStudentLocationCoordinates(
+  location: StudentMapLocation,
+): RouteCoordinate {
+  const [lat, lng] = location.coordinates
+    .split(",")
+    .map((value) => Number(value.trim()));
+
+  return { lat, lng };
 }
 
 function StatusPill({ children }: { children: React.ReactNode }) {
@@ -981,7 +1081,7 @@ const announcementGroupLabels = [
 type AnnouncementGroupLabel = (typeof announcementGroupLabels)[number];
 
 function getAnnouncementGroup(date: string): AnnouncementGroupLabel {
-  const now = new Date("2026-06-12T00:00:00");
+  const now = new Date();
   const announcementDate = new Date(`${date}T00:00:00`);
   const diffDays = Math.floor(
     (now.getTime() - announcementDate.getTime()) / (1000 * 60 * 60 * 24),
@@ -1016,7 +1116,11 @@ function AnnouncementCard({
           <span className="text-xs text-muted-foreground">
             {formatDate(announcement.date)}
           </span>
-          <Button type="button" variant="secondary" onClick={() => onView(announcement)}>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => onView(announcement)}
+          >
             <FiEye className="h-4 w-4" aria-hidden="true" />
             View
           </Button>
@@ -1059,7 +1163,9 @@ function AnnouncementList({
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <StatusPill>{announcement.category}</StatusPill>
-                      {announcement.pinned ? <StatusPill>Pinned</StatusPill> : null}
+                      {announcement.pinned ? (
+                        <StatusPill>Pinned</StatusPill>
+                      ) : null}
                       <span className="text-xs text-muted-foreground">
                         {formatDate(announcement.date)}
                       </span>
@@ -1091,6 +1197,26 @@ function AnnouncementList({
 }
 
 function EventDetails({ event }: { event: StudentEvent }) {
+  const [hasRsvp, setHasRsvp] = useState(
+    ["REGISTERED", "Registered", "CHECKED_IN", "Checked In"].includes(
+      String(event.status),
+    ),
+  );
+  const latitude =
+    typeof event.latitude === "number" && Number.isFinite(event.latitude)
+      ? event.latitude
+      : null;
+  const longitude =
+    typeof event.longitude === "number" && Number.isFinite(event.longitude)
+      ? event.longitude
+      : null;
+  const directionsHref =
+    latitude !== null && longitude !== null
+      ? `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`
+      : event.venue
+        ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(String(event.venue))}`
+        : null;
+
   return (
     <div className="space-y-5">
       <div className="relative aspect-video overflow-hidden rounded-lg">
@@ -1109,17 +1235,39 @@ function EventDetails({ event }: { event: StudentEvent }) {
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
               Event location
             </p>
-            <h3 className="mt-1 text-lg font-semibold text-foreground">{event.venue}</h3>
+            <h3 className="mt-1 text-lg font-semibold text-foreground">
+              {event.venue}
+            </h3>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              Use the campus map to find the venue and plan your route before the event starts.
+              Use the campus map to find the venue and plan your route before
+              the event starts.
             </p>
           </div>
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
-          <Button type="button" variant="secondary" className="w-full">
-            <FiNavigation className="h-4 w-4" aria-hidden="true" />
-            Open Directions
-          </Button>
+          {hasRsvp && directionsHref ? (
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full"
+              onClick={() =>
+                window.open(directionsHref, "_blank", "noopener,noreferrer")
+              }
+            >
+              <FiNavigation className="h-4 w-4" aria-hidden="true" />
+              Get Directions
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full"
+              disabled
+            >
+              <FiNavigation className="h-4 w-4" aria-hidden="true" />
+              RSVP for Directions
+            </Button>
+          )}
           <Button type="button" variant="secondary" className="w-full">
             <FiMapPin className="h-4 w-4" aria-hidden="true" />
             View on Campus Map
@@ -1145,14 +1293,15 @@ function EventDetails({ event }: { event: StudentEvent }) {
       <Button
         className="w-full"
         type="button"
-        onClick={() =>
+        onClick={() => {
+          setHasRsvp(true);
           campusToast.success({
             title: "RSVP Saved",
             description: "Your event RSVP has been recorded for preview.",
-          })
-        }
+          });
+        }}
       >
-        RSVP to Event
+        {hasRsvp ? "RSVP Saved" : "RSVP to Event"}
       </Button>
     </div>
   );
@@ -1542,7 +1691,8 @@ export function StudentDashboardView() {
                         {poll.question}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {poll.category} · {poll.responses.toLocaleString()} responses
+                        {poll.category} · {poll.responses.toLocaleString()}{" "}
+                        responses
                       </p>
                     </div>
                   </div>
@@ -2173,7 +2323,6 @@ export function AnnouncementsPageView() {
   const [query, setQuery] = useState("");
   const [category, setCategory] =
     useState<(typeof announcementCategories)[number]>("All");
-  const [ownership, setOwnership] = useState<OwnershipFilter>("all");
   const [view, setView] = useState<AnnouncementViewMode>("grid");
   const [viewing, setViewing] = useState<StudentAnnouncement | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -2200,13 +2349,9 @@ export function AnnouncementsPageView() {
           .join(" ")
           .toLowerCase()
           .includes(normalized);
-      return (
-        categoryMatch &&
-        queryMatch &&
-        matchesOwnership(announcement, ownership, currentUserName)
-      );
+      return categoryMatch && queryMatch;
     });
-  }, [announcements, category, currentUserName, ownership, query]);
+  }, [announcements, category, query]);
 
   const groupedAnnouncements = useMemo(() => {
     const groups = announcementGroupLabels.reduce(
@@ -2224,7 +2369,9 @@ export function AnnouncementsPageView() {
     return groups;
   }, [filtered]);
 
-  function changeCategory(nextCategory: (typeof announcementCategories)[number]) {
+  function changeCategory(
+    nextCategory: (typeof announcementCategories)[number],
+  ) {
     setCategory(nextCategory);
   }
 
@@ -2241,7 +2388,6 @@ export function AnnouncementsPageView() {
         ...current,
       ]);
       setCreateOpen(false);
-      setOwnership("mine");
       campusToast.success({
         title: "Announcement Created",
         description: "The announcement was added to this page.",
@@ -2264,31 +2410,39 @@ export function AnnouncementsPageView() {
           ) : null
         }
       />
-      <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <SearchBar query={query} setQuery={setQuery} placeholder="Search announcements" />
-        <CampusViewToggle
-          value={view}
-          options={announcementViewOptions}
-          onValueChange={setView}
-        />
-      </div>
-      <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
-        {announcementCategories.map((item) => (
-          <Button
-            key={item}
-            type="button"
-            variant={category === item ? "default" : "secondary"}
-            onClick={() => changeCategory(item)}
-          >
-            {item}
-          </Button>
-        ))}
-      </div>
-      {canCreate ? (
-        <div className="mt-4">
-          <OwnershipTabs value={ownership} onValueChange={setOwnership} />
+      <div className="mt-8 rounded-lg border border-border bg-surface p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <SearchBar
+            query={query}
+            setQuery={setQuery}
+            placeholder="Search announcements"
+          />
+          <CampusViewToggle
+            value={view}
+            options={announcementViewOptions}
+            onValueChange={setView}
+          />
         </div>
-      ) : null}
+        <div className="mt-4">
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-normal text-muted-foreground">
+              Categories
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {announcementCategories.map((item) => (
+                <Button
+                  key={item}
+                  type="button"
+                  variant={category === item ? "default" : "secondary"}
+                  onClick={() => changeCategory(item)}
+                >
+                  {item}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
       {filtered.length > 0 && view === "grid" ? (
         <div
           key={`announcements-grid-${category}-${query.trim() || "all"}-${filtered.length}`}
@@ -2362,7 +2516,6 @@ export function EventsPageView() {
   const { user } = useAuth();
   const [events, setEvents] = useState(mockEvents);
   const [query, setQuery] = useState("");
-  const [ownership, setOwnership] = useState<OwnershipFilter>("all");
   const [view, setView] = useState<StudentEventsViewMode>("cards");
   const [viewing, setViewing] = useState<StudentEvent | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -2381,11 +2534,9 @@ export function EventsPageView() {
           .toLowerCase()
           .includes(normalized);
 
-      return (
-        queryMatch && matchesOwnership(event, ownership, currentUserName)
-      );
+      return queryMatch;
     });
-  }, [currentUserName, events, ownership, query]);
+  }, [events, query]);
   const calendarEvents = useMemo<FullCalendarEventInput[]>(
     () =>
       filtered.map((event) => ({
@@ -2435,7 +2586,6 @@ export function EventsPageView() {
         ...current,
       ]);
       setCreateOpen(false);
-      setOwnership("mine");
       campusToast.success({
         title: "Event Created",
         description: "The event was added to this page.",
@@ -2470,11 +2620,6 @@ export function EventsPageView() {
           onValueChange={setView}
         />
       </div>
-      {canCreate && tab !== "my-votes" ? (
-        <div className="mt-4">
-          <OwnershipTabs value={ownership} onValueChange={setOwnership} />
-        </div>
-      ) : null}
       {view === "cards" ? (
         filtered.length > 0 ? (
           <StaggerContainer className="mt-6 grid gap-5 lg:grid-cols-3">
@@ -2654,20 +2799,73 @@ function isSameAlmanacDay(a: string, b: string) {
   return a.slice(0, 10) === b.slice(0, 10);
 }
 
-export function AlmanacPageView() {
+function getAlmanacItemType(
+  event: CampusAdminAlmanac["events"][number],
+): string {
+  if (event.isDeadline) return "Deadline";
+  const type = String(event.eventType ?? "General").toLowerCase();
+
+  if (type.includes("exam")) return "Exam";
+  if (type.includes("registration")) return "Registration";
+  if (type.includes("holiday")) return "Holiday";
+
+  return type
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function flattenAlmanacItems(almanacs: CampusAdminAlmanac[]) {
+  return almanacs.flatMap((almanac) =>
+    almanac.events.map((event) => {
+      const startDate = event.startDate ?? event.createdAt ?? "";
+      const date = startDate || new Date().toISOString();
+
+      return {
+        id: event.id,
+        almanacId: almanac.id,
+        title: event.title,
+        type: getAlmanacItemType(event),
+        date,
+        time: event.isAllDay
+          ? "All day"
+          : new Date(date).toLocaleTimeString(undefined, {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+        location: almanac.title,
+        description:
+          event.description ??
+          almanac.description ??
+          "No description has been added for this almanac item.",
+      };
+    }),
+  );
+}
+
+export function AlmanacPageView({
+  initialAlmanacs = [],
+}: {
+  initialAlmanacs?: CampusAdminAlmanac[];
+}) {
   const [view, setView] = useState<StudentAlmanacViewMode>("calendar");
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("All");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [viewing, setViewing] = useState<AlmanacItem | null>(null);
+  const almanacItems = useMemo(
+    () => flattenAlmanacItems(initialAlmanacs),
+    [initialAlmanacs],
+  );
   const almanacTypes = [
     "All",
-    ...Array.from(new Set(mockAlmanacItems.map((item) => item.type))),
+    ...Array.from(new Set(almanacItems.map((item) => item.type))),
   ];
   const filtered = useMemo(() => {
     const normalized = query.toLowerCase().trim();
 
-    return mockAlmanacItems.filter((item) => {
+    return almanacItems.filter((item) => {
       const typeMatch = typeFilter === "All" || item.type === typeFilter;
       const queryMatch =
         !normalized ||
@@ -2678,7 +2876,7 @@ export function AlmanacPageView() {
 
       return typeMatch && queryMatch;
     });
-  }, [query, typeFilter]);
+  }, [almanacItems, query, typeFilter]);
   const timelineItems = [...filtered].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
   );
@@ -2705,19 +2903,17 @@ export function AlmanacPageView() {
     [filtered],
   );
   const selectedDateItems = selectedDate
-    ? mockAlmanacItems.filter((item) =>
-        isSameAlmanacDay(item.date, selectedDate),
-      )
+    ? almanacItems.filter((item) => isSameAlmanacDay(item.date, selectedDate))
     : [];
-  const deadlines = mockAlmanacItems.filter((item) => item.type === "Deadline");
-  const exams = mockAlmanacItems.filter((item) => item.type === "Exam");
+  const deadlines = almanacItems.filter((item) => item.type === "Deadline");
+  const exams = almanacItems.filter((item) => item.type === "Exam");
 
   function openCalendarDate(arg: DateClickArg) {
     setSelectedDate(arg.dateStr);
   }
 
   function openCalendarEvent(arg: EventClickArg) {
-    const item = mockAlmanacItems.find((event) => event.id === arg.event.id);
+    const item = almanacItems.find((event) => event.id === arg.event.id);
     if (item) {
       setViewing(item);
     }
@@ -3085,29 +3281,51 @@ export function AlmanacPageView() {
   );
 }
 
-export function MapPageView() {
+export function MapPageView({
+  initialLocations,
+}: {
+  initialLocations: StudentMapLocationRecord[];
+}) {
+  const locations = useMemo(
+    () => initialLocations.map(normalizeStudentMapLocation),
+    [initialLocations],
+  );
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
-  const [viewing, setViewing] = useState<CampusLocation | null>(null);
+  const [viewing, setViewing] = useState<StudentMapLocation | null>(null);
   const [selectedLocationId, setSelectedLocationId] = useState(
-    mockCampusLocations[0]?.id ?? "",
+    locations[0]?.id ?? "",
   );
-  const [startingPoint, setStartingPoint] = useState("Current location");
+  const [startingPoint, setStartingPoint] = useState(
+    studentCurrentLocationValue,
+  );
   const [routeDestinationId, setRouteDestinationId] = useState(
-    mockCampusLocations[0]?.id ?? "",
+    locations[0]?.id ?? "",
   );
+  const [activeRoute, setActiveRoute] = useState<CampusMapRoute | null>(null);
+  const [routeDistanceMeters, setRouteDistanceMeters] = useState(null);
+  const [routeDurationSeconds, setRouteDurationSeconds] = useState(null);
+  const [routeSource, setRouteSource] = useState(null);
+  const [travelMode, setTravelMode] = useState<RouteTravelMode>("foot");
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [isRouteLive, setIsRouteLive] = useState(false);
+  const [isRouteRefreshing, setIsRouteRefreshing] = useState(false);
+  const [lastRouteUpdatedAt, setLastRouteUpdatedAt] = useState<Date | null>(
+    null,
+  );
+  const routeRefreshInFlightRef = useRef(false);
   const categories = [
     "All",
-    ...Array.from(new Set(mockCampusLocations.map((item) => item.category))),
+    ...Array.from(new Set(locations.map((item) => item.category))),
   ];
   const startingPoints = [
-    "Current location",
-    "Main Gate",
-    "Student Center",
-    "CoICT Entrance",
-    "Main Library",
+    { value: studentCurrentLocationValue, label: "Current location" },
+    ...locations.map((location) => ({
+      value: location.id,
+      label: location.name,
+    })),
   ];
-  const filtered = mockCampusLocations.filter((location) => {
+  const filtered = locations.filter((location) => {
     const categoryMatch = category === "All" || location.category === category;
     const queryMatch =
       !query ||
@@ -3118,16 +3336,196 @@ export function MapPageView() {
     return categoryMatch && queryMatch;
   });
   const selectedLocation =
-    mockCampusLocations.find(
-      (location) => location.id === selectedLocationId,
-    ) ??
-    mockCampusLocations[0] ??
+    locations.find((location) => location.id === selectedLocationId) ??
+    locations[0] ??
     null;
   const routeDestination =
-    mockCampusLocations.find(
-      (location) => location.id === routeDestinationId,
-    ) ?? selectedLocation;
-  const hasCampusLocations = mockCampusLocations.length > 0;
+    locations.find((location) => location.id === routeDestinationId) ??
+    selectedLocation;
+  const hasCampusLocations = locations.length > 0;
+  const startingLocation =
+    startingPoint === studentCurrentLocationValue
+      ? null
+      : (locations.find((location) => location.id === startingPoint) ?? null);
+  const startingPointLabel =
+    startingPoint === studentCurrentLocationValue
+      ? "Current location"
+      : (startingLocation?.name ?? "Starting point");
+
+  async function getStudentCurrentCoordinates() {
+    if (!("geolocation" in navigator)) {
+      throw new Error("Current location is not available in this browser.");
+    }
+
+    return new Promise<RouteCoordinate>((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) =>
+          resolve({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          }),
+        () => reject(new Error("Unable to access your current location.")),
+        {
+          enableHighAccuracy: true,
+          maximumAge: 3_000,
+          timeout: 12_000,
+        },
+      );
+    });
+  }
+
+  async function resolveStudentRouteOrigin() {
+    if (startingPoint === studentCurrentLocationValue) {
+      return {
+        coordinates: await getStudentCurrentCoordinates(),
+        label: "Current location",
+      };
+    }
+
+    if (!startingLocation) {
+      throw new Error("Choose a valid starting point.");
+    }
+
+    return {
+      coordinates: getStudentLocationCoordinates(startingLocation),
+      label: startingLocation.name,
+    };
+  }
+
+  function clearStudentRouteNavigation() {
+    setActiveRoute(null);
+    setRouteDistanceMeters(null);
+    setRouteDurationSeconds(null);
+    setRouteSource(null);
+    setIsRouteLive(false);
+    setIsRouteRefreshing(false);
+    setLastRouteUpdatedAt(null);
+  }
+
+  async function updateStudentRouteNavigation({
+    showToast,
+    logDirections,
+  }: {
+    showToast: boolean;
+    logDirections: boolean;
+  }) {
+    if (!routeDestination) {
+      if (showToast) {
+        campusToast.error({
+          title: "Destination Required",
+          description: "Choose a campus location before starting navigation.",
+        });
+      }
+      return false;
+    }
+
+    try {
+      const origin = await resolveStudentRouteOrigin();
+      const destination = getStudentLocationCoordinates(routeDestination);
+      const route = await getCampusRoute(
+        origin.coordinates,
+        destination,
+        travelMode,
+      );
+
+      if (logDirections) {
+        await fetch(`/api/map-locations/${routeDestination.id}/directions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            originLatitude: origin.coordinates.lat,
+            originLongitude: origin.coordinates.lng,
+          }),
+        });
+      }
+
+      setActiveRoute({
+        origin: {
+          ...origin.coordinates,
+          label: origin.label,
+        },
+        destinationId: routeDestination.id,
+        path: route.path,
+      });
+      setRouteDistanceMeters(route.distanceMeters);
+      setRouteDurationSeconds(route.durationSeconds);
+      setRouteSource(route.source);
+      setLastRouteUpdatedAt(new Date());
+      setSelectedLocationId(routeDestination.id);
+      setRouteDestinationId(routeDestination.id);
+      if (showToast) {
+        campusToast.success({
+          title: "Live Route Started",
+          description: `${formatRouteDistance(route.distanceMeters)} route to ${routeDestination.name}.`,
+        });
+      }
+      return true;
+    } catch (error) {
+      if (showToast) {
+        campusToast.error({
+          title: "Navigation Unavailable",
+          description: getStudentRouteUnavailableMessage(error),
+        });
+      }
+      return false;
+    }
+  }
+
+  async function refreshStudentRouteNavigation() {
+    if (
+      routeRefreshInFlightRef.current ||
+      !isRouteLive ||
+      startingPoint !== studentCurrentLocationValue
+    ) {
+      return;
+    }
+
+    routeRefreshInFlightRef.current = true;
+    setIsRouteRefreshing(true);
+
+    try {
+      await updateStudentRouteNavigation({
+        showToast: false,
+        logDirections: false,
+      });
+    } finally {
+      routeRefreshInFlightRef.current = false;
+      setIsRouteRefreshing(false);
+    }
+  }
+
+  async function startStudentRouteNavigation() {
+    setIsNavigating(true);
+
+    try {
+      const routeReady = await updateStudentRouteNavigation({
+        showToast: true,
+        logDirections: true,
+      });
+      setIsRouteLive(
+        routeReady && startingPoint === studentCurrentLocationValue,
+      );
+    } finally {
+      setIsNavigating(false);
+    }
+  }
+
+  useEffect(() => {
+    if (
+      !isRouteLive ||
+      !activeRoute ||
+      startingPoint !== studentCurrentLocationValue ||
+      !routeDestination
+    ) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void refreshStudentRouteNavigation();
+    }, studentLiveRoutePollIntervalMs);
+
+    return () => window.clearInterval(intervalId);
+  });
 
   return (
     <StudentShell>
@@ -3181,6 +3579,7 @@ export function MapPageView() {
                       onClick={() => {
                         setSelectedLocationId(location.id);
                         setRouteDestinationId(location.id);
+                        clearStudentRouteNavigation();
                       }}
                     >
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
@@ -3219,69 +3618,19 @@ export function MapPageView() {
             <div className="relative min-h-[34rem] overflow-hidden lg:min-h-0">
               <OpenStreetMap
                 className="absolute inset-0 z-0"
-                locations={mockCampusLocations}
+                locations={locations}
                 routeDestinationId={routeDestinationId}
+                route={activeRoute}
                 selectedLocationId={selectedLocationId}
                 onSelectLocation={(locationId) => {
                   setSelectedLocationId(locationId);
                   setRouteDestinationId(locationId);
+                  clearStudentRouteNavigation();
                 }}
               />
             </div>
             <aside className="min-h-0 overflow-y-auto border-t border-border bg-background/55 p-6 lg:border-l lg:border-t-0 xl:p-8">
-              {selectedLocation ? (
-                <div className="space-y-6">
-                  <div>
-                    <StatusPill>{selectedLocation.category}</StatusPill>
-                    <h2 className="mt-3 text-lg font-semibold">
-                      {selectedLocation.name}
-                    </h2>
-                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                      {selectedLocation.description}
-                    </p>
-                  </div>
-                  <div className="grid gap-3">
-                    <div className="rounded-md border border-border p-3">
-                      <p className="text-xs uppercase text-muted-foreground">
-                        Code
-                      </p>
-                      <p className="mt-1 text-sm font-semibold">
-                        {selectedLocation.code}
-                      </p>
-                    </div>
-                    <div className="rounded-md border border-border p-3">
-                      <p className="text-xs uppercase text-muted-foreground">
-                        Distance
-                      </p>
-                      <p className="mt-1 text-sm font-semibold">
-                        {selectedLocation.distance}
-                      </p>
-                    </div>
-                    <div className="rounded-md border border-border p-3">
-                      <p className="text-xs uppercase text-muted-foreground">
-                        Open Now
-                      </p>
-                      <p className="mt-1 text-sm font-semibold">
-                        {selectedLocation.openNow ? "Yes" : "No"}
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    className="w-full"
-                    type="button"
-                    variant="secondary"
-                    onClick={() => setViewing(selectedLocation)}
-                  >
-                    <FiNavigation className="h-4 w-4" aria-hidden="true" />
-                    View Details
-                  </Button>
-                </div>
-              ) : null}
-              <div
-                className={cn(
-                  selectedLocation ? "mt-8 border-t border-border pt-8" : "",
-                )}
-              >
+              <div>
                 <div className="flex items-center gap-2">
                   <span className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary">
                     <FiTarget className="h-4 w-4" aria-hidden="true" />
@@ -3307,8 +3656,8 @@ export function MapPageView() {
                       </SelectTrigger>
                       <SelectContent>
                         {startingPoints.map((point) => (
-                          <SelectItem key={point} value={point}>
-                            {point}
+                          <SelectItem key={point.value} value={point.value}>
+                            {point.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -3324,13 +3673,14 @@ export function MapPageView() {
                       onValueChange={(value) => {
                         setRouteDestinationId(value);
                         setSelectedLocationId(value);
+                        clearStudentRouteNavigation();
                       }}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Choose destination" />
                       </SelectTrigger>
                       <SelectContent>
-                        {mockCampusLocations.map((location) => (
+                        {locations.map((location) => (
                           <SelectItem key={location.id} value={location.id}>
                             {location.name}
                           </SelectItem>
@@ -3338,20 +3688,78 @@ export function MapPageView() {
                       </SelectContent>
                     </Select>
                   </label>
+                  <div className="space-y-2">
+                    <span className="text-xs font-semibold uppercase text-muted-foreground">
+                      Travel mode
+                    </span>
+                    <div className="grid grid-cols-2 rounded-lg border border-border bg-background p-1">
+                      {studentTravelModeOptions.map((option) => {
+                        const Icon = option.icon;
+                        const active = travelMode === option.value;
+
+                        return (
+                          <Button
+                            key={option.value}
+                            className={cn(
+                              "h-9 px-2 text-xs",
+                              active
+                                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                                : "bg-transparent text-muted-foreground hover:bg-surface-muted hover:text-foreground",
+                            )}
+                            type="button"
+                            variant="ghost"
+                            onClick={() => {
+                              setTravelMode(option.value);
+                              clearStudentRouteNavigation();
+                            }}
+                          >
+                            <Icon className="h-4 w-4" aria-hidden="true" />
+                            {option.label}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
                   <div className="rounded-lg border border-border bg-surface p-5">
                     <p className="text-sm font-semibold">Route preview</p>
                     {hasCampusLocations ? (
                       <>
                         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                          {startingPoint} to{" "}
+                          {startingPointLabel} to{" "}
                           <span className="font-medium text-foreground">
                             {routeDestination?.name ?? "destination"}
                           </span>
                         </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Estimated campus walk:{" "}
-                          {routeDestination?.distance ?? "unavailable"}.
-                        </p>
+                        {routeDistanceMeters !== null ? (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {formatRouteDistance(routeDistanceMeters)} ·{" "}
+                            {routeDurationSeconds !== null
+                              ? formatRouteDuration(routeDurationSeconds)
+                              : "duration unavailable"}
+                            {" · "}
+                            {travelMode === "car" ? "by car" : "on foot"}
+                            {routeSource === "road" ? " · follows roads" : ""}
+                            {isRouteLive ? " · live" : ""}
+                          </p>
+                        ) : (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Click Navigate to draw this route on the map.
+                          </p>
+                        )}
+                        {lastRouteUpdatedAt ? (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            {isRouteRefreshing
+                              ? "Refreshing route..."
+                              : `Updated ${lastRouteUpdatedAt.toLocaleTimeString(
+                                  [],
+                                  {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    second: "2-digit",
+                                  },
+                                )}`}
+                          </p>
+                        ) : null}
                       </>
                     ) : (
                       <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -3362,20 +3770,27 @@ export function MapPageView() {
                   </div>
                   <Button
                     className="w-full"
-                    disabled={!hasCampusLocations}
+                    disabled={!hasCampusLocations || isNavigating}
                     type="button"
-                    onClick={() =>
-                      campusToast.info({
-                        title: "Navigation Preview",
-                        description: `Route from ${startingPoint} to ${
-                          routeDestination?.name ?? "selected destination"
-                        } is ready for map integration.`,
-                      })
-                    }
+                    onClick={startStudentRouteNavigation}
                   >
-                    <FiNavigation className="h-4 w-4" />
-                    Navigate
+                    {isNavigating ? (
+                      <FiLoader className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <FiNavigation className="h-4 w-4" />
+                    )}
+                    {isRouteLive ? "Restart Live Navigation" : "Navigate"}
                   </Button>
+                  {isRouteLive ? (
+                    <Button
+                      className="w-full"
+                      type="button"
+                      variant="secondary"
+                      onClick={() => setIsRouteLive(false)}
+                    >
+                      Stop Live Updates
+                    </Button>
+                  ) : null}
                 </div>
               </div>
             </aside>
@@ -3418,14 +3833,6 @@ export function MapPageView() {
     </StudentShell>
   );
 }
-
-const topicSchema = z.object({
-  title: z.string().min(5, "Topic title is required."),
-  category: z.string().min(2, "Category is required."),
-  summary: z.string().min(10, "Summary is required."),
-});
-
-type TopicInput = z.infer<typeof topicSchema>;
 
 type ForumReaction = {
   likes: number;
@@ -3516,7 +3923,9 @@ function ForumMemberButton({
         {member.initials}
       </span>
       <span className="min-w-0 text-left">
-        <span className="block truncate text-sm font-medium">{member.name}</span>
+        <span className="block truncate text-sm font-medium">
+          {member.name}
+        </span>
         <span className="block truncate text-xs text-muted-foreground">
           {member.role}
         </span>
@@ -3575,89 +3984,9 @@ function getInitialForumReactions() {
   ) as Record<string, ForumReaction>;
 }
 
-function CreateTopicForm({
-  onSubmit,
-  isSubmitting,
-}: {
-  onSubmit: (values: TopicInput) => void;
-  isSubmitting: boolean;
-}) {
-  const { register, handleSubmit, setValue, watch, formState } = useForm<
-    z.input<typeof topicSchema>,
-    unknown,
-    TopicInput
-  >({
-    resolver: zodResolver(topicSchema),
-    defaultValues: { title: "", category: "", summary: "" },
-  });
-  const selectedCategory = watch("category");
-  const forumCategories = [
-    "Academic",
-    "Technology",
-    "Campus Life",
-    "Student Welfare",
-    "Clubs",
-    "Questions",
-  ];
-
-  return (
-    <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
-      <label className="block space-y-3">
-        <span className="block text-sm font-medium">Topic</span>
-        <CampusInput
-          {...register("title")}
-          invalid={Boolean(formState.errors.title)}
-          placeholder="Can computer labs stay open later?"
-        />
-      </label>
-      <div className="space-y-3">
-        <span className="block text-sm font-medium">Category</span>
-        <Select
-          value={selectedCategory}
-          onValueChange={(value) =>
-            setValue("category", value, {
-              shouldDirty: true,
-              shouldValidate: true,
-            })
-          }
-        >
-          <SelectTrigger
-            className={cn(
-              "w-full",
-              formState.errors.category && "border-destructive",
-            )}
-          >
-            <SelectValue placeholder="Select discussion category" />
-          </SelectTrigger>
-          <SelectContent>
-            {forumCategories.map((category) => (
-              <SelectItem key={category} value={category}>
-                {category}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <label className="block space-y-3">
-        <span className="block text-sm font-medium">Summary</span>
-        <CampusTextarea
-          {...register("summary")}
-          invalid={Boolean(formState.errors.summary)}
-          placeholder="Describe the discussion clearly so students know how to engage."
-        />
-      </label>
-      <Button className="w-full sm:w-auto" disabled={isSubmitting} type="submit">
-        {isSubmitting ? <FiLoader className="h-4 w-4 animate-spin" /> : null}
-        Create Topic
-      </Button>
-    </form>
-  );
-}
-
 export function ForumPageView() {
   const [topics, setTopics] = useState(mockForumTopics);
   const [query, setQuery] = useState("");
-  const [createOpen, setCreateOpen] = useState(false);
   const [selectedTopicId, setSelectedTopicId] = useState(
     mockForumTopics[0]?.id ?? "",
   );
@@ -3674,7 +4003,6 @@ export function ForumPageView() {
     useState<ForumMember | null>(null);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [replyingTo, setReplyingTo] = useState<ForumComment | null>(null);
-  const [isPending, startTransition] = useTransition();
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -3690,9 +4018,15 @@ export function ForumPageView() {
 
   const selectedTopic =
     topics.find((topic) => topic.id === selectedTopicId) ?? filtered[0] ?? null;
-  const selectedComments = selectedTopic ? comments[selectedTopic.id] ?? [] : [];
+  const selectedComments = selectedTopic
+    ? (comments[selectedTopic.id] ?? [])
+    : [];
   const selectedReaction = selectedTopic
-    ? reactions[selectedTopic.id] ?? { likes: 0, dislikes: 0, userReaction: null }
+    ? (reactions[selectedTopic.id] ?? {
+        likes: 0,
+        dislikes: 0,
+        userReaction: null,
+      })
     : null;
   const engagedMembers = useMemo(() => {
     if (!selectedTopic) return [];
@@ -3716,36 +4050,6 @@ export function ForumPageView() {
   function openNotifications(member: ForumMember) {
     setNotificationMember(member);
     setNotificationOpen(true);
-  }
-
-  function createTopic(values: TopicInput) {
-    startTransition(() => {
-      const id = `topic-${Date.now()}`;
-      setTopics((current) => [
-        {
-          id,
-          replies: 0,
-          views: 0,
-          author: mockStudentProfile.name,
-          pinned: false,
-          trending: false,
-          createdAt: "2026-06-10",
-          ...values,
-        },
-        ...current,
-      ]);
-      setSelectedTopicId(id);
-      setComments((current) => ({ ...current, [id]: [] }));
-      setReactions((current) => ({
-        ...current,
-        [id]: { likes: 0, dislikes: 0, userReaction: null },
-      }));
-      setCreateOpen(false);
-      campusToast.success({
-        title: "Topic Created",
-        description: "Your forum topic is ready for discussion.",
-      });
-    });
   }
 
   function reactToTopic(topic: ForumTopic, reaction: "like" | "dislike") {
@@ -3843,12 +4147,6 @@ export function ForumPageView() {
         eyebrow="Forum"
         title="Campus conversations."
         description="Discuss academics, campus life, student support, technology, clubs, and ideas with your college community."
-        action={
-          <Button type="button" onClick={() => setCreateOpen(true)}>
-            <FiPlus className="h-4 w-4" aria-hidden="true" />
-            Create Topic
-          </Button>
-        }
       />
       <div className="mt-8">
         <SearchBar
@@ -3866,23 +4164,29 @@ export function ForumPageView() {
                 {filtered.length} discussions
               </p>
             </div>
-            <StatusPill>{topics.filter((topic) => topic.trending).length} trending</StatusPill>
+            <StatusPill>
+              {topics.filter((topic) => topic.trending).length} trending
+            </StatusPill>
           </div>
           <div className="mt-4 space-y-2">
-            {["Pinned", "Trending", "Academic", "Technology", "Campus Life"].map(
-              (label) => (
-                <Button
-                  key={label}
-                  className="h-8 rounded-full"
-                  size="sm"
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setQuery(label)}
-                >
-                  {label}
-                </Button>
-              ),
-            )}
+            {[
+              "Pinned",
+              "Trending",
+              "Academic",
+              "Technology",
+              "Campus Life",
+            ].map((label) => (
+              <Button
+                key={label}
+                className="h-8 rounded-full"
+                size="sm"
+                type="button"
+                variant="secondary"
+                onClick={() => setQuery(label)}
+              >
+                {label}
+              </Button>
+            ))}
           </div>
           <div className="mt-5 space-y-2">
             {filtered.slice(0, 8).map((topic) => (
@@ -3917,8 +4221,12 @@ export function ForumPageView() {
               <div className="flex h-full min-h-0 flex-col">
                 <div className="border-b border-border p-5">
                   <div className="flex flex-wrap items-center gap-2">
-                    {selectedTopic.pinned ? <StatusPill>Pinned</StatusPill> : null}
-                    {selectedTopic.trending ? <StatusPill>Trending</StatusPill> : null}
+                    {selectedTopic.pinned ? (
+                      <StatusPill>Pinned</StatusPill>
+                    ) : null}
+                    {selectedTopic.trending ? (
+                      <StatusPill>Trending</StatusPill>
+                    ) : null}
                     <StatusPill>{selectedTopic.category}</StatusPill>
                   </div>
                   <h2 className="mt-4 text-xl font-semibold">
@@ -4223,14 +4531,6 @@ export function ForumPageView() {
           ) : null}
         </aside>
       </section>
-      <Modal
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        title="Create Topic"
-        description="Start a respectful college discussion."
-      >
-        <CreateTopicForm onSubmit={createTopic} isSubmitting={isPending} />
-      </Modal>
       <Drawer
         open={membersOpen}
         onOpenChange={setMembersOpen}
@@ -4271,7 +4571,9 @@ export function ForumPageView() {
                   {selectedProfile.initials}
                 </span>
                 <div className="min-w-0">
-                  <p className="text-lg font-semibold">{selectedProfile.name}</p>
+                  <p className="text-lg font-semibold">
+                    {selectedProfile.name}
+                  </p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {selectedProfile.role}
                   </p>
@@ -4378,20 +4680,12 @@ const studentPollTabs: {
   { value: "my-votes", label: "My Votes", icon: FiClipboard },
 ];
 
-const mockStudentVotes = [
-  {
-    id: "vote-hackathon-theme",
-    pollId: "poll-hackathon-theme",
-    selectedOption: "Yes, this semester",
-    votedAt: "2026-06-12",
-  },
-  {
-    id: "vote-sports-kit",
-    pollId: "poll-sports-kit",
-    selectedOption: "Modern",
-    votedAt: "2026-02-22",
-  },
-];
+const studentVotes: Array<{
+  id: string;
+  pollId: string;
+  selectedOption: string;
+  votedAt: string;
+}> = [];
 
 function PollResultBars({
   poll,
@@ -4411,7 +4705,12 @@ function PollResultBars({
               <span className="font-medium">{option}</span>
               <span className="text-muted-foreground">{percent}%</span>
             </div>
-            <div className={cn("overflow-hidden rounded-full bg-surface-muted", compact ? "h-2" : "h-2.5")}>
+            <div
+              className={cn(
+                "overflow-hidden rounded-full bg-surface-muted",
+                compact ? "h-2" : "h-2.5",
+              )}
+            >
               <div
                 className="h-full rounded-full bg-primary transition-all duration-500"
                 style={{ width: `${percent}%` }}
@@ -4448,7 +4747,9 @@ function PollCard({
               <StatusPill>{poll.category}</StatusPill>
               <StatusPill>{poll.visibility}</StatusPill>
             </div>
-            <StatusPill>{formatTimeRemaining(poll.endDate, poll.status)}</StatusPill>
+            <StatusPill>
+              {formatTimeRemaining(poll.endDate, poll.status)}
+            </StatusPill>
           </div>
           <h2 className="mt-5 text-lg font-semibold leading-snug">
             {poll.question}
@@ -4472,8 +4773,14 @@ function PollCard({
               <PollResultBars poll={poll} compact />
             </div>
           ) : (
-            <div className={cn(resultsBlockClassName, "border-dashed text-sm text-muted-foreground")}>
-              Results are {formatResultVisibility(poll.resultsVisibility).toLowerCase()}.
+            <div
+              className={cn(
+                resultsBlockClassName,
+                "border-dashed text-sm text-muted-foreground",
+              )}
+            >
+              Results are{" "}
+              {formatResultVisibility(poll.resultsVisibility).toLowerCase()}.
             </div>
           )}
           <div className="mt-auto grid gap-3 pt-5 sm:grid-cols-2">
@@ -4482,11 +4789,19 @@ function PollCard({
                 Vote
               </Button>
             ) : (
-              <Button type="button" variant="secondary" onClick={() => onView(poll)}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => onView(poll)}
+              >
                 View Results
               </Button>
             )}
-            <Button type="button" variant="secondary" onClick={() => onView(poll)}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => onView(poll)}
+            >
               <FiEye className="h-4 w-4" aria-hidden="true" />
               View Details
             </Button>
@@ -4538,16 +4853,24 @@ function VotePollModal({
         <div className="space-y-5">
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-lg border border-border bg-background p-4">
-              <p className="text-xs uppercase text-muted-foreground">Category</p>
+              <p className="text-xs uppercase text-muted-foreground">
+                Category
+              </p>
               <p className="mt-1 font-semibold">{poll.category}</p>
             </div>
             <div className="rounded-lg border border-border bg-background p-4">
-              <p className="text-xs uppercase text-muted-foreground">Responses</p>
-              <p className="mt-1 font-semibold">{poll.responses.toLocaleString()}</p>
+              <p className="text-xs uppercase text-muted-foreground">
+                Responses
+              </p>
+              <p className="mt-1 font-semibold">
+                {poll.responses.toLocaleString()}
+              </p>
             </div>
             <div className="rounded-lg border border-border bg-background p-4">
               <p className="text-xs uppercase text-muted-foreground">Time</p>
-              <p className="mt-1 font-semibold">{formatTimeRemaining(poll.endDate)}</p>
+              <p className="mt-1 font-semibold">
+                {formatTimeRemaining(poll.endDate)}
+              </p>
             </div>
           </div>
           <div className="grid gap-3">
@@ -4559,7 +4882,8 @@ function VotePollModal({
                   key={option}
                   className={cn(
                     "flex w-full items-center justify-between rounded-xl border border-border bg-background p-4 text-left transition duration-200 hover:border-primary/50 hover:bg-primary/5",
-                    selected && "scale-[1.01] border-primary bg-primary/10 text-primary",
+                    selected &&
+                      "scale-[1.01] border-primary bg-primary/10 text-primary",
                   )}
                   disabled={Boolean(votedOption)}
                   type="button"
@@ -4569,7 +4893,8 @@ function VotePollModal({
                   <span
                     className={cn(
                       "flex h-6 w-6 items-center justify-center rounded-full border border-border",
-                      selected && "border-primary bg-primary text-primary-foreground",
+                      selected &&
+                        "border-primary bg-primary text-primary-foreground",
                     )}
                   >
                     {selected ? <FiCheckCircle className="h-4 w-4" /> : null}
@@ -4620,8 +4945,13 @@ function PollDetailsDrawer({
               ["Responses", poll.responses.toLocaleString()],
               ["Results", formatResultVisibility(poll.resultsVisibility)],
             ].map(([label, value]) => (
-              <div key={label} className="rounded-lg border border-border bg-background p-4">
-                <p className="text-xs uppercase text-muted-foreground">{label}</p>
+              <div
+                key={label}
+                className="rounded-lg border border-border bg-background p-4"
+              >
+                <p className="text-xs uppercase text-muted-foreground">
+                  {label}
+                </p>
                 <p className="mt-1 text-sm font-semibold">{value}</p>
               </div>
             ))}
@@ -4630,8 +4960,14 @@ function PollDetailsDrawer({
             <p className="text-sm font-semibold">Rules</p>
             <div className="mt-3 space-y-2">
               {poll.rules.map((rule) => (
-                <p key={rule} className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <FiCheckCircle className="h-4 w-4 text-primary" aria-hidden="true" />
+                <p
+                  key={rule}
+                  className="flex items-center gap-2 text-sm text-muted-foreground"
+                >
+                  <FiCheckCircle
+                    className="h-4 w-4 text-primary"
+                    aria-hidden="true"
+                  />
                   {rule}
                 </p>
               ))}
@@ -4661,22 +4997,16 @@ export function StudentPollsPageView({
 }: {
   initialTab?: StudentPollTab;
 }) {
-  const { user } = useAuth();
-  const [polls, setPolls] = useState(mockPolls);
+  const [polls] = useState(mockPolls);
   const [tab, setTab] = useState<StudentPollTab>(initialTab);
   const [query, setQuery] = useState("");
-  const [ownership, setOwnership] = useState<OwnershipFilter>("all");
   const [viewing, setViewing] = useState<Poll | null>(null);
   const [voting, setVoting] = useState<Poll | null>(null);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
   const [votes, setVotes] = useState<Record<string, string>>(
     Object.fromEntries(
-      mockStudentVotes.map((vote) => [vote.pollId, vote.selectedOption]),
+      studentVotes.map((vote) => [vote.pollId, vote.selectedOption]),
     ),
   );
-  const currentUserName = getCurrentUserName(user);
-  const canCreate = canCreateStudentContent(user);
 
   const activePolls = polls.filter((poll) => poll.status === "ACTIVE");
   const closedPolls = polls.filter((poll) => poll.status === "CLOSED");
@@ -4690,11 +5020,9 @@ export function StudentPollsPageView({
         .toLowerCase()
         .includes(normalized);
 
-    return (
-      queryMatch && matchesOwnership(poll, ownership, currentUserName)
-    );
+    return queryMatch;
   });
-  const voteRows = mockStudentVotes
+  const voteRows = studentVotes
     .map((vote) => ({
       ...vote,
       poll: polls.find((poll) => poll.id === vote.pollId),
@@ -4720,53 +5048,6 @@ export function StudentPollsPageView({
     campusToast.success({
       title: "Vote Submitted",
       description: "Your poll response has been recorded.",
-      });
-  }
-
-  function createPoll(values: CreatePollInput) {
-    const parsedOptions = values.options
-      .split(/\n|,/)
-      .map((option) => option.trim())
-      .filter(Boolean);
-    const uniqueOptions = Array.from(new Set(parsedOptions));
-    const options = uniqueOptions.length >= 2 ? uniqueOptions : ["Yes", "No"];
-
-    startTransition(() => {
-      setPolls((current) => [
-        {
-          id: `poll-${Date.now()}`,
-          title: values.title,
-          question: values.question,
-          category: values.category,
-          audience: values.audience,
-          description: values.description,
-          createdBy: currentUserName,
-          createdAt: new Date().toISOString().slice(0, 10),
-          endDate: values.endDate,
-          status: "ACTIVE",
-          responses: 0,
-          participationRate: 0,
-          options,
-          optionVotes: Object.fromEntries(options.map((option) => [option, 0])),
-          resultsVisibility: "AFTER_VOTING",
-          rules: [
-            "One vote per student",
-            "Votes are anonymous",
-            "Results show after voting",
-          ],
-          votesOverTime: [],
-          departmentParticipation: [],
-          yearParticipation: [],
-        },
-        ...current,
-      ]);
-      setCreateOpen(false);
-      setTab("active");
-      setOwnership("mine");
-      campusToast.success({
-        title: "Poll Created",
-        description: "The poll was added to this page.",
-      });
     });
   }
 
@@ -4776,17 +5057,13 @@ export function StudentPollsPageView({
         eyebrow="Polls"
         title="Shape campus decisions."
         description="Vote on active student polls, review closed poll outcomes, and track your participation history."
-        action={
-          canCreate ? (
-            <Button type="button" onClick={() => setCreateOpen(true)}>
-              <FiPlus className="h-4 w-4" aria-hidden="true" />
-              Create Poll
-            </Button>
-          ) : null
-        }
       />
       <div className="mt-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <SearchBar query={query} setQuery={setQuery} placeholder="Search polls" />
+        <SearchBar
+          query={query}
+          setQuery={setQuery}
+          placeholder="Search polls"
+        />
         <div className="flex gap-2 overflow-x-auto pb-1">
           {studentPollTabs.map((item) => {
             const Icon = item.icon;
@@ -4804,12 +5081,6 @@ export function StudentPollsPageView({
           })}
         </div>
       </div>
-      {canCreate ? (
-        <div className="mt-4">
-          <OwnershipTabs value={ownership} onValueChange={setOwnership} />
-        </div>
-      ) : null}
-
       {tab === "active" || tab === "closed" ? (
         filteredPolls.length > 0 ? (
           <StaggerContainer
@@ -4829,7 +5100,10 @@ export function StudentPollsPageView({
         ) : (
           <Empty
             className="mt-6 min-h-[28rem] rounded-xl border border-border bg-surface"
-            filterName={getEmptyFilterName(query, tab === "active" ? "Active Polls" : "Closed Polls")}
+            filterName={getEmptyFilterName(
+              query,
+              tab === "active" ? "Active Polls" : "Closed Polls",
+            )}
             title="No polls found"
             description="Polls matching your current filters will appear here."
           />
@@ -4852,7 +5126,9 @@ export function StudentPollsPageView({
                     </div>
                     <div className="flex flex-col gap-2 sm:flex-row">
                       <StatusPill>{poll.status}</StatusPill>
-                      <StatusPill>{formatResultVisibility(poll.resultsVisibility)}</StatusPill>
+                      <StatusPill>
+                        {formatResultVisibility(poll.resultsVisibility)}
+                      </StatusPill>
                     </div>
                   </CardContent>
                 </Card>
@@ -4880,15 +5156,6 @@ export function StudentPollsPageView({
         hasVoted={viewing ? Boolean(votes[viewing.id]) : false}
         onClose={() => setViewing(null)}
       />
-      <Modal
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        title="Create Poll"
-        description="Publish a poll directly from this page."
-        className="max-w-2xl"
-      >
-        <CreatePollForm onSubmit={createPoll} isSubmitting={isPending} />
-      </Modal>
     </StudentShell>
   );
 }
@@ -5173,7 +5440,8 @@ export function ProfilePageView() {
                   />
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  {safeShowcaseProfile.xpRemaining.toLocaleString()} XP to next level
+                  {safeShowcaseProfile.xpRemaining.toLocaleString()} XP to next
+                  level
                 </p>
               </div>
               <div className="rounded-lg border border-border bg-background p-4">
@@ -5183,7 +5451,8 @@ export function ProfilePageView() {
                 {safeShowcaseProfile.topProject ? (
                   <>
                     <p className="mt-2 text-base font-semibold">
-                      {safeShowcaseProfile.topProject.name ?? "Untitled project"}
+                      {safeShowcaseProfile.topProject.name ??
+                        "Untitled project"}
                     </p>
                     <p className="mt-2 text-sm leading-6 text-muted-foreground">
                       {safeShowcaseProfile.topProject.shortDescription ??
@@ -5202,7 +5471,8 @@ export function ProfilePageView() {
                           className="h-3.5 w-3.5 text-amber-500"
                           aria-hidden="true"
                         />
-                        {toFiniteNumber(safeShowcaseProfile.topProject.stars)} stars
+                        {toFiniteNumber(safeShowcaseProfile.topProject.stars)}{" "}
+                        stars
                       </span>
                     </div>
                   </>
@@ -5352,36 +5622,112 @@ export function ProfilePageView() {
 }
 
 export function NotificationsPageView() {
-  const [notifications, setNotifications] = useState(mockNotifications);
-  const groups = [
-    "Announcement",
-    "Event",
-    "Forum Activity",
-    "Poll",
-    "Suggestion Update",
-    "System",
-  ];
+  const [activeTab, setActiveTab] = useState("All");
+  const [notifications, setNotifications] = useState<ClientNotification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const tabs = getNotificationTabs(notifications);
+  const filtered = filterNotificationsByTab(notifications, activeTab);
   const unreadCount = notifications.filter(
     (notification) => notification.unread,
   ).length;
-  const viewNotification = (notification: StudentNotification) => {
-    setNotifications((current) =>
-      current.map((item) =>
-        item.id === notification.id ? { ...item, unread: false } : item,
-      ),
-    );
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadNotifications() {
+      try {
+        setIsLoading(true);
+        const nextNotifications = await fetchClientNotifications();
+        if (mounted) setNotifications(nextNotifications);
+      } catch (error) {
+        campusToast.error(
+          error instanceof Error
+            ? error.message
+            : "Unable to load notifications.",
+        );
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    }
+
+    void loadNotifications();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (tabs.some((tab) => tab.key === activeTab)) return;
+    setActiveTab("All");
+  }, [activeTab, tabs]);
+
+  const viewNotification = async (notification: ClientNotification) => {
+    if (notification.unread) await markNotificationRead(notification.id);
+
     campusToast.info({
       title: notification.title,
       description: notification.description,
     });
   };
-  const markNotificationRead = (id: string) => {
-    setNotifications((current) =>
-      current.map((item) => (item.id === id ? { ...item, unread: false } : item)),
-    );
+  const markNotificationRead = async (id: string) => {
+    try {
+      const updated = await markClientNotificationRead(id);
+      setNotifications((current) =>
+        current.map((item) => (item.id === id ? updated : item)),
+      );
+    } catch (error) {
+      campusToast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to mark notification as read.",
+      );
+    }
   };
-  const clearNotification = (id: string) => {
-    setNotifications((current) => current.filter((item) => item.id !== id));
+  const markAllRead = async () => {
+    try {
+      await markAllClientNotificationsRead();
+      setNotifications((current) =>
+        current.map((notification) => ({
+          ...notification,
+          unread: false,
+          status: "READ",
+        })),
+      );
+    } catch (error) {
+      campusToast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to mark notifications read.",
+      );
+    }
+  };
+  const clearNotification = async (id: string) => {
+    try {
+      await deleteClientNotification(id);
+      setNotifications((current) => current.filter((item) => item.id !== id));
+    } catch (error) {
+      campusToast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to clear notification.",
+      );
+    }
+  };
+  const clearAll = async () => {
+    try {
+      await deleteClientNotifications(
+        notifications.map((notification) => notification.id),
+      );
+      setNotifications([]);
+      setActiveTab("All");
+    } catch (error) {
+      campusToast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to clear notifications.",
+      );
+    }
   };
 
   return (
@@ -5396,14 +5742,7 @@ export function NotificationsPageView() {
               disabled={unreadCount === 0}
               type="button"
               variant="secondary"
-              onClick={() =>
-                setNotifications((current) =>
-                  current.map((notification) => ({
-                    ...notification,
-                    unread: false,
-                  })),
-                )
-              }
+              onClick={markAllRead}
             >
               <FiCheckCircle className="h-4 w-4" aria-hidden="true" />
               Mark all read
@@ -5412,7 +5751,7 @@ export function NotificationsPageView() {
               disabled={notifications.length === 0}
               type="button"
               variant="secondary"
-              onClick={() => setNotifications([])}
+              onClick={clearAll}
             >
               <FiTrash2 className="h-4 w-4" aria-hidden="true" />
               Clear all
@@ -5420,33 +5759,17 @@ export function NotificationsPageView() {
           </div>
         }
       />
-      <section className="mt-8 grid items-start gap-6 lg:grid-cols-[280px_1fr]">
-        <Card className="h-fit self-start">
-          <CardContent className="space-y-2 p-3">
-            <div className="flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium">
-              <span>Unread</span>
-              <span className="text-muted-foreground">{unreadCount}</span>
-            </div>
-            {groups.map((group) => (
-              <div
-                key={group}
-                className="flex items-center justify-between rounded-md px-3 py-2 text-sm"
-              >
-                <span>{group}</span>
-                <span className="text-muted-foreground">
-                  {
-                    notifications.filter(
-                      (notification) => notification.type === group,
-                    ).length
-                  }
-                </span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+      <section className="mt-8 space-y-4">
+        <NotificationTabs
+          tabs={tabs}
+          activeTab={activeTab}
+          onChange={setActiveTab}
+        />
         <div className="min-h-[22rem] space-y-3">
-          {notifications.length > 0 ? (
-            notifications.map((notification) => (
+          {isLoading ? (
+            <LoadingState label="Loading notifications" />
+          ) : filtered.length > 0 ? (
+            filtered.map((notification) => (
               <NotificationCard
                 key={notification.id}
                 notification={notification}
@@ -5458,7 +5781,11 @@ export function NotificationsPageView() {
           ) : (
             <Empty
               title="No notifications available"
-              description="New announcements, event updates, forum activity, and system alerts will appear here."
+              description={
+                activeTab === "All"
+                  ? "New announcements, event updates, forum activity, and system alerts will appear here."
+                  : `No notifications for the "${activeTab}" tab.`
+              }
             />
           )}
         </div>
@@ -5473,8 +5800,8 @@ function NotificationCard({
   onMarkRead,
   onClear,
 }: {
-  notification: StudentNotification;
-  onView: (notification: StudentNotification) => void;
+  notification: ClientNotification;
+  onView: (notification: ClientNotification) => void;
   onMarkRead: (id: string) => void;
   onClear: (id: string) => void;
 }) {
@@ -5520,7 +5847,10 @@ function NotificationCard({
               <FiCheckCircle className="h-4 w-4" aria-hidden="true" />
               Mark as read
             </DropdownMenuItem>
-            <DropdownMenuItem destructive onClick={() => onClear(notification.id)}>
+            <DropdownMenuItem
+              destructive
+              onClick={() => onClear(notification.id)}
+            >
               <FiTrash2 className="h-4 w-4" aria-hidden="true" />
               Clear
             </DropdownMenuItem>

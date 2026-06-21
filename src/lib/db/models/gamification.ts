@@ -110,6 +110,7 @@ const rewardEventSchema = new Schema(
     trigger: {
       type: String,
       enum: [
+        "XP_EARNED",
         "BADGE_EARNED",
         "ACHIEVEMENT_UNLOCKED",
         "LEVEL_UP",
@@ -233,10 +234,7 @@ achievementSchema.index({ universityId: 1, name: 1 }, { unique: true });
 achievementSchema.index({ universityId: 1, slug: 1 }, { unique: true });
 achievementSchema.index({ universityId: 1, visibility: 1, status: 1 });
 achievementSchema.index({ isGlobal: 1, status: 1 });
-userAchievementSchema.index(
-  { userId: 1, achievementId: 1 },
-  { unique: true },
-);
+userAchievementSchema.index({ userId: 1, achievementId: 1 }, { unique: true });
 userAchievementSchema.index({ universityId: 1, userId: 1, completedAt: -1 });
 userAchievementSchema.index({ universityId: 1, status: 1, updatedAt: -1 });
 rewardEventSchema.index({ userId: 1, status: 1, createdAt: -1 });

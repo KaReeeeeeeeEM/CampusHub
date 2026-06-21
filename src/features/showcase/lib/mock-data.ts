@@ -18,6 +18,7 @@ export const showcaseCategories = [
   "Health",
   "Agriculture",
   "Education",
+  "Other",
 ] as const;
 
 export const showcaseProjects: ShowcaseProject[] = [];
@@ -25,7 +26,7 @@ export const showcaseBadges: ShowcaseBadge[] = [];
 export const xpSources: Array<Record<string, unknown>> = [];
 
 export const showcaseProfile = {
-  name: "Student",
+  name: "",
   email: "",
   level: 0,
   xp: 0,

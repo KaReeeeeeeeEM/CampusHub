@@ -1,6 +1,7 @@
 export type RewardEvent = {
   id: string;
   trigger:
+    | "XP_EARNED"
     | "BADGE_EARNED"
     | "ACHIEVEMENT_UNLOCKED"
     | "LEVEL_UP"
@@ -22,7 +23,8 @@ export type CelebrationKind =
   | "freeze"
   | "badge"
   | "achievement"
-  | "level";
+  | "level"
+  | "xp";
 
 export type CelebrationViewModel = {
   kind: CelebrationKind;

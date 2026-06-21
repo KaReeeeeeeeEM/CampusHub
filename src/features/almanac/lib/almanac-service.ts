@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { z } from "zod";
+
 import { hasRole } from "@/features/authorization/rbac";
 import {
   almanacQuerySchema,
@@ -19,6 +21,7 @@ import { connectMongo } from "@/lib/db/mongodb";
 import {
   AlmanacEventModel,
   AlmanacEventViewModel,
+  AlmanacModel,
   AlmanacReminderEngagementModel,
   CollegeModel,
 } from "@/lib/db/models";
@@ -27,8 +30,47 @@ import type { AuthUser } from "@/types/auth";
 
 const deletedFilter = { deletedAt: null };
 
+const almanacShellSchema = z.object({
+  title: z.string().trim().min(3).max(180),
+  description: z.string().trim().max(3000).optional().nullable(),
+  academicYear: z.string().trim().max(40).optional().nullable(),
+  semester: z.string().trim().max(80).optional().nullable(),
+  status: z.enum(["ACTIVE", "ARCHIVED"]).optional().default("ACTIVE"),
+});
+
+const almanacEntrySchema = createAlmanacEventSchema.and(
+  z.object({
+    isDeadline: z.coerce.boolean().optional().default(false),
+    deadlineType: z.string().trim().max(80).optional().nullable(),
+  }),
+);
+
+export type CampusAdminAlmanacEntry = ReturnType<typeof serializeAlmanacEvent>;
+
+export type CampusAdminAlmanac = {
+  id: string;
+  universityId: string;
+  title: string;
+  description: string | null;
+  academicYear: string | null;
+  semester: string | null;
+  status: string;
+  eventCount: number;
+  deadlineCount: number;
+  createdAt: string | null;
+  updatedAt: string | null;
+  events: CampusAdminAlmanacEntry[];
+};
+
 function serializeDate(value: unknown) {
   return value instanceof Date ? value.toISOString() : null;
+}
+
+function metadataValue(item: Record<string, unknown>, key: string) {
+  const metadata = item.metadata;
+  return metadata && typeof metadata === "object"
+    ? (metadata as Record<string, unknown>)[key]
+    : null;
 }
 
 function normalizeIds(values?: string[] | null) {
@@ -54,9 +96,12 @@ function userRoleVisibility(actor: AuthUser) {
 }
 
 function serializeAlmanacEvent(event: Record<string, unknown>) {
+  const isDeadline = Boolean(metadataValue(event, "isDeadline"));
+
   return {
     id: String(event._id),
     universityId: String(event.universityId),
+    almanacId: (metadataValue(event, "almanacId") as string | null) ?? null,
     title: String(event.title),
     description: (event.description as string | null) ?? null,
     eventType: String(event.eventType),
@@ -70,6 +115,10 @@ function serializeAlmanacEvent(event: Record<string, unknown>) {
     color: String(event.color ?? "#2563eb"),
     createdBy: String(event.createdBy ?? event.createdById),
     status: String(event.status),
+    isDeadline,
+    deadlineType: isDeadline
+      ? ((metadataValue(event, "deadlineType") as string | null) ?? "GENERAL")
+      : null,
     reminders: Array.isArray(event.reminders) ? event.reminders : [],
     analytics: {
       views: Number(event.views ?? 0),
@@ -84,8 +133,28 @@ function serializeAlmanacEvent(event: Record<string, unknown>) {
   };
 }
 
+function serializeAlmanacShell(
+  almanac: Record<string, unknown>,
+  events: CampusAdminAlmanacEntry[],
+): CampusAdminAlmanac {
+  return {
+    id: String(almanac._id),
+    universityId: String(almanac.universityId),
+    title: String(almanac.title),
+    description: (almanac.description as string | null) ?? null,
+    academicYear: (almanac.academicYear as string | null) ?? null,
+    semester: (almanac.semester as string | null) ?? null,
+    status: String(almanac.status ?? "ACTIVE"),
+    eventCount: events.length,
+    deadlineCount: events.filter((event) => event.isDeadline).length,
+    createdAt: serializeDate(almanac.createdAt),
+    updatedAt: serializeDate(almanac.updatedAt),
+    events,
+  };
+}
+
 function canViewAlmanacEvent(actor: AuthUser, event: Record<string, unknown>) {
-  if (actor.universityId !== event.universityId) return false;
+  if (actor.universityId !== String(event.universityId)) return false;
   if (isCampusAdmin(actor)) return true;
   if (event.status !== "ACTIVE" || event.deletedAt) return false;
 
@@ -95,12 +164,15 @@ function canViewAlmanacEvent(actor: AuthUser, event: Record<string, unknown>) {
     case "STUDENTS":
     case "TEACHERS":
       return userRoleVisibility(actor) === event.visibility;
-    case "SPECIFIC_COLLEGES":
+    case "SPECIFIC_COLLEGES": {
+      const actorCollegeId = actor.collegeId;
+      if (!actorCollegeId) return false;
+
       return (
-        Boolean(actor.collegeId) &&
         Array.isArray(event.collegeIds) &&
-        event.collegeIds.includes(actor.collegeId)
+        event.collegeIds.map(String).includes(actorCollegeId)
       );
+    }
     default:
       return false;
   }
@@ -261,6 +333,284 @@ function assertCanManage(actor: AuthUser) {
   if (!isCampusAdmin(actor)) {
     throw forbidden("Campus Admin access is required.");
   }
+}
+
+export async function listCampusAdminAlmanacs() {
+  const actor = await requireAuth();
+  const universityId = assertUniversityScope(actor);
+  assertCanManage(actor);
+  await connectMongo();
+
+  const [almanacs, events] = await Promise.all([
+    AlmanacModel.find({
+      universityId,
+      ...deletedFilter,
+    })
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .lean(),
+    AlmanacEventModel.find({
+      universityId,
+      ...deletedFilter,
+      "metadata.almanacId": { $exists: true },
+    })
+      .sort({ startDate: 1 })
+      .lean(),
+  ]);
+  const eventsByAlmanac = new Map<string, CampusAdminAlmanacEntry[]>();
+
+  events.forEach((event) => {
+    const almanacId = metadataValue(event as Record<string, unknown>, "almanacId");
+    if (typeof almanacId !== "string") return;
+
+    const grouped = eventsByAlmanac.get(almanacId) ?? [];
+    grouped.push(serializeAlmanacEvent(event as Record<string, unknown>));
+    eventsByAlmanac.set(almanacId, grouped);
+  });
+
+  return almanacs.map((almanac) =>
+    serializeAlmanacShell(
+      almanac as Record<string, unknown>,
+      eventsByAlmanac.get(String(almanac._id)) ?? [],
+    ),
+  );
+}
+
+export async function listVisibleAlmanacs() {
+  const actor = await requireAuth();
+  const universityId = assertUniversityScope(actor);
+  await connectMongo();
+
+  const almanacFilter = isCampusAdmin(actor)
+    ? {
+        universityId,
+        ...deletedFilter,
+      }
+    : {
+        universityId,
+        status: "ACTIVE",
+        ...deletedFilter,
+      };
+
+  const eventFilter = isCampusAdmin(actor)
+    ? {
+        universityId,
+        ...deletedFilter,
+        "metadata.almanacId": { $exists: true },
+      }
+    : {
+        ...visibleAlmanacFilter(actor),
+        "metadata.almanacId": { $exists: true },
+      };
+
+  const [almanacs, events] = await Promise.all([
+    AlmanacModel.find(almanacFilter)
+      .sort({ status: 1, updatedAt: -1, createdAt: -1 })
+      .lean(),
+    AlmanacEventModel.find(eventFilter).sort({ startDate: 1 }).lean(),
+  ]);
+  const eventsByAlmanac = new Map<string, CampusAdminAlmanacEntry[]>();
+
+  events.forEach((event) => {
+    if (!canViewAlmanacEvent(actor, event as Record<string, unknown>)) return;
+
+    const almanacId = metadataValue(event as Record<string, unknown>, "almanacId");
+    if (typeof almanacId !== "string") return;
+
+    const grouped = eventsByAlmanac.get(almanacId) ?? [];
+    grouped.push(serializeAlmanacEvent(event as Record<string, unknown>));
+    eventsByAlmanac.set(almanacId, grouped);
+  });
+
+  return almanacs.map((almanac) =>
+    serializeAlmanacShell(
+      almanac as Record<string, unknown>,
+      eventsByAlmanac.get(String(almanac._id)) ?? [],
+    ),
+  );
+}
+
+export async function createCampusAdminAlmanac(input: unknown) {
+  const actor = await requireAuth();
+  const universityId = assertUniversityScope(actor);
+  assertCanManage(actor);
+  await connectMongo();
+
+  const payload = almanacShellSchema.parse(input);
+
+  if (payload.status === "ACTIVE") {
+    await AlmanacModel.updateMany(
+      { universityId, status: "ACTIVE", ...deletedFilter },
+      {
+        $set: {
+          status: "ARCHIVED",
+          updatedById: actor.id,
+          updatedAt: new Date(),
+        },
+      },
+    );
+  }
+
+  const almanac = await AlmanacModel.create({
+    _id: randomUUID(),
+    universityId,
+    title: payload.title,
+    description: payload.description ?? null,
+    academicYear: payload.academicYear ?? null,
+    semester: payload.semester ?? null,
+    status: payload.status,
+    createdById: actor.id,
+  });
+
+  await writeAuditLog({
+    actorId: actor.id,
+    universityId,
+    action: "ALMANAC_EVENT_CREATED",
+    entityType: "almanac",
+    entityId: String(almanac._id),
+    after: serializeAlmanacShell(almanac.toObject(), []),
+  });
+
+  return serializeAlmanacShell(almanac.toObject(), []);
+}
+
+export async function setCampusAdminAlmanacActive(almanacId: string) {
+  const actor = await requireAuth();
+  const universityId = assertUniversityScope(actor);
+  assertCanManage(actor);
+  await connectMongo();
+
+  const almanac = await AlmanacModel.findOne({
+    _id: almanacId,
+    universityId,
+    ...deletedFilter,
+  }).lean();
+
+  if (!almanac) throw notFound("Almanac not found.");
+
+  await AlmanacModel.updateMany(
+    {
+      universityId,
+      status: "ACTIVE",
+      _id: { $ne: almanacId },
+      ...deletedFilter,
+    },
+    {
+      $set: {
+        status: "ARCHIVED",
+        updatedById: actor.id,
+        updatedAt: new Date(),
+      },
+    },
+  );
+
+  const updated = await AlmanacModel.findOneAndUpdate(
+    { _id: almanacId, universityId, ...deletedFilter },
+    {
+      $set: {
+        status: "ACTIVE",
+        updatedById: actor.id,
+      },
+    },
+    { new: true },
+  ).lean();
+
+  if (!updated) throw notFound("Almanac not found.");
+
+  await writeAuditLog({
+    actorId: actor.id,
+    universityId,
+    action: "ALMANAC_EVENT_UPDATED",
+    entityType: "almanac",
+    entityId: almanacId,
+    before: serializeAlmanacShell(almanac as Record<string, unknown>, []),
+    after: serializeAlmanacShell(updated as Record<string, unknown>, []),
+  });
+
+  const events = await AlmanacEventModel.find({
+    universityId,
+    ...deletedFilter,
+    "metadata.almanacId": almanacId,
+  })
+    .sort({ startDate: 1 })
+    .lean();
+
+  return serializeAlmanacShell(
+    updated as Record<string, unknown>,
+    events.map((event) => serializeAlmanacEvent(event as Record<string, unknown>)),
+  );
+}
+
+export async function createCampusAdminAlmanacEntry(
+  almanacId: string,
+  input: unknown,
+) {
+  const actor = await requireAuth();
+  const universityId = assertUniversityScope(actor);
+  assertCanManage(actor);
+  await connectMongo();
+
+  const almanac = await AlmanacModel.findOne({
+    _id: almanacId,
+    universityId,
+    ...deletedFilter,
+  }).lean();
+
+  if (!almanac) throw notFound("Almanac not found.");
+
+  const payload = almanacEntrySchema.parse(input);
+  const collegeIds = normalizeIds(payload.collegeIds);
+  await assertCollegeScope(universityId, collegeIds);
+
+  const isDeadline = Boolean(payload.isDeadline);
+  const event = await AlmanacEventModel.create({
+    _id: randomUUID(),
+    universityId,
+    title: payload.title,
+    description: payload.description ?? null,
+    eventType: payload.eventType,
+    startDate: payload.startDate,
+    endDate: payload.endDate,
+    isAllDay: payload.isAllDay,
+    visibility: payload.visibility,
+    collegeIds,
+    color: payload.color || (isDeadline ? "#ef4444" : "#2563eb"),
+    createdBy: actor.id,
+    createdById: actor.id,
+    status: payload.status,
+    academicYear:
+      payload.academicYear ?? (almanac.academicYear as string | null) ?? null,
+    semester: payload.semester ?? (almanac.semester as string | null) ?? null,
+    reminders: buildReminders(payload.startDate, payload.reminders),
+    appliesTo: {
+      universityWide: payload.visibility === "ALL_USERS",
+      collegeIds,
+      roles: payload.visibility.endsWith("S") ? [payload.visibility] : [],
+    },
+    metadata: {
+      almanacId,
+      isDeadline,
+      deadlineType: isDeadline
+        ? payload.deadlineType?.trim() || "GENERAL"
+        : null,
+    },
+  });
+
+  await AlmanacModel.updateOne(
+    { _id: almanacId },
+    { $set: { updatedById: actor.id, updatedAt: new Date() } },
+  );
+
+  await writeAuditLog({
+    actorId: actor.id,
+    universityId,
+    action: "ALMANAC_EVENT_CREATED",
+    entityType: "almanac_event",
+    entityId: String(event._id),
+    after: serializeAlmanacEvent(event.toObject()),
+    metadata: { almanacId },
+  });
+
+  return serializeAlmanacEvent(event.toObject());
 }
 
 export async function createAlmanacEvent(input: CreateAlmanacEventInput) {

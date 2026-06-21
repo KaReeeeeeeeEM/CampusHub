@@ -12,6 +12,10 @@ export type NotificationEventType =
   | "EVENT_CREATED"
   | "EVENT_REMINDER"
   | "EVENT_REGISTRATION_CONFIRMATION"
+  | "EVENT_JOINED"
+  | "EVENT_WAITLISTED"
+  | "EVENT_LEFT"
+  | "EVENT_CHECKED_IN"
   | "EVENT_FULL"
   | "EVENT_CANCELLED"
   | "ALMANAC_UPCOMING_EVENT_REMINDER"
@@ -24,6 +28,9 @@ export type NotificationEvent = {
   universityId?: string | null;
   actorId?: string | null;
   recipientId?: string | null;
+  roles?: Array<
+    "SUPER_ADMIN" | "CAMPUS_ADMIN" | "STUDENT" | "TEACHER" | "EMPLOYER" | "ALUMNI"
+  >;
   recipientEmail?: string | null;
   entityType: string;
   entityId: string;
@@ -47,6 +54,10 @@ function eventNotificationType(
 }
 
 function eventTitle(event: NotificationEvent) {
+  if (typeof event.metadata?.notificationTitle === "string") {
+    return event.metadata.notificationTitle;
+  }
+
   if (typeof event.metadata?.title === "string") return event.metadata.title;
 
   return event.type
@@ -57,6 +68,10 @@ function eventTitle(event: NotificationEvent) {
 }
 
 function eventMessage(event: NotificationEvent) {
+  if (typeof event.metadata?.notificationMessage === "string") {
+    return event.metadata.notificationMessage;
+  }
+
   switch (event.type) {
     case "ANNOUNCEMENT_PUBLISHED":
       return "A new announcement has been published.";
@@ -70,6 +85,14 @@ function eventMessage(event: NotificationEvent) {
       return "You have an upcoming event reminder.";
     case "EVENT_REGISTRATION_CONFIRMATION":
       return "Your event registration has been confirmed.";
+    case "EVENT_JOINED":
+      return "A user registered for an event.";
+    case "EVENT_WAITLISTED":
+      return "A user joined an event waitlist.";
+    case "EVENT_LEFT":
+      return "A user cancelled an event registration.";
+    case "EVENT_CHECKED_IN":
+      return "A user checked in to an event.";
     case "EVENT_FULL":
       return "An event has reached full capacity.";
     case "EVENT_CANCELLED":
@@ -94,9 +117,10 @@ function eventMessage(event: NotificationEvent) {
 
 export async function emitNotificationEvent(event: NotificationEvent) {
   const target =
-    event.recipientId || event.universityId
+    event.recipientId || event.roles?.length || event.universityId
       ? {
           ...(event.recipientId ? { recipientId: event.recipientId } : {}),
+          ...(event.roles?.length ? { roles: event.roles } : {}),
           ...(event.universityId ? { universityId: event.universityId } : {}),
         }
       : null;

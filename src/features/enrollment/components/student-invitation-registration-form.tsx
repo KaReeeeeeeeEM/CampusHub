@@ -20,6 +20,11 @@ type InvitationContext = {
   token: string;
   universityName: string;
   collegeName: string;
+  departments: Array<{
+    id: string;
+    name: string;
+    code: string;
+  }>;
 };
 
 const yearOptions = [
@@ -173,11 +178,23 @@ export function StudentInvitationRegistrationForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <AuthField label="Department" error={errors.department?.message}>
-          <CampusInput
+          <CampusSelect
             {...register("department")}
+            disabled={invitation.departments.length === 0}
             invalid={Boolean(errors.department)}
-            placeholder="Computer Science"
-          />
+          >
+            <option value="">
+              {invitation.departments.length > 0
+                ? "Select department"
+                : "No departments registered"}
+            </option>
+            {invitation.departments.map((department) => (
+              <option key={department.id} value={department.name}>
+                {department.name}
+                {department.code ? ` (${department.code})` : ""}
+              </option>
+            ))}
+          </CampusSelect>
         </AuthField>
         <AuthField label="Year of study" error={errors.yearOfStudy?.message}>
           <CampusSelect

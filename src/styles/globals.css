@@ -470,6 +470,21 @@ body {
   line-height: 1.55;
 }
 
+.campushub-intro-kibo {
+  text-align: center;
+}
+
+.campushub-intro-kibo img {
+  width: 92px;
+  height: 92px;
+  margin: -4px auto 12px;
+  object-fit: contain;
+}
+
+.campushub-intro-kibo p {
+  margin: 0;
+}
+
 .campushub-intro-tooltip .introjs-skipbutton {
   right: 14px;
   top: 14px;

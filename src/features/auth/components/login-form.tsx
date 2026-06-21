@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2 } from "lucide-react";
+import { KeyRound, Loader2, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -21,6 +21,7 @@ export function LoginForm() {
   const callbackUrl = getSafeCallbackUrl(searchParams.get("callbackUrl"));
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [isPasskeySubmitting, setIsPasskeySubmitting] = useState(false);
 
   const {
     register,
@@ -64,6 +65,31 @@ export function LoginForm() {
     router.refresh();
   }
 
+  async function signInWithPasskey() {
+    setError(null);
+    setSuccess(null);
+    setIsPasskeySubmitting(true);
+
+    const response = await authClient.signIn.passkey({
+      autoFill: false,
+      fetchOptions: {
+        onSuccess() {
+          router.replace(callbackUrl);
+          router.refresh();
+        },
+      },
+    });
+
+    setIsPasskeySubmitting(false);
+
+    if (response.error) {
+      setError(
+        response.error.message ||
+          "Unable to sign in with a passkey. Try your password or register a passkey after login.",
+      );
+    }
+  }
+
   return (
     <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
       {error ? <AuthAlert type="error" message={error} /> : null}
@@ -72,7 +98,7 @@ export function LoginForm() {
       <AuthField label="Email address" error={errors.email?.message}>
         <CampusInput
           {...register("email")}
-          autoComplete="email"
+          autoComplete="email webauthn"
           invalid={Boolean(errors.email)}
           placeholder="you@university.edu"
           type="email"
@@ -108,6 +134,37 @@ export function LoginForm() {
         ) : null}
         Login
       </Button>
+
+      <div className="flex items-center gap-3 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+        <span className="h-px flex-1 bg-border" aria-hidden="true" />
+        <span>or</span>
+        <span className="h-px flex-1 bg-border" aria-hidden="true" />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Button
+          className="w-full"
+          disabled={isSubmitting || isPasskeySubmitting}
+          onClick={signInWithPasskey}
+          type="button"
+          variant="secondary"
+        >
+          {isPasskeySubmitting ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <KeyRound className="h-4 w-4" aria-hidden="true" />
+          )}
+          Passkey
+        </Button>
+        <Button asChild className="w-full" type="button" variant="secondary">
+          <Link
+            href={`/two-factor?callbackUrl=${encodeURIComponent(callbackUrl)}`}
+          >
+            <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+            Authenticator code
+          </Link>
+        </Button>
+      </div>
 
       <div className="flex items-center justify-between gap-4 text-sm">
         <Link

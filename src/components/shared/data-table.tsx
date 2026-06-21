@@ -11,6 +11,7 @@ import {
 } from "@tanstack/react-table";
 import { useEffect, useState } from "react";
 
+import { Skeleton } from "@/components/shared/skeleton";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -35,6 +36,8 @@ type DataTableProps<T> = {
   empty?: React.ReactNode;
   className?: string;
   pageSize?: number;
+  loading?: boolean;
+  skeletonRows?: number;
 };
 
 export function DataTable<T extends object>({
@@ -44,6 +47,8 @@ export function DataTable<T extends object>({
   empty,
   className,
   pageSize = 8,
+  loading = false,
+  skeletonRows,
 }: DataTableProps<T>) {
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -87,6 +92,7 @@ export function DataTable<T extends object>({
   const totalRows = data.length;
   const pageCount = table.getPageCount();
   const currentPage = pagination.pageIndex + 1;
+  const loadingRowCount = skeletonRows ?? Math.min(pageSize, 8);
 
   return (
     <div
@@ -120,7 +126,29 @@ export function DataTable<T extends object>({
             ))}
           </thead>
           <tbody className="divide-y divide-border">
-            {hasRows ? (
+            {loading ? (
+              Array.from({ length: loadingRowCount }).map((_, rowIndex) => (
+                <tr key={`loading-row-${rowIndex}`} aria-hidden="true">
+                  {columns.map((column, columnIndex) => (
+                    <td
+                      key={`${String(column.key)}-${columnIndex}`}
+                      className={cn("px-5 py-4", column.className)}
+                    >
+                      <Skeleton
+                        className={cn(
+                          "h-5",
+                          columnIndex === 0
+                            ? "w-44 max-w-full"
+                            : columnIndex === columns.length - 1
+                              ? "ml-auto w-20"
+                              : "w-28 max-w-full",
+                        )}
+                      />
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : hasRows ? (
               table.getRowModel().rows.map((row) => (
                 <tr
                   key={row.id}
@@ -155,7 +183,16 @@ export function DataTable<T extends object>({
           </tbody>
         </table>
       </div>
-      {totalRows > pageSize ? (
+      {loading ? (
+        <div className="flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <Skeleton className="h-4 w-28" />
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-9 w-20" />
+            <Skeleton className="h-9 w-16" />
+          </div>
+        </div>
+      ) : totalRows > 0 ? (
         <div className="flex flex-col gap-3 border-t border-border px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <p>
             Showing {pagination.pageIndex * pagination.pageSize + 1}-

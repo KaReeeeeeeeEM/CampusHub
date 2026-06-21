@@ -5,6 +5,7 @@ export default function StudentLoading() {
     <PageLoadingState
       title="Loading Student workspace"
       description="Fetching announcements, events, almanac activities, and campus updates."
+      withSidebar={false}
     />
   );
 }

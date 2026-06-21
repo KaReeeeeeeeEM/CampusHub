@@ -16,9 +16,9 @@ import {
   mockEvents,
   mockForumTopics,
   mockPolls,
-  mockStudentInvitations,
   mockSuggestions,
 } from "@/features/representative/lib/mock-data";
+import type { RepresentativeInvitationPageData } from "@/features/enrollment/lib/invitation-service";
 
 export function StudentLeadershipWorkspace() {
   return <StudentLeadershipCommitteePageView />;
@@ -56,13 +56,20 @@ export function StudentLeadershipCommitteePageView() {
   );
 }
 
-export function StudentLeadershipInvitationsPageView() {
+export function StudentLeadershipInvitationsPageView({
+  invitationData,
+}: {
+  invitationData: RepresentativeInvitationPageData;
+}) {
   return (
     <StudentLeadershipRoutePage
       title="Invitations"
       description="Generate and manage invitation links that automatically associate students with the right university and college."
     >
-      <InvitationsManagement initialInvitations={mockStudentInvitations} />
+      <InvitationsManagement
+        invitationScope={invitationData.scope}
+        initialInvitations={invitationData.invitations}
+      />
     </StudentLeadershipRoutePage>
   );
 }
