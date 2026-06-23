@@ -8,7 +8,8 @@ export type EngagementEventType =
   | "marketplace_order"
   | "project_star"
   | "badge_unlock"
-  | "streak_reminder";
+  | "streak_reminder"
+  | "almanac_reminder";
 
 export type EngagementChannel = "in_app" | "push";
 
@@ -100,6 +101,18 @@ export const ENGAGEMENT_CAMPAIGNS: Record<
     defaultTitle: "Keep Your Streak Alive",
     defaultBody: "Complete one meaningful CampusHub action today.",
     defaultUrl: "/student/dashboard",
+  },
+  almanac_reminder: {
+    type: "almanac_reminder",
+    label: "Almanac Reminders",
+    preferenceKey: "almanacReminders",
+    channels: ["in_app", "push"],
+    kiboAnimation: "announcement",
+    kiboCategory: "events",
+    priority: "high",
+    defaultTitle: "Academic Reminder",
+    defaultBody: "An academic calendar deadline or milestone is coming up.",
+    defaultUrl: "/student/almanac",
   },
 };
 

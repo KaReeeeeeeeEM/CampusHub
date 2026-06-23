@@ -1237,7 +1237,7 @@ export function MapManagement({
         ) : (
           <div className="overflow-hidden rounded-xl border border-border bg-surface">
             <div className="grid min-h-[46rem] lg:grid-cols-[20rem_1fr] xl:grid-cols-[24rem_1fr]">
-              <aside className="min-h-0 overflow-y-auto border-b border-border bg-background/55 p-4 lg:border-b-0 lg:border-r">
+              <aside className="flex max-h-[46rem] min-h-0 flex-col border-b border-border bg-background/55 p-4 lg:border-b-0 lg:border-r">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h2 className="text-sm font-semibold">Campus Locations</h2>
@@ -1259,7 +1259,7 @@ export function MapManagement({
                     onChange={(event) => setMapQuery(event.target.value)}
                   />
                 </div>
-                <div className="mt-4 space-y-2">
+                <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
                   {mapLocations.length > 0 ? (
                     mapLocations.map((location) => {
                       const active = selectedLocation?.id === location.id;

@@ -23,6 +23,7 @@ import { connectMongo } from "@/lib/db/mongodb";
 import {
   CampusAdminInvitationModel,
   CollegeModel,
+  CourseModel,
   InvitationModel,
   JoinInvitationModel,
   RepresentativeModel,
@@ -182,6 +183,23 @@ export async function createStudentInvitation(
 
   await assertActiveUniversity(payload.universityId);
   await assertActiveCollege(payload.universityId, payload.collegeId);
+  const course = await CourseModel.findOne({
+    _id: payload.courseId,
+    universityId: payload.universityId,
+    collegeId: payload.collegeId,
+    status: "ACTIVE",
+    deletedAt: null,
+  }).lean();
+
+  if (!course) {
+    throw new Error("Active course is required.");
+  }
+  if (payload.yearOfStudy > Number(course.durationYears ?? 1)) {
+    throw new Error("Year of study cannot exceed the course duration.");
+  }
+  const enrollmentYear = new Date().getFullYear() - payload.yearOfStudy + 1;
+  const expectedGraduationYear =
+    enrollmentYear + Number(course.durationYears ?? 1);
 
   if (
     actor.universityId !== payload.universityId ||
@@ -200,7 +218,11 @@ export async function createStudentInvitation(
     email: null,
     universityId: payload.universityId,
     collegeId: payload.collegeId,
-    departmentId: null,
+    departmentId: course.departmentId,
+    courseId: payload.courseId,
+    yearOfStudy: payload.yearOfStudy,
+    enrollmentYear,
+    expectedGraduationYear,
     representativeId: String(representative._id),
     role: "STUDENT",
     position: "NONE",
@@ -246,6 +268,23 @@ export async function createRepresentativeInvitation(
   await ensureNoPendingInvitation(payload.email, "REPRESENTATIVE_INVITATION");
   await assertActiveUniversity(payload.universityId);
   await assertActiveCollege(payload.universityId, payload.collegeId);
+  const course = await CourseModel.findOne({
+    _id: payload.courseId,
+    universityId: payload.universityId,
+    collegeId: payload.collegeId,
+    status: "ACTIVE",
+    deletedAt: null,
+  }).lean();
+
+  if (!course) {
+    throw new Error("Active course is required.");
+  }
+  if (payload.yearOfStudy > Number(course.durationYears ?? 1)) {
+    throw new Error("Year of study cannot exceed the course duration.");
+  }
+  const enrollmentYear = new Date().getFullYear() - payload.yearOfStudy + 1;
+  const expectedGraduationYear =
+    enrollmentYear + Number(course.durationYears ?? 1);
 
   const invitation = await InvitationModel.create({
     _id: randomUUID(),
@@ -254,7 +293,11 @@ export async function createRepresentativeInvitation(
     email: payload.email.toLowerCase(),
     universityId: payload.universityId,
     collegeId: payload.collegeId,
-    departmentId: null,
+    departmentId: course.departmentId,
+    courseId: payload.courseId,
+    yearOfStudy: payload.yearOfStudy,
+    enrollmentYear,
+    expectedGraduationYear,
     role: "STUDENT",
     position: "REPRESENTATIVE",
     createdBy: actor.id,
@@ -496,6 +539,20 @@ export async function acceptInvitedAccount(input: AcceptInvitedAccountInput) {
     },
   );
   if (invitation.type === "REPRESENTATIVE_INVITATION" && invitation.collegeId) {
+    await UserModel.updateOne(
+      { _id: response.user.id },
+      {
+        $set: {
+          collegeId: invitation.collegeId,
+          departmentId: invitation.departmentId ?? null,
+          primaryDepartmentId: invitation.departmentId ?? null,
+          courseId: invitation.courseId ?? null,
+          yearOfStudy: invitation.yearOfStudy ?? null,
+          enrollmentYear: invitation.enrollmentYear ?? null,
+          expectedGraduationYear: invitation.expectedGraduationYear ?? null,
+        },
+      },
+    );
     await RepresentativeModel.updateOne(
       { userId: response.user.id, universityId: invitation.universityId },
       {

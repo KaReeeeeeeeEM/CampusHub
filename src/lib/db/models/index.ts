@@ -83,6 +83,7 @@ export {
   DepartmentModel,
   type DepartmentDocument,
 } from "@/lib/db/models/department";
+export { CourseModel, type CourseDocument } from "@/lib/db/models/course";
 export {
   PushSubscriptionModel,
   type PushSubscriptionDocument,
@@ -209,6 +210,10 @@ export {
 export { RoleModel, type RoleDocument } from "@/lib/db/models/role";
 export { SessionModel, type SessionDocument } from "@/lib/db/models/session";
 export { StudentModel, type StudentDocument } from "@/lib/db/models/student";
+export {
+  StudentDocumentModel,
+  type StudentDocumentRepositoryDocument,
+} from "@/lib/db/models/student-document";
 export {
   TeacherInvitationModel,
   type TeacherInvitationDocument,

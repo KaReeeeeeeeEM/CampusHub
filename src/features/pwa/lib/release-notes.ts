@@ -21,7 +21,7 @@ export const CAMPUSHUB_RELEASE = {
     {
       title: "Notification Preferences",
       description:
-        "User controls for announcements, events, marketplace, projects, badges, streak reminders, and related engagement updates.",
+        "User controls for announcements, events, marketplace orders, project stars, badge unlocks, streak reminders, and almanac reminders.",
     },
     {
       title: "Kibo Engagement Layer",
@@ -34,4 +34,3 @@ export const CAMPUSHUB_RELEASE = {
 export const RELEASE_NOTES_STORAGE_KEY = `campushub:release-notes:${CAMPUSHUB_RELEASE.version}`;
 export const RELEASE_NOTES_AFTER_UPDATE_KEY =
   "campushub:show-release-notes-after-update";
-

@@ -54,6 +54,28 @@ const invitationSchema = new Schema(
       default: null,
       index: true,
     },
+    courseId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    yearOfStudy: {
+      type: Number,
+      default: null,
+      min: 1,
+      max: 8,
+      index: true,
+    },
+    enrollmentYear: {
+      type: Number,
+      default: null,
+      index: true,
+    },
+    expectedGraduationYear: {
+      type: Number,
+      default: null,
+      index: true,
+    },
     representativeId: {
       type: String,
       default: null,

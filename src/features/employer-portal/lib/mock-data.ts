@@ -10,12 +10,27 @@ export const mockEmployerProfile = {
 
 export const employerStats: Array<Record<string, unknown>> = [];
 export type EmployerStudent = {
+  id?: string;
   name: string;
+  photo?: string;
+  email?: string;
+  phone?: string;
+  university?: string;
+  college?: string;
   department: string;
   skills: string[];
+  badges?: string[];
   saved?: boolean;
   xp?: number;
   shortlist?: string | null;
+  availability?: string;
+  graduationYear?: string;
+  bio?: string;
+  projects?: number;
+  profileCompletion?: number;
+  activity?: string;
+  tags?: string[];
+  notes?: string;
 };
 export const employerStudents: EmployerStudent[] = [];
 export type EmployerProject = {

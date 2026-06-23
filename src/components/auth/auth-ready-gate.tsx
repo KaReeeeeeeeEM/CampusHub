@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import { PageLoadingState } from "@/components/shared/page-loading-state";
 import { useAuth } from "@/features/auth/auth-provider";
 
@@ -15,8 +17,13 @@ export function AuthReadyGate({
   description = "Fetching your account, role, and university details.",
 }: AuthReadyGateProps) {
   const { isPending } = useAuth();
+  const [hasHydrated, setHasHydrated] = useState(false);
 
-  if (isPending) {
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
+
+  if (!hasHydrated || isPending) {
     return <PageLoadingState title={title} description={description} />;
   }
 

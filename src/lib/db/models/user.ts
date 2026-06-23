@@ -191,6 +191,33 @@ const userSchema = new Schema(
       default: null,
       index: true,
     },
+    courseId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    yearOfStudy: {
+      type: Number,
+      default: null,
+      min: 1,
+      max: 8,
+      index: true,
+    },
+    enrollmentYear: {
+      type: Number,
+      default: null,
+      index: true,
+    },
+    expectedGraduationYear: {
+      type: Number,
+      default: null,
+      index: true,
+    },
+    graduatedAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
     onboardingCompleted: {
       type: Boolean,
       default: false,
@@ -207,6 +234,8 @@ const userSchema = new Schema(
       communityUpdates: { type: Boolean, default: true },
       marketplaceActivity: { type: Boolean, default: true },
       projectActivity: { type: Boolean, default: true },
+      badgeUnlocks: { type: Boolean, default: true },
+      almanacReminders: { type: Boolean, default: true },
       mentorshipActivity: { type: Boolean, default: true },
       opportunityAlerts: { type: Boolean, default: true },
       announcements: { type: Boolean, default: true },

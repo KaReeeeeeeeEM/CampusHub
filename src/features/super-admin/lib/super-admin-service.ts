@@ -7,6 +7,7 @@ import type {
   CampusAdminActivationInput,
   CampusAdminInvitationInput,
   SuperAdminCollegeInput,
+  SuperAdminCourseInput,
   SuperAdminDepartmentInput,
   UniversityInput,
 } from "@/features/super-admin/lib/schemas";
@@ -14,6 +15,7 @@ import {
   campusAdminActivationSchema,
   campusAdminInvitationInputSchema,
   superAdminCollegeInputSchema,
+  superAdminCourseInputSchema,
   superAdminDepartmentInputSchema,
   universityInputSchema,
 } from "@/features/super-admin/lib/schemas";
@@ -30,6 +32,7 @@ import {
   CommunityMemberModel,
   CampusAdminInvitationModel,
   CollegeModel,
+  CourseModel,
   DepartmentModel,
   EventModel,
   EmployerApplicationModel,
@@ -127,6 +130,25 @@ export type SerializedSuperAdminDepartment = {
   updatedAt: string | null;
 };
 
+export type SerializedSuperAdminCourse = {
+  id: string;
+  universityId: string;
+  universityName: string;
+  collegeId: string;
+  collegeName: string;
+  departmentId: string;
+  departmentName: string;
+  name: string;
+  code: string;
+  slug: string | null;
+  durationYears: number;
+  description: string | null;
+  status: "ACTIVE" | "INACTIVE";
+  studentsCount: number;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
 export type SerializedSuperAdminCommitteeCommunity = {
   id: string;
   universityId: string;
@@ -205,6 +227,7 @@ export type SerializedSuperAdminUser = {
 export type SerializedSuperAdminAuditLog = {
   id: string;
   timestamp: string;
+  occurredAt: string | null;
   user: string;
   role: string;
   university: string;
@@ -389,6 +412,40 @@ function serializeSuperAdminDepartment(
     createdAt: serializeDate(department.createdAt),
     updatedAt: serializeDate(department.updatedAt),
   } satisfies SerializedSuperAdminDepartment;
+}
+
+function serializeSuperAdminCourse(
+  course: Record<string, unknown>,
+  {
+    universityName,
+    collegeName,
+    departmentName,
+    studentsCount,
+  }: {
+    universityName: string;
+    collegeName: string;
+    departmentName: string;
+    studentsCount: number;
+  },
+) {
+  return {
+    id: String(course._id),
+    universityId: String(course.universityId),
+    universityName,
+    collegeId: String(course.collegeId),
+    collegeName,
+    departmentId: String(course.departmentId),
+    departmentName,
+    name: String(course.name),
+    code: String(course.code),
+    slug: serializeOptionalString(course.slug),
+    durationYears: Number(course.durationYears ?? 1),
+    description: serializeOptionalString(course.description),
+    status: (course.status as SerializedSuperAdminCourse["status"]) ?? "ACTIVE",
+    studentsCount,
+    createdAt: serializeDate(course.createdAt),
+    updatedAt: serializeDate(course.updatedAt),
+  } satisfies SerializedSuperAdminCourse;
 }
 
 function serializeInvitation(
@@ -1135,6 +1192,376 @@ export async function deleteSuperAdminDepartment(departmentId: string) {
   return { id: departmentId };
 }
 
+export async function listSuperAdminCourses() {
+  await requireSuperAdminSession();
+  await connectMongo();
+
+  const courses = await CourseModel.find({ deletedAt: null })
+    .sort({ createdAt: -1 })
+    .lean();
+  const courseIds = courses.map((course) => String(course._id));
+  const universityIds = Array.from(
+    new Set(
+      courses
+        .map((course) => String(course.universityId ?? ""))
+        .filter(Boolean),
+    ),
+  );
+  const collegeIds = Array.from(
+    new Set(
+      courses.map((course) => String(course.collegeId ?? "")).filter(Boolean),
+    ),
+  );
+  const departmentIds = Array.from(
+    new Set(
+      courses
+        .map((course) => String(course.departmentId ?? ""))
+        .filter(Boolean),
+    ),
+  );
+
+  const [universities, colleges, departments, studentCounts] =
+    await Promise.all([
+      UniversityModel.find({ _id: { $in: universityIds } })
+        .select({ name: 1 })
+        .lean(),
+      CollegeModel.find({ _id: { $in: collegeIds } })
+        .select({ name: 1 })
+        .lean(),
+      DepartmentModel.find({ _id: { $in: departmentIds } })
+        .select({ name: 1 })
+        .lean(),
+      UserModel.aggregate<{ _id: string; count: number }>([
+        {
+          $match: {
+            courseId: { $in: courseIds },
+            deletedAt: null,
+            $or: [{ role: "STUDENT" }, { roles: "STUDENT" }],
+          },
+        },
+        { $group: { _id: "$courseId", count: { $sum: 1 } } },
+      ]),
+    ]);
+
+  const universityNames = new Map(
+    universities.map((university) => [
+      String(university._id),
+      String(university.name),
+    ]),
+  );
+  const collegeNames = new Map(
+    colleges.map((college) => [String(college._id), String(college.name)]),
+  );
+  const departmentNames = new Map(
+    departments.map((department) => [
+      String(department._id),
+      String(department.name),
+    ]),
+  );
+  const studentsByCourse = new Map(
+    studentCounts.map((item) => [String(item._id), item.count]),
+  );
+
+  return courses.map((course) =>
+    serializeSuperAdminCourse(course as Record<string, unknown>, {
+      universityName:
+        universityNames.get(String(course.universityId)) ?? "Unknown university",
+      collegeName:
+        collegeNames.get(String(course.collegeId)) ?? "Unknown college",
+      departmentName:
+        departmentNames.get(String(course.departmentId)) ??
+        "Unknown department",
+      studentsCount: studentsByCourse.get(String(course._id)) ?? 0,
+    }),
+  );
+}
+
+export async function createSuperAdminCourse(input: SuperAdminCourseInput) {
+  const session = await requireSuperAdminSession();
+  await connectMongo();
+  const payload = superAdminCourseInputSchema.parse(input);
+  const [university, department] = await Promise.all([
+    UniversityModel.findOne({ _id: payload.universityId, deletedAt: null }).lean(),
+    DepartmentModel.findOne({
+      _id: payload.departmentId,
+      universityId: payload.universityId,
+      deletedAt: null,
+    }).lean(),
+  ]);
+
+  if (!university) {
+    throw notFound("University not found.");
+  }
+
+  if (!department) {
+    throw notFound("Department not found in the selected university.");
+  }
+
+  const code = normalizeCode(payload.code);
+  const slug = slugify(payload.name);
+  const duplicate = await CourseModel.findOne({
+    universityId: payload.universityId,
+    deletedAt: null,
+    $or: [{ code }, { slug }],
+  }).lean();
+
+  if (duplicate) {
+    throw new ApiError({
+      statusCode: 409,
+      code: "COURSE_ALREADY_EXISTS",
+      message: "A course with this name or code already exists.",
+    });
+  }
+
+  const college = await CollegeModel.findOne({
+    _id: department.collegeId,
+    universityId: payload.universityId,
+    deletedAt: null,
+  }).lean();
+
+  if (!college) {
+    throw notFound("College for the selected department was not found.");
+  }
+
+  const course = await CourseModel.create({
+    _id: randomUUID(),
+    universityId: payload.universityId,
+    collegeId: department.collegeId,
+    departmentId: payload.departmentId,
+    name: payload.name,
+    code,
+    slug,
+    durationYears: payload.durationYears,
+    description: payload.description,
+    status: payload.status,
+    createdById: session.user.id,
+    updatedById: session.user.id,
+  });
+
+  const serialized = serializeSuperAdminCourse(course.toObject(), {
+    universityName: String(university.name),
+    collegeName: String(college.name),
+    departmentName: String(department.name),
+    studentsCount: 0,
+  });
+
+  await writeAuditLog({
+    actorId: session.user.id,
+    universityId: payload.universityId,
+    action: "DEPARTMENT_CREATE",
+    entityType: "course",
+    entityId: String(course._id),
+    after: serialized,
+  });
+
+  return serialized;
+}
+
+export async function updateSuperAdminCourse(
+  courseId: string,
+  input: SuperAdminCourseInput,
+) {
+  const session = await requireSuperAdminSession();
+  await connectMongo();
+  const payload = superAdminCourseInputSchema.parse(input);
+  const [university, department, before] = await Promise.all([
+    UniversityModel.findOne({ _id: payload.universityId, deletedAt: null }).lean(),
+    DepartmentModel.findOne({
+      _id: payload.departmentId,
+      universityId: payload.universityId,
+      deletedAt: null,
+    }).lean(),
+    CourseModel.findOne({ _id: courseId, deletedAt: null }).lean(),
+  ]);
+
+  if (!university) {
+    throw notFound("University not found.");
+  }
+
+  if (!department) {
+    throw notFound("Department not found in the selected university.");
+  }
+
+  if (!before) {
+    throw notFound("Course not found.");
+  }
+
+  const code = normalizeCode(payload.code);
+  const slug = slugify(payload.name);
+  const duplicate = await CourseModel.findOne({
+    _id: { $ne: courseId },
+    universityId: payload.universityId,
+    deletedAt: null,
+    $or: [{ code }, { slug }],
+  }).lean();
+
+  if (duplicate) {
+    throw new ApiError({
+      statusCode: 409,
+      code: "COURSE_ALREADY_EXISTS",
+      message: "A course with this name or code already exists.",
+    });
+  }
+
+  const college = await CollegeModel.findOne({
+    _id: department.collegeId,
+    universityId: payload.universityId,
+    deletedAt: null,
+  }).lean();
+
+  if (!college) {
+    throw notFound("College for the selected department was not found.");
+  }
+
+  const course = await CourseModel.findOneAndUpdate(
+    { _id: courseId, deletedAt: null },
+    {
+      $set: {
+        universityId: payload.universityId,
+        collegeId: department.collegeId,
+        departmentId: payload.departmentId,
+        name: payload.name,
+        code,
+        slug,
+        durationYears: payload.durationYears,
+        description: payload.description,
+        status: payload.status,
+        updatedById: session.user.id,
+      },
+    },
+    { new: true },
+  ).lean();
+
+  if (!course) {
+    throw notFound("Course not found.");
+  }
+
+  const studentsCount = await UserModel.countDocuments({
+    courseId,
+    deletedAt: null,
+    $or: [{ role: "STUDENT" }, { roles: "STUDENT" }],
+  });
+  const serialized = serializeSuperAdminCourse(
+    course as Record<string, unknown>,
+    {
+      universityName: String(university.name),
+      collegeName: String(college.name),
+      departmentName: String(department.name),
+      studentsCount,
+    },
+  );
+
+  await writeAuditLog({
+    actorId: session.user.id,
+    universityId: payload.universityId,
+    action: "DEPARTMENT_UPDATE",
+    entityType: "course",
+    entityId: courseId,
+    before,
+    after: serialized,
+  });
+
+  return serialized;
+}
+
+export async function deactivateSuperAdminCourse(courseId: string) {
+  const session = await requireSuperAdminSession();
+  await connectMongo();
+  const before = await CourseModel.findOne({
+    _id: courseId,
+    deletedAt: null,
+  }).lean();
+
+  if (!before) {
+    throw notFound("Course not found.");
+  }
+
+  const course = await CourseModel.findOneAndUpdate(
+    { _id: courseId, deletedAt: null },
+    {
+      $set: {
+        status: "INACTIVE",
+        updatedById: session.user.id,
+      },
+    },
+    { new: true },
+  ).lean();
+
+  if (!course) {
+    throw notFound("Course not found.");
+  }
+
+  await writeAuditLog({
+    actorId: session.user.id,
+    universityId: String(before.universityId),
+    action: "DEPARTMENT_UPDATE",
+    entityType: "course",
+    entityId: courseId,
+    before,
+    after: course,
+  });
+
+  const [university, college, department, studentsCount] = await Promise.all([
+    UniversityModel.findById(String(course.universityId)).select({ name: 1 }).lean(),
+    CollegeModel.findById(String(course.collegeId)).select({ name: 1 }).lean(),
+    DepartmentModel.findById(String(course.departmentId))
+      .select({ name: 1 })
+      .lean(),
+    UserModel.countDocuments({
+      courseId,
+      deletedAt: null,
+      $or: [{ role: "STUDENT" }, { roles: "STUDENT" }],
+    }),
+  ]);
+
+  return serializeSuperAdminCourse(course as Record<string, unknown>, {
+    universityName: university ? String(university.name) : "Unknown university",
+    collegeName: college ? String(college.name) : "Unknown college",
+    departmentName: department
+      ? String(department.name)
+      : "Unknown department",
+    studentsCount,
+  });
+}
+
+export async function deleteSuperAdminCourse(courseId: string) {
+  const session = await requireSuperAdminSession();
+  await connectMongo();
+  const before = await CourseModel.findOne({
+    _id: courseId,
+    deletedAt: null,
+  }).lean();
+
+  if (!before) {
+    throw notFound("Course not found.");
+  }
+
+  const course = await CourseModel.findOneAndUpdate(
+    { _id: courseId, deletedAt: null },
+    {
+      $set: {
+        status: "INACTIVE",
+        deletedAt: new Date(),
+        deletedById: session.user.id,
+        updatedById: session.user.id,
+      },
+    },
+    { new: true },
+  ).lean();
+
+  await writeAuditLog({
+    actorId: session.user.id,
+    universityId: String(before.universityId),
+    action: "DEPARTMENT_DELETE",
+    entityType: "course",
+    entityId: courseId,
+    before,
+    after: course,
+  });
+
+  return { id: courseId };
+}
+
 function metadataCommitteeId(record: Record<string, unknown>) {
   const metadata = record.metadata;
   if (!metadata || typeof metadata !== "object") return null;
@@ -1652,6 +2079,8 @@ export async function listSuperAdminAuditLogs() {
     return {
       id: String(record._id),
       timestamp: formatDateTime(record.createdAt),
+      occurredAt:
+        record.createdAt instanceof Date ? record.createdAt.toISOString() : null,
       user: actor ? getDisplayName(actor) : "System",
       role: roles[0] ?? String(actor?.role ?? "SYSTEM"),
       university:

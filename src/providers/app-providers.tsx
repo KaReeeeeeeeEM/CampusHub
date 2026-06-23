@@ -2,6 +2,7 @@
 
 import { AuthProvider } from "@/features/auth/auth-provider";
 import { SecuritySetupReminder } from "@/features/auth/components/security-setup-reminder";
+import { NotificationReminderDispatcher } from "@/features/notifications/components/notification-reminder-dispatcher";
 import { StreakCelebrationProvider } from "@/features/streak-celebration/components/streak-celebration-provider";
 import { UniversalSearch } from "@/components/navigation/universal-search";
 import { OverlayCoordinatorProvider } from "@/components/overlays/overlay-coordinator";
@@ -27,6 +28,7 @@ export function AppProviders({ children }: AppProvidersProps) {
                   {children}
                   <UniversalSearch />
                   <SecuritySetupReminder />
+                  <NotificationReminderDispatcher />
                 </StreakCelebrationProvider>
               </PwaProvider>
             </OverlayCoordinatorProvider>

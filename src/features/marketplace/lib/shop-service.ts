@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { PERMISSIONS } from "@/features/authorization/permissions";
 import { hasPermission, hasRole } from "@/features/authorization/rbac";
+import { notifySavedCandidateFollowers } from "@/features/career/lib/saved-candidate-activity-notifications";
 import {
   createShopSchema,
   shopAnalyticsQuerySchema,
@@ -214,6 +215,20 @@ export async function createShop(input: unknown) {
     entityType: "shop",
     entityId: String(shop._id),
     after: serializeShop(shop.toObject()),
+  });
+  await notifySavedCandidateFollowers({
+    candidateUserId: actor.id,
+    universityId,
+    type: "SHOP_CREATED",
+    title: `${actor.name ?? "A saved candidate"} opened a shop`,
+    message: `${actor.name ?? "A saved candidate"} created "${payload.name}" on Campus Market.`,
+    entityType: "shop",
+    entityId: String(shop._id),
+    actionUrl: `/employer/candidates/${actor.id}`,
+    metadata: {
+      shopName: payload.name,
+      category: payload.category,
+    },
   });
 
   return serializeShop(shop.toObject());

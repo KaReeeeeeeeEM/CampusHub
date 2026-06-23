@@ -2,6 +2,7 @@ import {
   FiArchive,
   FiBarChart2,
   FiBookOpen,
+  FiBook,
   FiCalendar,
   FiGrid,
   FiLayers,
@@ -26,6 +27,11 @@ export const campusAdminNavItems = [
     label: "Departments",
     href: "/campus-admin/departments",
     icon: FiLayers,
+  },
+  {
+    label: "Courses",
+    href: "/campus-admin/courses",
+    icon: FiBook,
   },
   {
     label: "Representatives",

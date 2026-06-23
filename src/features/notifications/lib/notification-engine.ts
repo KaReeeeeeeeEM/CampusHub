@@ -31,9 +31,11 @@ function notificationCategory(type: string) {
     case "COMMUNITY":
       return "COMMUNITY";
     case "BADGE":
+    case "STREAK_REMINDER":
     case "XP":
       return "GAMIFICATION";
     case "EVENT_REMINDER":
+    case "ALMANAC_REMINDER":
       return "EVENT";
     case "ORDER":
       return "MARKETPLACE";
@@ -256,6 +258,38 @@ async function insertNotificationRecords(
   }));
 
   if (!notifications.length) return notifications;
+
+  const idempotencyKey =
+    payload.metadata &&
+    typeof payload.metadata === "object" &&
+    typeof payload.metadata.idempotencyKey === "string"
+      ? payload.metadata.idempotencyKey
+      : null;
+
+  if (idempotencyKey) {
+    const created: typeof notifications = [];
+
+    for (const notification of notifications) {
+      const result = await NotificationModel.updateOne(
+        {
+          recipientId: notification.recipientId,
+          type: notification.type,
+          entityType: notification.entityType,
+          entityId: notification.entityId,
+          "metadata.idempotencyKey": idempotencyKey,
+          deletedAt: null,
+        },
+        { $setOnInsert: notification },
+        { upsert: true },
+      );
+
+      if (result.upsertedCount) {
+        created.push(notification);
+      }
+    }
+
+    return created;
+  }
 
   await NotificationModel.insertMany(notifications, { ordered: false });
 

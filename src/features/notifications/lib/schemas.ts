@@ -8,6 +8,7 @@ export const notificationTypeSchema = z.enum([
   "COMMUNITY",
   "EVENT",
   "EVENT_REMINDER",
+  "ALMANAC_REMINDER",
   "POLL",
   "FORUM",
   "SUGGESTION",
@@ -21,6 +22,7 @@ export const notificationTypeSchema = z.enum([
   "EMPLOYER",
   "GOVERNANCE",
   "BADGE",
+  "STREAK_REMINDER",
   "XP",
   "SYSTEM",
 ]);

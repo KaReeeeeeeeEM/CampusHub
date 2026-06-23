@@ -119,7 +119,19 @@ function serializeAlmanacEvent(event: Record<string, unknown>) {
     deadlineType: isDeadline
       ? ((metadataValue(event, "deadlineType") as string | null) ?? "GENERAL")
       : null,
-    reminders: Array.isArray(event.reminders) ? event.reminders : [],
+    reminders: Array.isArray(event.reminders)
+      ? event.reminders.map((reminder) => {
+          const reminderRecord = reminder as Record<string, unknown>;
+
+          return {
+            reminderId: String(reminderRecord.reminderId ?? ""),
+            offsetDays: Number(reminderRecord.offsetDays ?? 0),
+            remindAt: serializeDate(reminderRecord.remindAt),
+            label: String(reminderRecord.label ?? ""),
+            sentAt: serializeDate(reminderRecord.sentAt),
+          };
+        })
+      : [],
     analytics: {
       views: Number(event.views ?? 0),
       uniqueViews: Number(event.uniqueViews ?? 0),

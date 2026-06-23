@@ -22,6 +22,16 @@ const studentSchema = new Schema(
       required: true,
       index: true,
     },
+    departmentId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    courseId: {
+      type: String,
+      required: true,
+      index: true,
+    },
     invitationId: {
       type: String,
       required: true,
@@ -74,9 +84,20 @@ const studentSchema = new Schema(
       trim: true,
     },
     yearOfStudy: {
-      type: String,
+      type: Number,
       required: true,
-      trim: true,
+      min: 1,
+      max: 8,
+    },
+    enrollmentYear: {
+      type: Number,
+      required: true,
+      index: true,
+    },
+    expectedGraduationYear: {
+      type: Number,
+      required: true,
+      index: true,
     },
     status: {
       type: String,

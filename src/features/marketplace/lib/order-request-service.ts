@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { PERMISSIONS } from "@/features/authorization/permissions";
 import { hasPermission, hasRole } from "@/features/authorization/rbac";
+import { notifySavedCandidateFollowers } from "@/features/career/lib/saved-candidate-activity-notifications";
 import { createSystemNotification } from "@/features/notifications/lib/notification-engine";
 import { resolveMarketplaceLocation } from "@/features/marketplace/lib/location-service";
 import { attachOrderRequestLocationSchema } from "@/features/marketplace/lib/location-schemas";
@@ -164,7 +165,9 @@ async function notifyUser(input: {
     entityId: String(input.request._id),
     actionUrl: `/market/requests/${String(input.request._id)}`,
     priority: "NORMAL",
+    channels: { inApp: true, email: false, push: true, sms: false },
     metadata: {
+      engagementType: "marketplace_order",
       productId: input.request.productId,
       status: input.request.status,
     },
@@ -224,6 +227,21 @@ export async function createOrderRequest(input: unknown) {
       request: request.toObject(),
       title: "New order request",
       message: "A buyer sent a request for one of your marketplace listings.",
+    }),
+    notifySavedCandidateFollowers({
+      candidateUserId: String(product.ownerId ?? product.sellerId),
+      universityId: String(product.universityId),
+      type: "MARKETPLACE_ORDER",
+      title: "Saved candidate received an order request",
+      message: "A saved candidate received a new marketplace order request.",
+      entityType: "order_request",
+      entityId: String(request._id),
+      actionUrl: `/employer/candidates/${String(product.ownerId ?? product.sellerId)}`,
+      metadata: {
+        productId: String(product._id),
+        shopId: String(product.shopId),
+        buyerId: actor.id,
+      },
     }),
     writeAuditLog({
       actorId: actor.id,

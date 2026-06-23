@@ -22,7 +22,11 @@ import {
 } from "@/components/ui/card";
 import { NotificationSettingsPanel } from "@/features/pwa/components/notification-settings-panel";
 import { ReleaseNotesModal } from "@/features/pwa/components/release-notes-modal";
-import { engagementCampaigns } from "@/features/pwa/lib/engagement-events";
+import {
+  ENGAGEMENT_CAMPAIGNS,
+  engagementCampaigns,
+  type EngagementEventType,
+} from "@/features/pwa/lib/engagement-events";
 import {
   getPushCapabilitySnapshot,
   resolvePushNotificationPayload,
@@ -44,15 +48,10 @@ type ServiceWorkerStatus = {
   scope?: string;
 };
 
-const samplePushPayload: CampusHubPushPayload = {
-  type: "project_star",
-  title: "Project Star Received",
-  body: "Someone appreciated your CampusHub project.",
-  url: "/student/showcase/my-projects",
-};
-
 export default function PwaShowcasePage() {
   const { showNotification } = useKibo();
+  const [selectedEventType, setSelectedEventType] =
+    useState<EngagementEventType>("project_star");
   const [installPrompt, setInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [installOutcome, setInstallOutcome] = useState<string>("Not requested");
@@ -67,8 +66,15 @@ export default function PwaShowcasePage() {
   const [releaseNotesOpen, setReleaseNotesOpen] = useState(false);
 
   const capabilities = useMemo(() => getPushCapabilitySnapshot(), []);
-  const resolvedSamplePayload =
-    resolvePushNotificationPayload(samplePushPayload);
+  const selectedCampaign = engagementCampaigns.find(
+    (campaign) => campaign.type === selectedEventType,
+  );
+  const resolvedSamplePayload = resolvePushNotificationPayload({
+    type: selectedEventType,
+    title: selectedCampaign?.defaultTitle,
+    body: selectedCampaign?.defaultBody,
+    url: selectedCampaign?.defaultUrl,
+  } satisfies CampusHubPushPayload);
 
   useEffect(() => {
     if ("Notification" in window) {
@@ -135,12 +141,14 @@ export default function PwaShowcasePage() {
   }
 
   async function showLocalNotification() {
+    const campaign = selectedCampaign ?? ENGAGEMENT_CAMPAIGNS.announcement;
+
     showNotification({
-      animation: "projectStar",
+      animation: campaign.kiboAnimation,
       title: resolvedSamplePayload.title,
       description: resolvedSamplePayload.body,
-      category: "projects",
-      priority: "normal",
+      category: campaign.kiboCategory,
+      priority: campaign.priority,
     });
 
     if (
@@ -320,7 +328,12 @@ export default function PwaShowcasePage() {
             {engagementCampaigns.map((campaign) => (
               <div
                 key={campaign.type}
-                className="rounded-lg border border-border bg-background p-3"
+                className={cn(
+                  "rounded-lg border bg-background p-3 transition",
+                  selectedEventType === campaign.type
+                    ? "border-primary"
+                    : "border-border",
+                )}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -336,6 +349,19 @@ export default function PwaShowcasePage() {
                 <p className="mt-2 text-xs leading-5 text-muted-foreground">
                   {campaign.defaultBody}
                 </p>
+                <Button
+                  className="mt-3"
+                  size="sm"
+                  type="button"
+                  variant={
+                    selectedEventType === campaign.type
+                      ? "default"
+                      : "secondary"
+                  }
+                  onClick={() => setSelectedEventType(campaign.type)}
+                >
+                  Use as test payload
+                </Button>
               </div>
             ))}
           </CardContent>
@@ -433,4 +459,3 @@ function StatusRow({
     </div>
   );
 }
-

@@ -709,6 +709,8 @@ export function StudentsManagement({
 }
 
 const invitationSchema = z.object({
+  courseId: z.string().min(1, "Select a course."),
+  yearOfStudy: z.coerce.number().int().min(1).max(8),
   expiresInDays: z.coerce.number().int().min(1).max(180),
   maxUsageCount: z.preprocess(
     (value) => (value === "" || value == null ? undefined : Number(value)),
@@ -736,6 +738,15 @@ type InvitationScope = {
   universityName: string;
   collegeId: string;
   collegeName: string;
+};
+
+type InvitationCourse = {
+  id: string;
+  name: string;
+  code: string;
+  departmentId: string;
+  departmentName: string;
+  durationYears: number;
 };
 
 type InvitationApiResponse = {
@@ -767,10 +778,12 @@ function formatNullableDate(value?: string | null) {
 
 function InvitationForm({
   scope,
+  courses,
   onSubmit,
   isSubmitting,
 }: {
   scope: InvitationScope;
+  courses: InvitationCourse[];
   onSubmit: (values: InvitationInput) => void;
   isSubmitting: boolean;
 }) {
@@ -781,10 +794,18 @@ function InvitationForm({
   >({
     resolver: zodResolver(invitationSchema),
     defaultValues: {
+      courseId: "",
+      yearOfStudy: 1,
       expiresInDays: 14,
       maxUsageCount: undefined,
     },
   });
+  const courseId = watch("courseId");
+  const selectedCourse = courses.find((course) => course.id === courseId);
+  const yearOptions = Array.from(
+    { length: selectedCourse?.durationYears ?? 1 },
+    (_, index) => index + 1,
+  );
 
   return (
     <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
@@ -798,6 +819,62 @@ function InvitationForm({
         </p>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
+        <label className="space-y-2 md:col-span-2">
+          <span className="text-sm font-medium">Course</span>
+          <Select
+            value={courseId}
+            onValueChange={(value) => {
+              setValue("courseId", value, {
+                shouldDirty: true,
+                shouldValidate: true,
+              });
+              setValue("yearOfStudy", 1, {
+                shouldDirty: true,
+                shouldValidate: true,
+              });
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select course" />
+            </SelectTrigger>
+            <SelectContent>
+              {courses.map((course) => (
+                <SelectItem key={course.id} value={course.id}>
+                  {course.name} ({course.code}) · {course.departmentName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {formState.errors.courseId ? (
+            <p className="text-xs text-destructive">
+              {formState.errors.courseId.message}
+            </p>
+          ) : null}
+        </label>
+        <label className="space-y-2">
+          <span className="text-sm font-medium">Year of study</span>
+          <Select
+            value={String(watch("yearOfStudy") ?? 1)}
+            onValueChange={(value) =>
+              setValue("yearOfStudy", Number(value), {
+                shouldDirty: true,
+                shouldValidate: true,
+              })
+            }
+            disabled={!selectedCourse}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select year" />
+            </SelectTrigger>
+            <SelectContent>
+              {yearOptions.map((year) => (
+                <SelectItem key={year} value={String(year)}>
+                  Year {year}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </label>
         <label className="space-y-2">
           <span className="text-sm font-medium">Expiry</span>
           <Select
@@ -843,9 +920,11 @@ function InvitationForm({
 
 export function InvitationsManagement({
   invitationScope,
+  courses,
   initialInvitations,
 }: {
   invitationScope: InvitationScope;
+  courses: InvitationCourse[];
   initialInvitations: StudentInvitation[];
 }) {
   const [invitations, setInvitations] = useState(initialInvitations);
@@ -864,6 +943,8 @@ export function InvitationsManagement({
     return invitations.filter((invitation) =>
       [
         invitation.collegeName,
+        invitation.departmentName,
+        invitation.courseName,
         invitation.universityName,
         invitation.status,
         invitation.invitationUrl,
@@ -885,6 +966,8 @@ export function InvitationsManagement({
         body: JSON.stringify({
           universityId: invitationScope.universityId,
           collegeId: invitationScope.collegeId,
+          courseId: values.courseId,
+          yearOfStudy: values.yearOfStudy,
           expiresAt,
           maxUsageCount: values.maxUsageCount,
         }),
@@ -975,13 +1058,15 @@ export function InvitationsManagement({
 
   const columns: DataTableColumn<StudentInvitation>[] = [
     {
-      key: "collegeName",
-      header: "College",
+      key: "courseName",
+      header: "Course",
       cell: (invitation) => (
         <div>
-          <p className="font-medium">{invitation.collegeName}</p>
+          <p className="font-medium">
+            {invitation.courseName ?? invitation.collegeName}
+          </p>
           <p className="text-xs text-muted-foreground">
-            {invitation.universityName}
+            {invitation.departmentName ?? invitation.universityName}
           </p>
         </div>
       ),
@@ -1079,7 +1164,11 @@ export function InvitationsManagement({
               options={invitationViewOptions}
               onValueChange={setViewMode}
             />
-            <Button type="button" onClick={() => setCreateOpen(true)}>
+            <Button
+              type="button"
+              disabled={courses.length === 0}
+              onClick={() => setCreateOpen(true)}
+            >
               <FiPlus className="h-4 w-4" aria-hidden="true" />
               Generate Student Link
             </Button>
@@ -1128,10 +1217,12 @@ export function InvitationsManagement({
                   />
                 </div>
                 <h3 className="mt-4 text-base font-semibold">
-                  {invitation.collegeName}
+                  {invitation.courseName ?? invitation.collegeName}
                 </h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {invitation.universityName}
+                  {invitation.yearOfStudy
+                    ? `Year ${invitation.yearOfStudy}`
+                    : invitation.universityName}
                 </p>
                 <p className="mt-4 line-clamp-2 break-all text-sm text-muted-foreground">
                   {invitation.invitationUrl}
@@ -1177,6 +1268,7 @@ export function InvitationsManagement({
       >
         <InvitationForm
           scope={invitationScope}
+          courses={courses}
           onSubmit={createInvitation}
           isSubmitting={isPending}
         />
@@ -1213,6 +1305,18 @@ export function InvitationsManagement({
               rows={[
                 ["University", viewing.universityName],
                 ["College", viewing.collegeName],
+                ["Department", viewing.departmentName ?? "Not assigned"],
+                ["Course", viewing.courseName ?? "Not assigned"],
+                [
+                  "Year",
+                  viewing.yearOfStudy ? `Year ${viewing.yearOfStudy}` : "Not set",
+                ],
+                [
+                  "Expected graduation",
+                  viewing.expectedGraduationYear
+                    ? `${viewing.expectedGraduationYear}`
+                    : "Not set",
+                ],
                 [
                   "Usage",
                   `${viewing.usageCount} / ${

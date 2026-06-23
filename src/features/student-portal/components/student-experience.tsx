@@ -139,6 +139,7 @@ import {
   type StudentSuggestion,
 } from "@/features/student-portal/lib/mock-data";
 import { NotificationTabs } from "@/features/notifications/components/notification-tabs";
+import { DashboardRemindersList } from "@/features/notifications/components/dashboard-reminders-panel";
 import {
   deleteClientNotification,
   deleteClientNotifications,
@@ -150,6 +151,7 @@ import {
   type ClientNotification,
 } from "@/features/notifications/lib/client-notification-utils";
 import type { DataTableColumn } from "@/components/shared/data-table";
+import { formatCompactNumber } from "@/lib/number-format";
 import { cn } from "@/lib/utils";
 
 function toFiniteNumber(value: unknown, fallback = 0) {
@@ -262,12 +264,6 @@ const weeklyGoals = [
   },
 ];
 
-const recentCampusItems: Array<{
-  icon: string;
-  title: string;
-  meta: string;
-}> = [];
-
 const campusPlanRows = [
   {
     day: "Mon",
@@ -313,14 +309,6 @@ const dashboardIntervalOptions: Array<{
 const dashboardIntervalMap = Object.fromEntries(
   dashboardIntervalOptions.map((option) => [option.value, option]),
 ) as Record<DashboardInterval, (typeof dashboardIntervalOptions)[number]>;
-
-function formatCompactNumber(value: number) {
-  if (value >= 1000) {
-    return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}k`;
-  }
-
-  return value.toLocaleString();
-}
 
 function buildDashboardData(interval: DashboardInterval) {
   const config = dashboardIntervalMap[interval];
@@ -388,9 +376,9 @@ const leadershipStatCards: {
 }[] = [
   {
     label: "Students Joined",
-    value: mockStudents
-      .filter((student) => student.status === "ACTIVE")
-      .length.toLocaleString(),
+    value: formatCompactNumber(
+      mockStudents.filter((student) => student.status === "ACTIVE").length,
+    ),
     icon: FiUsers,
     href: "/student/leadership/committee",
   },
@@ -1279,7 +1267,7 @@ function EventDetails({ event }: { event: StudentEvent }) {
           ["Category", event.category],
           ["Date", formatDate(event.date)],
           ["Time", event.time],
-          ["Expected Attendees", event.expectedAttendees.toLocaleString()],
+          ["Expected Attendees", formatCompactNumber(event.expectedAttendees)],
           ["Status", event.status],
         ].map(([label, value]) => (
           <div key={label} className="rounded-md border border-border p-3">
@@ -1633,34 +1621,10 @@ export function StudentDashboardView() {
           }
           className="h-full"
         >
-          {recentCampusItems.length > 0 ? (
-            <div className="space-y-5">
-              {recentCampusItems.map((item) => (
-                <Link
-                  key={item.title}
-                  className="group flex items-center gap-4 rounded-lg p-2 transition-colors hover:bg-surface-muted"
-                  href="/student/notifications"
-                >
-                  <span className="text-2xl" aria-hidden="true">
-                    {item.icon}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold group-hover:text-primary">
-                      {item.title}
-                    </span>
-                    <span className="mt-1 block text-xs font-medium text-muted-foreground">
-                      {item.meta}
-                    </span>
-                  </span>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              title="No recent updates"
-              description="Fresh activity from your campus will appear here."
-            />
-          )}
+          <DashboardRemindersList
+            emptyTitle="No recent updates"
+            emptyDescription="Almanac entries, events, and announcements will appear here when scheduled or published."
+          />
         </DashboardPanel>
 
         <DashboardPanel
@@ -1691,7 +1655,7 @@ export function StudentDashboardView() {
                         {poll.question}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {poll.category} · {poll.responses.toLocaleString()}{" "}
+                        {poll.category} · {formatCompactNumber(poll.responses)}{" "}
                         responses
                       </p>
                     </div>
@@ -1887,7 +1851,7 @@ export function StudentDashboardView() {
                     {poll.title}
                   </span>
                   <span className="shrink-0 text-xs text-muted-foreground">
-                    {poll.responses.toLocaleString()} votes
+                    {formatCompactNumber(poll.responses)} votes
                   </span>
                 </div>
               ))}
@@ -2658,7 +2622,7 @@ export function EventsPageView() {
                   </p>
                   <div className="mt-5 flex items-center justify-between gap-3">
                     <span className="text-xs text-muted-foreground">
-                      {event.expectedAttendees.toLocaleString()} expected
+                      {formatCompactNumber(event.expectedAttendees)} expected
                     </span>
                     <Button type="button" onClick={() => setViewing(event)}>
                       <FiEye className="h-4 w-4" aria-hidden="true" />
@@ -2905,8 +2869,17 @@ export function AlmanacPageView({
   const selectedDateItems = selectedDate
     ? almanacItems.filter((item) => isSameAlmanacDay(item.date, selectedDate))
     : [];
-  const deadlines = almanacItems.filter((item) => item.type === "Deadline");
-  const exams = almanacItems.filter((item) => item.type === "Exam");
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const upcomingItems = filtered
+    .filter((item) => {
+      const date = new Date(item.date);
+      return !Number.isNaN(date.getTime()) && date >= todayStart;
+    })
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .slice(0, 5);
+  const deadlines = upcomingItems.filter((item) => item.type === "Deadline");
+  const exams = upcomingItems.filter((item) => item.type === "Exam");
 
   function openCalendarDate(arg: DateClickArg) {
     setSelectedDate(arg.dateStr);
@@ -3036,22 +3009,61 @@ export function AlmanacPageView({
           <div className="space-y-6">
             <Card>
               <CardHeader>
+                <CardTitle>Upcoming Items</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {upcomingItems.length > 0 ? (
+                  upcomingItems.map((item) => (
+                    <button
+                      key={item.id}
+                      className="w-full rounded-md border border-border p-3 text-left transition hover:border-primary/40 hover:bg-primary/5"
+                      type="button"
+                      onClick={() => setViewing(item)}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="text-sm font-medium">{item.title}</p>
+                        <StatusPill>{item.type}</StatusPill>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {formatDate(item.date)} · {item.time}
+                      </p>
+                    </button>
+                  ))
+                ) : (
+                  <Empty
+                    className="border-0 bg-transparent p-0"
+                    title="No upcoming items"
+                    description="Upcoming almanac items will appear here."
+                  />
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
                 <CardTitle>Upcoming Deadlines</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {deadlines.map((item) => (
-                  <button
-                    key={item.id}
-                    className="w-full rounded-md border border-border p-3 text-left transition hover:border-primary/40 hover:bg-primary/5"
-                    type="button"
-                    onClick={() => setViewing(item)}
-                  >
-                    <p className="text-sm font-medium">{item.title}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {formatDate(item.date)}
-                    </p>
-                  </button>
-                ))}
+                {deadlines.length > 0 ? (
+                  deadlines.map((item) => (
+                    <button
+                      key={item.id}
+                      className="w-full rounded-md border border-border p-3 text-left transition hover:border-primary/40 hover:bg-primary/5"
+                      type="button"
+                      onClick={() => setViewing(item)}
+                    >
+                      <p className="text-sm font-medium">{item.title}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {formatDate(item.date)}
+                      </p>
+                    </button>
+                  ))
+                ) : (
+                  <Empty
+                    className="border-0 bg-transparent p-0"
+                    title="No upcoming deadlines"
+                    description="Deadline entries will appear here when available."
+                  />
+                )}
               </CardContent>
             </Card>
             <Card>
@@ -3059,19 +3071,27 @@ export function AlmanacPageView({
                 <CardTitle>Upcoming Exams</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {exams.map((item) => (
-                  <button
-                    key={item.id}
-                    className="w-full rounded-md border border-border p-3 text-left transition hover:border-primary/40 hover:bg-primary/5"
-                    type="button"
-                    onClick={() => setViewing(item)}
-                  >
-                    <p className="text-sm font-medium">{item.title}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {formatDate(item.date)}
-                    </p>
-                  </button>
-                ))}
+                {exams.length > 0 ? (
+                  exams.map((item) => (
+                    <button
+                      key={item.id}
+                      className="w-full rounded-md border border-border p-3 text-left transition hover:border-primary/40 hover:bg-primary/5"
+                      type="button"
+                      onClick={() => setViewing(item)}
+                    >
+                      <p className="text-sm font-medium">{item.title}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {formatDate(item.date)}
+                      </p>
+                    </button>
+                  ))
+                ) : (
+                  <Empty
+                    className="border-0 bg-transparent p-0"
+                    title="No upcoming exams"
+                    description="Exam entries will appear here when available."
+                  />
+                )}
               </CardContent>
             </Card>
           </div>
@@ -4759,7 +4779,7 @@ function PollCard({
           </p>
           <div className="mt-4 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
             <span>{poll.createdBy}</span>
-            <span>{poll.responses.toLocaleString()} responses</span>
+            <span>{formatCompactNumber(poll.responses)} responses</span>
             <span>Audience: {poll.audience}</span>
             <span>{formatResultVisibility(poll.resultsVisibility)}</span>
             {poll.status === "CLOSED" ? (
@@ -4863,7 +4883,7 @@ function VotePollModal({
                 Responses
               </p>
               <p className="mt-1 font-semibold">
-                {poll.responses.toLocaleString()}
+                {formatCompactNumber(poll.responses)}
               </p>
             </div>
             <div className="rounded-lg border border-border bg-background p-4">
@@ -4942,7 +4962,7 @@ function PollDetailsDrawer({
               ["Created By", poll.createdBy],
               ["Audience", poll.audience],
               ["End Date", formatDate(poll.endDate)],
-              ["Responses", poll.responses.toLocaleString()],
+              ["Responses", formatCompactNumber(poll.responses)],
               ["Results", formatResultVisibility(poll.resultsVisibility)],
             ].map(([label, value]) => (
               <div
@@ -5429,7 +5449,7 @@ export function ProfilePageView() {
                   </span>
                 </div>
                 <p className="mt-4 text-2xl font-semibold">
-                  {safeShowcaseProfile.currentXp.toLocaleString()} XP
+                  {formatCompactNumber(safeShowcaseProfile.currentXp)} XP
                 </p>
                 <div className="mt-4 h-2 overflow-hidden rounded-full bg-surface-muted">
                   <div
@@ -5440,7 +5460,7 @@ export function ProfilePageView() {
                   />
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  {safeShowcaseProfile.xpRemaining.toLocaleString()} XP to next
+                  {formatCompactNumber(safeShowcaseProfile.xpRemaining)} XP to next
                   level
                 </p>
               </div>
@@ -5461,9 +5481,9 @@ export function ProfilePageView() {
                     <div className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground">
                       <span className="inline-flex items-center gap-1">
                         <FiEye className="h-3.5 w-3.5" aria-hidden="true" />
-                        {toFiniteNumber(
-                          safeShowcaseProfile.topProject.views,
-                        ).toLocaleString()}{" "}
+                        {formatCompactNumber(
+                          toFiniteNumber(safeShowcaseProfile.topProject.views),
+                        )}{" "}
                         views
                       </span>
                       <span className="inline-flex items-center gap-1">

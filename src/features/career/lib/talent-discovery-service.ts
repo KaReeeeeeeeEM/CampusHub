@@ -16,11 +16,14 @@ import {
   BadgeModel,
   CareerProfileModel,
   CareerProfileViewModel,
+  CollegeModel,
+  DepartmentModel,
   ProjectModel,
   SavedCandidateModel,
   UserBadgeModel,
   UserModel,
   UserXpProfileModel,
+  UniversityModel,
 } from "@/lib/db/models";
 import type { AuthUser } from "@/types/auth";
 
@@ -92,13 +95,28 @@ function serializeUser(user: Record<string, unknown> | undefined) {
         ? user.avatar
         : typeof user.image === "string"
           ? user.image
+          : typeof user.profilePhoto === "string"
+            ? user.profilePhoto
+            : null,
+    email: typeof user.email === "string" ? user.email : null,
+    phone:
+      typeof user.phone === "string"
+        ? user.phone
+        : typeof user.phoneNumber === "string"
+          ? user.phoneNumber
           : null,
+    bio: typeof user.bio === "string" ? user.bio : null,
     role: String(user.role ?? "STUDENT"),
     universityId:
       typeof user.universityId === "string" ? user.universityId : null,
+    universityName:
+      typeof user.universityName === "string" ? user.universityName : null,
     collegeId: typeof user.collegeId === "string" ? user.collegeId : null,
+    collegeName: typeof user.collegeName === "string" ? user.collegeName : null,
     departmentId:
       typeof user.departmentId === "string" ? user.departmentId : null,
+    departmentName:
+      typeof user.departmentName === "string" ? user.departmentName : null,
   };
 }
 
@@ -285,7 +303,7 @@ async function getProfileDecorations(userIds: string[], employerId: string) {
     await Promise.all([
       UserModel.find({ _id: { $in: userIds } })
         .select(
-          "_id name username firstName lastName avatar image role roles universityId collegeId departmentId",
+          "_id name username firstName lastName email phone phoneNumber bio avatar image profilePhoto role roles universityId collegeId departmentId",
         )
         .lean(),
       ProjectModel.find({
@@ -315,9 +333,87 @@ async function getProfileDecorations(userIds: string[], employerId: string) {
   const badgeById = new Map(
     badgeRecords.map((badge) => [String(badge._id), badge]),
   );
+  const universityIds = [
+    ...new Set(
+      users
+        .map((user) =>
+          typeof user.universityId === "string" ? user.universityId : null,
+        )
+        .filter((value): value is string => Boolean(value)),
+    ),
+  ];
+  const collegeIds = [
+    ...new Set(
+      users
+        .map((user) =>
+          typeof user.collegeId === "string" ? user.collegeId : null,
+        )
+        .filter((value): value is string => Boolean(value)),
+    ),
+  ];
+  const departmentIds = [
+    ...new Set(
+      users
+        .map((user) =>
+          typeof user.departmentId === "string" ? user.departmentId : null,
+        )
+        .filter((value): value is string => Boolean(value)),
+    ),
+  ];
+  const [universities, colleges, departments] = await Promise.all([
+    universityIds.length
+      ? UniversityModel.find({ _id: { $in: universityIds } })
+          .select("_id name")
+          .lean()
+      : [],
+    collegeIds.length
+      ? CollegeModel.find({ _id: { $in: collegeIds } }).select("_id name").lean()
+      : [],
+    departmentIds.length
+      ? DepartmentModel.find({ _id: { $in: departmentIds } })
+          .select("_id name")
+          .lean()
+      : [],
+  ]);
+  const universityNameById = new Map(
+    universities.map((university) => [
+      String(university._id),
+      String(university.name ?? "Unknown university"),
+    ]),
+  );
+  const collegeNameById = new Map(
+    colleges.map((college) => [
+      String(college._id),
+      String(college.name ?? "Unknown college"),
+    ]),
+  );
+  const departmentNameById = new Map(
+    departments.map((department) => [
+      String(department._id),
+      String(department.name ?? "Unknown department"),
+    ]),
+  );
+  const decoratedUsers = users.map((user) => {
+    const universityId =
+      typeof user.universityId === "string" ? user.universityId : null;
+    const collegeId = typeof user.collegeId === "string" ? user.collegeId : null;
+    const departmentId =
+      typeof user.departmentId === "string" ? user.departmentId : null;
+
+    return {
+      ...user,
+      universityName: universityId
+        ? universityNameById.get(universityId) ?? null
+        : null,
+      collegeName: collegeId ? collegeNameById.get(collegeId) ?? null : null,
+      departmentName: departmentId
+        ? departmentNameById.get(departmentId) ?? null
+        : null,
+    };
+  });
 
   return {
-    userById: new Map(users.map((user) => [String(user._id), user])),
+    userById: new Map(decoratedUsers.map((user) => [String(user._id), user])),
     projectsByUserId: projects.reduce((map, project) => {
       const ownerId = String(project.ownerId);
       const items = map.get(ownerId) ?? [];
@@ -485,6 +581,121 @@ async function findCandidateProfile(userId: string, actor: AuthUser) {
   return profile;
 }
 
+async function findCandidateUser(userId: string, actor: AuthUser) {
+  const user = await UserModel.findOne({
+    _id: userId,
+    status: "ACTIVE",
+    ...deletedFilter,
+    $or: [
+      { role: { $in: ["STUDENT", "ALUMNI"] } },
+      { roles: { $in: ["STUDENT", "ALUMNI"] } },
+    ],
+  }).lean();
+
+  if (!user) throw notFound("Candidate not found.");
+
+  if (
+    !hasRole(actor.role, ["EMPLOYER", "SUPER_ADMIN"], actor.roles) &&
+    user.universityId !== actor.universityId
+  ) {
+    throw notFound("Candidate not found.");
+  }
+
+  return user;
+}
+
+function serializeFallbackProfile(user: Record<string, unknown>) {
+  return {
+    id: null,
+    userId: String(user._id),
+    universityId:
+      typeof user.universityId === "string" ? user.universityId : null,
+    headline: null,
+    bio: typeof user.bio === "string" ? user.bio : null,
+    skills: Array.isArray(user.skills) ? user.skills.map(String) : [],
+    languages: [],
+    certifications: [],
+    experience: [],
+    education: [],
+    portfolioLinks: [],
+    cvUrl: null,
+    availabilityStatus: "OPEN",
+    preferredWorkType: [],
+    preferredIndustries: [],
+    graduationYear:
+      typeof user.expectedGraduationYear === "number"
+        ? Number(user.expectedGraduationYear)
+        : null,
+    profileStrength: Number(user.profileCompletionPercentage ?? 0),
+    profileViewCount: 0,
+    employerViewCount: 0,
+    savedCount: 0,
+    contactCount: 0,
+    createdAt: null,
+    updatedAt: null,
+  };
+}
+
+async function ensureCandidateProfile(userId: string, actor: AuthUser) {
+  const existing = await CareerProfileModel.findOne({
+    userId,
+    ...deletedFilter,
+  }).lean();
+
+  if (existing) {
+    if (
+      !hasRole(actor.role, ["EMPLOYER", "SUPER_ADMIN"], actor.roles) &&
+      existing.universityId !== actor.universityId
+    ) {
+      throw notFound("Career profile not found.");
+    }
+
+    return existing;
+  }
+
+  const user = await findCandidateUser(userId, actor);
+  const universityId =
+    typeof user.universityId === "string" ? user.universityId : null;
+  if (!universityId) throw notFound("Candidate university not found.");
+
+  const profileId = `career-profile:${userId}`;
+  const payload = {
+    _id: profileId,
+    universityId,
+    userId,
+    bio: typeof user.bio === "string" ? user.bio : null,
+    skills: Array.isArray(user.skills) ? user.skills.map(String) : [],
+    graduationYear:
+      typeof user.expectedGraduationYear === "number"
+        ? Number(user.expectedGraduationYear)
+        : null,
+    profileStrength: Number(user.profileCompletionPercentage ?? 0),
+    metadata: {
+      createdFrom: "employer_candidate_fallback",
+    },
+  };
+
+  try {
+    const created = await CareerProfileModel.create(payload);
+    return created.toObject();
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error &&
+      "code" in error &&
+      error.code === 11000
+    ) {
+      const profile = await CareerProfileModel.findOne({
+        userId,
+        ...deletedFilter,
+      }).lean();
+      if (profile) return profile;
+    }
+
+    throw error;
+  }
+}
+
 async function trackProfileView(
   profile: Record<string, unknown>,
   actor: AuthUser,
@@ -541,18 +752,27 @@ export async function getTalentProfile(userId: string) {
   const actor = await requireAuth();
   assertCanDiscoverTalent(actor);
   await connectMongo();
-  const profile = await findCandidateProfile(userId, actor);
-  await trackProfileView(profile as Record<string, unknown>, actor, "DETAIL");
+  const userRecord = await findCandidateUser(userId, actor);
+  const profile = await CareerProfileModel.findOne({
+    userId,
+    ...deletedFilter,
+  }).lean();
 
   const decorations = await getProfileDecorations([userId], actor.id);
-  const user = decorations.userById.get(userId);
+  const user = decorations.userById.get(userId) ?? userRecord;
   if (!user) throw notFound("Candidate not found.");
   const xp = decorations.xpByUserId.get(userId);
   const saved = decorations.savedByUserId.get(userId);
 
+  if (profile) {
+    await trackProfileView(profile as Record<string, unknown>, actor, "DETAIL");
+  }
+
   return {
     user: serializeUser(user as Record<string, unknown>),
-    profile: serializeProfile(profile as Record<string, unknown>),
+    profile: profile
+      ? serializeProfile(profile as Record<string, unknown>)
+      : serializeFallbackProfile(user as Record<string, unknown>),
     projects: decorations.projectsByUserId.get(userId) ?? [],
     badges: decorations.badgesByUserId.get(userId) ?? [],
     achievements: {
@@ -570,7 +790,19 @@ export async function saveCandidate(input: unknown) {
   assertCanSaveOrContact(actor);
   await connectMongo();
   const payload = saveCandidateSchema.parse(input);
-  const profile = await findCandidateProfile(payload.candidateUserId, actor);
+  const profile = await ensureCandidateProfile(payload.candidateUserId, actor);
+  const employer = await UserModel.findById(actor.id)
+    .select("name firstName lastName email metadata employerProfile companyName")
+    .lean();
+  const companyName =
+    typeof employer?.companyName === "string" && employer.companyName.trim()
+      ? employer.companyName
+      : typeof (employer?.metadata as Record<string, unknown> | undefined)
+            ?.companyName === "string"
+        ? String((employer?.metadata as Record<string, unknown>).companyName)
+        : typeof employer?.name === "string" && employer.name.trim()
+          ? employer.name
+          : actor.email ?? "An employer";
   const id = `saved-candidate:${actor.id}:${payload.candidateUserId}:${
     payload.opportunityId ?? "general"
   }`;
@@ -597,6 +829,23 @@ export async function saveCandidate(input: unknown) {
       entityId: String(saved._id),
       metadata: {
         candidateUserId: payload.candidateUserId,
+        opportunityId: payload.opportunityId ?? null,
+      },
+    });
+    await createSystemNotification({
+      target: { recipientId: payload.candidateUserId },
+      senderId: actor.id,
+      type: "EMPLOYER",
+      title: "Your profile was saved",
+      message: `${companyName} saved your CampusHub profile for recruiting follow-up.`,
+      entityType: "saved_candidate",
+      entityId: String(saved._id),
+      actionUrl: "/student/profile",
+      priority: "NORMAL",
+      channels: { inApp: true, email: false, push: true, sms: false },
+      metadata: {
+        employerId: actor.id,
+        companyName,
         opportunityId: payload.opportunityId ?? null,
       },
     });
@@ -723,7 +972,7 @@ export async function contactCandidate(userId: string, input: unknown) {
   assertCanSaveOrContact(actor);
   await connectMongo();
   const payload = contactCandidateSchema.parse(input);
-  const profile = await findCandidateProfile(userId, actor);
+  const profile = await ensureCandidateProfile(userId, actor);
 
   await Promise.all([
     createSystemNotification({
@@ -739,6 +988,8 @@ export async function contactCandidate(userId: string, input: unknown) {
       metadata: {
         opportunityId: payload.opportunityId ?? null,
         contactEmail: payload.contactEmail ?? actor.email,
+        contactPhone: payload.contactPhone ?? null,
+        contactMethod: payload.contactMethod,
         employerId: actor.id,
       },
     }),

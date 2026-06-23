@@ -12,6 +12,57 @@ const STATIC_CACHE_URLS = [
 const QUEUE_DB = "campushub-background-sync";
 const QUEUE_STORE = "requests";
 const SYNC_TAG = "campushub-sync-queue";
+const PUSH_CAMPAIGNS = {
+  announcement: {
+    title: "New Announcement",
+    body: "A new CampusHub announcement has been published.",
+    url: "/student/announcements",
+    tag: "campushub-announcement",
+    kiboAnimation: "announcement",
+  },
+  event: {
+    title: "Event Reminder",
+    body: "A CampusHub event needs your attention.",
+    url: "/student/events",
+    tag: "campushub-event",
+    kiboAnimation: "announcement",
+  },
+  marketplace_order: {
+    title: "Marketplace Activity",
+    body: "A marketplace order update is waiting for review.",
+    url: "/student/market/orders",
+    tag: "campushub-marketplace-order",
+    kiboAnimation: "marketplace",
+  },
+  project_star: {
+    title: "Project Star Received",
+    body: "Someone appreciated your CampusHub project.",
+    url: "/student/showcase/my-projects",
+    tag: "campushub-project-star",
+    kiboAnimation: "projectStar",
+  },
+  badge_unlock: {
+    title: "Badge Unlocked",
+    body: "You unlocked a new CampusHub badge.",
+    url: "/student/showcase/achievements",
+    tag: "campushub-badge-unlock",
+    kiboAnimation: "badge",
+  },
+  streak_reminder: {
+    title: "Keep Your Streak Alive",
+    body: "Complete one meaningful CampusHub action today.",
+    url: "/student/dashboard",
+    tag: "campushub-streak-reminder",
+    kiboAnimation: "streak",
+  },
+  almanac_reminder: {
+    title: "Academic Reminder",
+    body: "An academic calendar deadline or milestone is coming up.",
+    url: "/student/almanac",
+    tag: "campushub-almanac-reminder",
+    kiboAnimation: "announcement",
+  },
+};
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -44,11 +95,24 @@ self.addEventListener("message", (event) => {
   if (event.data?.type === "SKIP_WAITING") {
     self.skipWaiting();
   }
+
+  if (event.data?.type === "CAMPUSHUB_GET_SW_VERSION") {
+    event.source?.postMessage({
+      type: "CAMPUSHUB_SW_VERSION",
+      payload: {
+        cacheVersion: CACHE_VERSION,
+      },
+    });
+  }
 });
 
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
+
+  if (shouldBypassCache(url)) {
+    return;
+  }
 
   if (request.method === "GET") {
     if (request.mode === "navigate") {
@@ -74,6 +138,18 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
+function shouldBypassCache(url) {
+  if (url.origin !== self.location.origin) {
+    return false;
+  }
+
+  return (
+    url.pathname.startsWith("/_next/") ||
+    url.pathname.endsWith(".hot-update.json") ||
+    url.pathname.endsWith(".hot-update.js")
+  );
+}
+
 self.addEventListener("sync", (event) => {
   if (event.tag === SYNC_TAG) {
     event.waitUntil(replayQueuedRequests());
@@ -81,20 +157,23 @@ self.addEventListener("sync", (event) => {
 });
 
 self.addEventListener("push", (event) => {
-  const payload = readPushPayload(event);
-  const title = payload.title || "CampusHub";
+  const payload = normalizePushPayload(readPushPayload(event));
+  const title = payload.title;
   const options = {
-    body: payload.body || payload.description || "You have a new CampusHub notification.",
+    body: payload.body,
     icon: "/logo.png",
     badge: "/logo.png",
-    tag: payload.tag || "campushub-notification",
+    tag: payload.tag,
     renotify: Boolean(payload.renotify),
     data: {
-      url: payload.url || "/dashboard",
-      type: payload.type || "announcement",
+      url: payload.url,
+      type: payload.type,
       entityId: payload.entityId || null,
       entityType: payload.entityType || null,
-      metadata: payload.metadata || {},
+      metadata: {
+        ...payload.metadata,
+        kiboAnimation: payload.kiboAnimation,
+      },
     },
     actions: [
       {
@@ -119,6 +198,8 @@ self.addEventListener("push", (event) => {
           url: options.data.url,
           type: options.data.type,
           metadata: options.data.metadata,
+          entityId: options.data.entityId,
+          entityType: options.data.entityType,
         },
       }),
     ]),
@@ -312,4 +393,29 @@ function readPushPayload(event) {
       body: event.data.text(),
     };
   }
+}
+
+function normalizePushPayload(rawPayload) {
+  const rawType = rawPayload.type || rawPayload.entityType || "announcement";
+  const type = Object.prototype.hasOwnProperty.call(PUSH_CAMPAIGNS, rawType)
+    ? rawType
+    : "announcement";
+  const campaign = PUSH_CAMPAIGNS[type];
+
+  return {
+    type,
+    title: rawPayload.title || campaign.title,
+    body:
+      rawPayload.body ||
+      rawPayload.description ||
+      rawPayload.message ||
+      campaign.body,
+    url: rawPayload.url || rawPayload.actionUrl || campaign.url,
+    tag: rawPayload.tag || campaign.tag,
+    kiboAnimation: rawPayload.kiboAnimation || campaign.kiboAnimation,
+    renotify: Boolean(rawPayload.renotify),
+    entityId: rawPayload.entityId || null,
+    entityType: rawPayload.entityType || null,
+    metadata: rawPayload.metadata || {},
+  };
 }

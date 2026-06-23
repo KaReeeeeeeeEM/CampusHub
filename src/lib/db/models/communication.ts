@@ -39,6 +39,7 @@ const notificationSchema = new Schema(
         "COMMUNITY",
         "EVENT",
         "EVENT_REMINDER",
+        "ALMANAC_REMINDER",
         "POLL",
         "FORUM",
         "SUGGESTION",
@@ -52,6 +53,7 @@ const notificationSchema = new Schema(
         "EMPLOYER",
         "GOVERNANCE",
         "BADGE",
+        "STREAK_REMINDER",
         "XP",
         "SYSTEM",
       ],
@@ -167,6 +169,12 @@ notificationSchema.index({ recipientId: 1, status: 1, createdAt: -1 });
 notificationSchema.index({ universityId: 1, recipientId: 1, createdAt: -1 });
 notificationSchema.index({ universityId: 1, type: 1, createdAt: -1 });
 notificationSchema.index({ entityType: 1, entityId: 1 });
+notificationSchema.index({
+  recipientId: 1,
+  entityType: 1,
+  entityId: 1,
+  "metadata.idempotencyKey": 1,
+});
 notificationSchema.index({ deletedAt: 1, status: 1 });
 notificationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 activityFeedSchema.index({ universityId: 1, category: 1, createdAt: -1 });

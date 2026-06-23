@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { SuperAdminAlmanacWorkspace } from "@/features/super-admin/components/almanac/super-admin-almanac-workspace";
 import { SuperAdminCollegesManagement } from "@/features/super-admin/components/colleges/super-admin-colleges-management";
 import { SuperAdminCommitteeCommunities } from "@/features/super-admin/components/committees/super-admin-committee-communities";
+import { SuperAdminCoursesManagement } from "@/features/super-admin/components/courses/super-admin-courses-management";
 import { SuperAdminDepartmentsManagement } from "@/features/super-admin/components/departments/super-admin-departments-management";
 import { SuperAdminDomainWorkspace } from "@/features/super-admin/components/domain/super-admin-domain-workspace";
 import { SuperAdminCampusMapsDirectory } from "@/features/super-admin/components/maps/super-admin-campus-maps-directory";
@@ -21,10 +22,13 @@ import {
   getUniversities,
   listSuperAdminCommitteeCommunities,
   listSuperAdminColleges,
+  listSuperAdminCourses,
   listSuperAdminDepartments,
 } from "@/features/super-admin/lib/super-admin-service";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 type SuperAdminModulePageProps = {
   params: Promise<{ module: string }>;
@@ -86,6 +90,29 @@ export default async function SuperAdminModulePage({
         <SuperAdminDepartmentsManagement
           departments={departments}
           colleges={colleges}
+          universities={universities}
+        />
+      </main>
+    );
+  }
+
+  if (moduleSlug === "courses") {
+    const [courses, departments, universities] = await Promise.all([
+      listSuperAdminCourses(),
+      listSuperAdminDepartments(),
+      getUniversities(),
+    ]);
+
+    return (
+      <main className="mx-auto w-full max-w-none px-4 py-6 sm:px-6">
+        <SuperAdminPageHeader
+          eyebrow={adminModule.eyebrow}
+          title={adminModule.title}
+          description={adminModule.description}
+        />
+        <SuperAdminCoursesManagement
+          courses={courses}
+          departments={departments}
           universities={universities}
         />
       </main>
@@ -193,14 +220,5 @@ export default async function SuperAdminModulePage({
     );
   }
 
-  return (
-    <main className="mx-auto w-full max-w-none px-4 py-6 sm:px-6">
-      <SuperAdminPageHeader
-        eyebrow={adminModule.eyebrow}
-        title={adminModule.title}
-        description={adminModule.description}
-      />
-      <SuperAdminConcreteModulePage moduleSlug={moduleSlug} />
-    </main>
-  );
+  notFound();
 }

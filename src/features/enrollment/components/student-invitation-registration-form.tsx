@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 
-import { CampusInput, CampusSelect } from "@/components/campushub";
+import { CampusInput } from "@/components/campushub";
 import { Button } from "@/components/ui/button";
 import { AuthAlert } from "@/features/auth/components/auth-alert";
 import { AuthField } from "@/features/auth/components/auth-field";
@@ -25,16 +25,18 @@ type InvitationContext = {
     name: string;
     code: string;
   }>;
+  course?: {
+    id: string;
+    name: string;
+    code: string;
+    departmentId: string;
+    durationYears: number;
+  } | null;
+  invitation?: {
+    yearOfStudy?: number | null;
+    expectedGraduationYear?: number | null;
+  };
 };
-
-const yearOptions = [
-  "Year 1",
-  "Year 2",
-  "Year 3",
-  "Year 4",
-  "Year 5",
-  "Postgraduate",
-];
 
 export function StudentInvitationRegistrationForm({
   invitation,
@@ -60,8 +62,6 @@ export function StudentInvitationRegistrationForm({
       nickname: "",
       username: "",
       email: "",
-      department: "",
-      yearOfStudy: "",
       password: "",
       confirmPassword: "",
     },
@@ -177,37 +177,52 @@ export function StudentInvitationRegistrationForm({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <AuthField label="Department" error={errors.department?.message}>
-          <CampusSelect
-            {...register("department")}
-            disabled={invitation.departments.length === 0}
-            invalid={Boolean(errors.department)}
-          >
-            <option value="">
-              {invitation.departments.length > 0
-                ? "Select department"
-                : "No departments registered"}
-            </option>
-            {invitation.departments.map((department) => (
-              <option key={department.id} value={department.name}>
-                {department.name}
-                {department.code ? ` (${department.code})` : ""}
-              </option>
-            ))}
-          </CampusSelect>
+        <AuthField label="Department">
+          <CampusInput
+            value={
+              invitation.departments.find(
+                (department) => department.id === invitation.course?.departmentId,
+              )?.name ?? "Department assigned by invitation"
+            }
+            disabled
+            readOnly
+          />
         </AuthField>
-        <AuthField label="Year of study" error={errors.yearOfStudy?.message}>
-          <CampusSelect
-            {...register("yearOfStudy")}
-            invalid={Boolean(errors.yearOfStudy)}
-          >
-            <option value="">Select year</option>
-            {yearOptions.map((year) => (
-              <option key={year} value={year}>
-                {year}
-              </option>
-            ))}
-          </CampusSelect>
+        <AuthField label="Course">
+          <CampusInput
+            value={
+              invitation.course
+                ? `${invitation.course.name} (${invitation.course.code})`
+                : "Course assigned by invitation"
+            }
+            disabled
+            readOnly
+          />
+        </AuthField>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <AuthField label="Year of study">
+          <CampusInput
+            value={
+              invitation.invitation?.yearOfStudy
+                ? `Year ${invitation.invitation.yearOfStudy}`
+                : "Year assigned by invitation"
+            }
+            disabled
+            readOnly
+          />
+        </AuthField>
+        <AuthField label="Expected graduation">
+          <CampusInput
+            value={
+              invitation.invitation?.expectedGraduationYear
+                ? `${invitation.invitation.expectedGraduationYear}`
+                : "Calculated after enrollment"
+            }
+            disabled
+            readOnly
+          />
         </AuthField>
       </div>
 

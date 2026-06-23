@@ -3,6 +3,8 @@ import { z } from "zod";
 export const createInvitationSchema = z.object({
   universityId: z.string().min(1, "University is required."),
   collegeId: z.string().min(1, "College is required."),
+  courseId: z.string().min(1, "Course is required."),
+  yearOfStudy: z.coerce.number().int().min(1).max(8),
   expiresAt: z.string().datetime().optional().or(z.literal("")),
   maxUsageCount: z.coerce.number().int().positive().optional(),
 });
@@ -29,8 +31,6 @@ export const studentInvitationRegistrationSchema = z
         "Username can only use letters, numbers, and underscores.",
       ),
     email: z.string().email("Enter a valid email address."),
-    department: z.string().min(2, "Enter your department."),
-    yearOfStudy: z.string().min(1, "Select your year of study."),
     password: z.string().min(8, "Password must be at least 8 characters."),
     confirmPassword: z.string().min(8, "Confirm your password."),
   })

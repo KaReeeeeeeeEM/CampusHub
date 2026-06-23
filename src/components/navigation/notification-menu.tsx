@@ -140,10 +140,18 @@ export function NotificationMenu() {
 
     void loadNotifications();
 
+    window.addEventListener(
+      "campushub:notifications-updated",
+      loadNotifications,
+    );
     const interval = window.setInterval(loadNotifications, 30000);
 
     return () => {
       active = false;
+      window.removeEventListener(
+        "campushub:notifications-updated",
+        loadNotifications,
+      );
       window.clearInterval(interval);
     };
   }, []);

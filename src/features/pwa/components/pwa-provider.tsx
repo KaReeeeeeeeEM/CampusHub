@@ -6,11 +6,13 @@ import { FiRefreshCw, FiX } from "react-icons/fi";
 import { useOverlayCoordinator } from "@/components/overlays/overlay-coordinator";
 import { Button } from "@/components/ui/button";
 import { ReleaseNotesModal } from "@/features/pwa/components/release-notes-modal";
+import { ENGAGEMENT_CAMPAIGNS } from "@/features/pwa/lib/engagement-events";
 import {
   RELEASE_NOTES_AFTER_UPDATE_KEY,
   RELEASE_NOTES_STORAGE_KEY,
 } from "@/features/pwa/lib/release-notes";
 import { useKibo } from "@/lib/kibo";
+import type { KiboAnimation, KiboCategory, KiboPriority } from "@/lib/kibo";
 
 type PwaProviderProps = {
   children: React.ReactNode;
@@ -29,6 +31,11 @@ export function PwaProvider({ children }: PwaProviderProps) {
       typeof window === "undefined" ||
       !("serviceWorker" in navigator)
     ) {
+      return;
+    }
+
+    if (process.env.NODE_ENV === "development") {
+      void clearDevelopmentServiceWorkers();
       return;
     }
 
@@ -85,18 +92,65 @@ export function PwaProvider({ children }: PwaProviderProps) {
       })
       .catch(() => undefined);
 
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
+    const handleControllerChange = () => {
       if (refreshing) {
         return;
       }
 
       refreshing = true;
       window.location.reload();
-    });
+    };
+
+    const handleServiceWorkerMessage = (event: MessageEvent) => {
+      if (event.data?.type !== "CAMPUSHUB_PUSH_RECEIVED") {
+        return;
+      }
+
+      const payload = event.data.payload ?? {};
+      const campaign =
+        ENGAGEMENT_CAMPAIGNS[
+          payload.type as keyof typeof ENGAGEMENT_CAMPAIGNS
+        ] ?? ENGAGEMENT_CAMPAIGNS.announcement;
+
+      showNotification({
+        animation:
+          (payload.metadata?.kiboAnimation as KiboAnimation | undefined) ??
+          campaign.kiboAnimation,
+        title: payload.title ?? campaign.defaultTitle,
+        description: payload.body ?? campaign.defaultBody,
+        category: campaign.kiboCategory as KiboCategory,
+        priority: campaign.priority as KiboPriority,
+        metadata: payload.metadata ?? null,
+      });
+    };
+
+    navigator.serviceWorker.addEventListener(
+      "controllerchange",
+      handleControllerChange,
+    );
+    navigator.serviceWorker.addEventListener(
+      "message",
+      handleServiceWorkerMessage,
+    );
+
+    return () => {
+      navigator.serviceWorker.removeEventListener(
+        "controllerchange",
+        handleControllerChange,
+      );
+      navigator.serviceWorker.removeEventListener(
+        "message",
+        handleServiceWorkerMessage,
+      );
+    };
   }, [showNotification]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
+    if (!shouldShowReleaseNotesForPath(window.location.pathname)) {
+      return;
+    }
 
     const shouldShowAfterUpdate = window.localStorage.getItem(
       RELEASE_NOTES_AFTER_UPDATE_KEY,
@@ -106,6 +160,14 @@ export function PwaProvider({ children }: PwaProviderProps) {
       if (!claimOverlay("release-notes")) return;
 
       window.localStorage.removeItem(RELEASE_NOTES_AFTER_UPDATE_KEY);
+      window.localStorage.setItem(RELEASE_NOTES_STORAGE_KEY, "seen");
+      setReleaseNotesOpen(true);
+      return;
+    }
+
+    if (!window.localStorage.getItem(RELEASE_NOTES_STORAGE_KEY)) {
+      if (!claimOverlay("release-notes")) return;
+
       window.localStorage.setItem(RELEASE_NOTES_STORAGE_KEY, "seen");
       setReleaseNotesOpen(true);
     }
@@ -150,6 +212,44 @@ export function PwaProvider({ children }: PwaProviderProps) {
       <ReleaseNotesModal open={releaseNotesOpen} onClose={closeReleaseNotes} />
     </>
   );
+}
+
+async function clearDevelopmentServiceWorkers() {
+  const registrations = await navigator.serviceWorker.getRegistrations();
+
+  await Promise.all(registrations.map((registration) => registration.unregister()));
+
+  if ("caches" in window) {
+    const keys = await caches.keys();
+
+    await Promise.all(
+      keys
+        .filter((key) => key.startsWith("campushub-"))
+        .map((key) => caches.delete(key)),
+    );
+  }
+
+  if (
+    navigator.serviceWorker.controller &&
+    !window.sessionStorage.getItem("campushub-dev-sw-cleaned")
+  ) {
+    window.sessionStorage.setItem("campushub-dev-sw-cleaned", "true");
+    window.location.reload();
+  }
+}
+
+function shouldShowReleaseNotesForPath(pathname: string) {
+  return [
+    "/dashboard",
+    "/student",
+    "/teacher",
+    "/campus-admin",
+    "/representative",
+    "/super-admin",
+    "/alumni",
+    "/employer",
+    "/committee-member",
+  ].some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
 function PwaBanner({

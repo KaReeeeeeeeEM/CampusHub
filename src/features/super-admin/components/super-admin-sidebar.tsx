@@ -61,6 +61,7 @@ export function SuperAdminSidebar() {
           collapsed && "justify-center",
         )}
         href="/super-admin/dashboard"
+        prefetch={false}
       >
         <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-md">
           <Image
@@ -135,6 +136,7 @@ export function SuperAdminSidebar() {
                         : "text-muted-foreground",
                     )}
                     href={item.href}
+                    prefetch={false}
                   >
                     <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
                     <span className={cn("truncate", collapsed && "hidden")}>

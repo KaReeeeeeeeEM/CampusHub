@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { hasRole } from "@/features/authorization/rbac";
+import { notifySavedCandidateFollowers } from "@/features/career/lib/saved-candidate-activity-notifications";
 import { createActivity } from "@/features/activity-feed/lib/activity-feed-service";
 import {
   addProjectLinkSchema,
@@ -259,6 +260,20 @@ export async function createProject(input: unknown) {
     entityType: "project",
     entityId: String(project._id),
     after: serializeProject(project.toObject()),
+  });
+  await notifySavedCandidateFollowers({
+    candidateUserId: actor.id,
+    universityId,
+    type: "PROJECT_CREATED",
+    title: `${actor.name ?? "A saved candidate"} created a project`,
+    message: `${actor.name ?? "A saved candidate"} created "${payload.title}".`,
+    entityType: "project",
+    entityId: String(project._id),
+    actionUrl: `/employer/candidates/${actor.id}`,
+    metadata: {
+      projectTitle: payload.title,
+      projectStatus: "DRAFT",
+    },
   });
 
   return serializeProject(project.toObject());

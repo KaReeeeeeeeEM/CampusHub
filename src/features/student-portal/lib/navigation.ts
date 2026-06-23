@@ -4,6 +4,7 @@ import {
   FiBookOpen,
   FiCalendar,
   FiCheckSquare,
+  FiFileText,
   FiHome,
   FiMap,
   FiMessageSquare,
@@ -27,6 +28,7 @@ export type StudentNavKey =
   | "polls"
   | "suggestions"
   | "lost-found"
+  | "documents"
   | "market"
   | "showcase"
   | "profile"
@@ -113,6 +115,13 @@ export const studentNavigationItems: StudentNavItem[] = [
     href: "/student/lost-found",
     description: "Report, search, and recover lost campus items.",
     icon: FiArchive,
+  },
+  {
+    key: "documents",
+    label: "Documents",
+    href: "/student/documents",
+    description: "Upload and manage CVs, IDs, certificates, and records.",
+    icon: FiFileText,
   },
   {
     key: "market",

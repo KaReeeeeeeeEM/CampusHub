@@ -4,7 +4,6 @@ import { FiSidebar } from "react-icons/fi";
 
 import { AppearanceDrawer } from "@/components/navigation/appearance-drawer";
 import { DashboardThemeToggle } from "@/components/navigation/theme-toggle";
-import { UniversityScopeBadge } from "@/components/navigation/university-scope-badge";
 import { UserMenu } from "@/components/navigation/user-menu";
 import { Button } from "@/components/ui/button";
 import { EmployerBreadcrumbs } from "@/features/employer-portal/components/employer-breadcrumbs";
@@ -55,10 +54,6 @@ export function EmployerTopNavigation({ user }: { user: AuthUser }) {
         <div className="hidden h-full min-w-0 border-r border-border md:block">
           <EmployerBreadcrumbs />
         </div>
-        <UniversityScopeBadge
-          universityId={user.universityId}
-          className="mx-3 hidden min-w-0 md:flex"
-        />
         <EmployerSearch className="ml-auto hidden max-w-sm flex-1 lg:flex" />
         <div className="flex items-center gap-1 px-3">
           <AppearanceDrawer />
@@ -74,10 +69,6 @@ export function EmployerTopNavigation({ user }: { user: AuthUser }) {
       </div>
       <div className="border-t border-border px-4 py-3 md:hidden">
         <EmployerBreadcrumbs />
-        <UniversityScopeBadge
-          universityId={user.universityId}
-          className="mt-3 max-w-full"
-        />
       </div>
       <div className="border-t border-border px-4 py-3 lg:hidden">
         <EmployerSearch className="w-full" />

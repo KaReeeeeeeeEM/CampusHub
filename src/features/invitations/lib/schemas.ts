@@ -19,6 +19,8 @@ export const invitationStatusSchema = z.enum([
 export const createStudentInvitationSchema = z.object({
   universityId: z.string().min(1),
   collegeId: z.string().min(1),
+  courseId: z.string().min(1),
+  yearOfStudy: z.coerce.number().int().min(1).max(8),
   expiresInDays: z.coerce.number().int().min(1).max(90).default(14),
 });
 
@@ -26,6 +28,8 @@ export const createRepresentativeInvitationSchema = z.object({
   email: z.string().email(),
   universityId: z.string().min(1),
   collegeId: z.string().min(1),
+  courseId: z.string().min(1),
+  yearOfStudy: z.coerce.number().int().min(1).max(8),
   expiresInDays: z.coerce.number().int().min(1).max(90).default(14),
 });
 

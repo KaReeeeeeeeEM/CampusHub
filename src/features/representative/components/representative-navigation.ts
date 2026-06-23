@@ -1,6 +1,7 @@
 import {
   FiArchive,
   FiBarChart2,
+  FiFileText,
   FiSend,
   FiSettings,
   FiShield,
@@ -38,6 +39,11 @@ export const representativeNavItems = [
     label: "Lost & Found",
     href: "/representative/lost-found",
     icon: FiArchive,
+  },
+  {
+    label: "Documents",
+    href: "/representative/documents",
+    icon: FiFileText,
   },
   {
     label: "Settings",

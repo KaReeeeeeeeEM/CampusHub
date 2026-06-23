@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeClosed } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -14,9 +14,10 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     const [passwordVisible, setPasswordVisible] = React.useState(false);
     const isPassword = type === "password";
     const inputType = isPassword && passwordVisible ? "text" : type;
-    const PasswordIcon = passwordVisible ? EyeOff : Eye;
+    const PasswordIcon = passwordVisible ? EyeClosed : Eye;
 
-    const input = (
+    return (
+      <div className="relative w-full">
       <input
         ref={ref}
         className={cn(
@@ -30,24 +31,18 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         type={inputType}
         {...props}
       />
-    );
-
-    if (!isPassword) {
-      return input;
-    }
-
-    return (
-      <div className="relative w-full">
-        {input}
-        <button
-          aria-label={passwordVisible ? "Hide password" : "Show password"}
-          className="absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring/25 disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={disabled}
-          onClick={() => setPasswordVisible((visible) => !visible)}
-          type="button"
-        >
-          <PasswordIcon className="h-4 w-4" aria-hidden="true" />
-        </button>
+        {isPassword ? (
+          <button
+            aria-label={passwordVisible ? "Hide password" : "Show password"}
+            className="absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring/25 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={disabled}
+            onClick={() => setPasswordVisible((visible) => !visible)}
+            title={passwordVisible ? "Hide password" : "Show password"}
+            type="button"
+          >
+            <PasswordIcon className="h-4 w-4" aria-hidden="true" />
+          </button>
+        ) : null}
       </div>
     );
   },

@@ -11,6 +11,7 @@ import {
 import { connectMongo } from "@/lib/db/mongodb";
 import {
   CollegeModel,
+  CourseModel,
   DepartmentModel,
   InvitationModel,
   JoinInvitationModel,
@@ -45,6 +46,12 @@ export type SerializedStudentInvitation = {
   universityName: string;
   collegeId: string;
   collegeName: string;
+  departmentId: string | null;
+  departmentName: string | null;
+  courseId: string | null;
+  courseName: string | null;
+  yearOfStudy: number | null;
+  expectedGraduationYear: number | null;
   status: "ACTIVE" | "DISABLED";
   invitationUrl: string;
   usageCount: number;
@@ -61,6 +68,14 @@ export type RepresentativeInvitationPageData = {
     collegeId: string;
     collegeName: string;
   };
+  courses: Array<{
+    id: string;
+    name: string;
+    code: string;
+    departmentId: string;
+    departmentName: string;
+    durationYears: number;
+  }>;
   invitations: SerializedStudentInvitation[];
 };
 
@@ -85,9 +100,13 @@ function serializeStudentInvitation(
   {
     universityName,
     collegeName,
+    departmentName,
+    courseName,
   }: {
     universityName: string;
     collegeName: string;
+    departmentName?: string | null;
+    courseName?: string | null;
   },
 ) {
   const token = String(invitation.token);
@@ -99,6 +118,22 @@ function serializeStudentInvitation(
     universityName,
     collegeId: String(invitation.collegeId),
     collegeName,
+    departmentId:
+      typeof invitation.departmentId === "string"
+        ? invitation.departmentId
+        : null,
+    departmentName: departmentName ?? null,
+    courseId:
+      typeof invitation.courseId === "string" ? invitation.courseId : null,
+    courseName: courseName ?? null,
+    yearOfStudy:
+      typeof invitation.yearOfStudy === "number"
+        ? invitation.yearOfStudy
+        : null,
+    expectedGraduationYear:
+      typeof invitation.expectedGraduationYear === "number"
+        ? invitation.expectedGraduationYear
+        : null,
     status:
       (invitation.status as SerializedStudentInvitation["status"]) ?? "ACTIVE",
     invitationUrl: new URL(`/join/${token}`, getAppBaseUrl()).toString(),
@@ -202,6 +237,25 @@ export async function createStudentInvitation(input: CreateInvitationInput) {
   if (!university || !college) {
     throw new Error("Active university and college are required.");
   }
+  const course = await CourseModel.findOne({
+    _id: input.courseId,
+    universityId: input.universityId,
+    collegeId: input.collegeId,
+    status: "ACTIVE",
+    deletedAt: null,
+  }).lean();
+
+  if (!course) {
+    throw new Error("Active course is required.");
+  }
+  if (input.yearOfStudy > Number(course.durationYears ?? 1)) {
+    throw new Error("Year of study cannot exceed the course duration.");
+  }
+
+  const department = await DepartmentModel.findById(course.departmentId).lean();
+  const enrollmentYear = new Date().getFullYear() - input.yearOfStudy + 1;
+  const expectedGraduationYear =
+    enrollmentYear + Number(course.durationYears ?? 1);
 
   const representative = await getRepresentativeProfile(session.user, input);
   const invitation = await JoinInvitationModel.create({
@@ -210,6 +264,11 @@ export async function createStudentInvitation(input: CreateInvitationInput) {
     type: "STUDENT",
     universityId: input.universityId,
     collegeId: input.collegeId,
+    departmentId: course.departmentId,
+    courseId: input.courseId,
+    yearOfStudy: input.yearOfStudy,
+    enrollmentYear,
+    expectedGraduationYear,
     representativeId: representative._id,
     createdByUserId: session.user.id,
     expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
@@ -224,7 +283,11 @@ export async function createStudentInvitation(input: CreateInvitationInput) {
     email: null,
     universityId: input.universityId,
     collegeId: input.collegeId,
-    departmentId: null,
+    departmentId: course.departmentId,
+    courseId: input.courseId,
+    yearOfStudy: input.yearOfStudy,
+    enrollmentYear,
+    expectedGraduationYear,
     representativeId: String(representative._id),
     role: "STUDENT",
     position: "NONE",
@@ -235,6 +298,7 @@ export async function createStudentInvitation(input: CreateInvitationInput) {
     metadata: {
       legacyInvitationId: invitation._id,
       maxUsageCount: invitation.maxUsageCount ?? null,
+      courseDurationYears: course.durationYears,
     },
   });
   await writeAuditLog({
@@ -256,6 +320,8 @@ export async function createStudentInvitation(input: CreateInvitationInput) {
   return serializeStudentInvitation(invitation.toObject(), {
     universityName: String(university.name),
     collegeName: String(college.name),
+    departmentName: department ? String(department.name) : null,
+    courseName: String(course.name),
   });
 }
 
@@ -304,14 +370,20 @@ export async function disableInvitation(invitationId: string) {
     entityId: String(invitation._id),
   });
 
-  const [university, college] = await Promise.all([
+  const [university, college, department, course] = await Promise.all([
     UniversityModel.findById(invitation.universityId).lean(),
     CollegeModel.findById(invitation.collegeId).lean(),
+    invitation.departmentId
+      ? DepartmentModel.findById(invitation.departmentId).lean()
+      : null,
+    invitation.courseId ? CourseModel.findById(invitation.courseId).lean() : null,
   ]);
 
   return serializeStudentInvitation(invitation, {
     universityName: university ? String(university.name) : "Unknown university",
     collegeName: college ? String(college.name) : "Unknown college",
+    departmentName: department ? String(department.name) : null,
+    courseName: course ? String(course.name) : null,
   });
 }
 
@@ -347,6 +419,11 @@ export async function regenerateInvitation(
     type: existingInvitation.type,
     universityId: existingInvitation.universityId,
     collegeId: existingInvitation.collegeId,
+    departmentId: existingInvitation.departmentId,
+    courseId: existingInvitation.courseId,
+    yearOfStudy: existingInvitation.yearOfStudy,
+    enrollmentYear: existingInvitation.enrollmentYear,
+    expectedGraduationYear: existingInvitation.expectedGraduationYear,
     representativeId: existingInvitation.representativeId,
     createdByUserId: session.user.id,
     expiresAt: options.expiresAt
@@ -358,14 +435,20 @@ export async function regenerateInvitation(
     regeneratedFromInvitationId: existingInvitation._id,
   });
 
-  const [university, college] = await Promise.all([
+  const [university, college, department, course] = await Promise.all([
     UniversityModel.findById(invitation.universityId).lean(),
     CollegeModel.findById(invitation.collegeId).lean(),
+    invitation.departmentId
+      ? DepartmentModel.findById(invitation.departmentId).lean()
+      : null,
+    invitation.courseId ? CourseModel.findById(invitation.courseId).lean() : null,
   ]);
 
   return serializeStudentInvitation(invitation.toObject(), {
     universityName: university ? String(university.name) : "Unknown university",
     collegeName: college ? String(college.name) : "Unknown college",
+    departmentName: department ? String(department.name) : null,
+    courseName: course ? String(course.name) : null,
   });
 }
 
@@ -373,7 +456,8 @@ export async function getRepresentativeInvitationPageData(): Promise<Representat
   const session = await requireRepresentativeSession();
   const representative = await getRepresentativeProfile(session.user);
 
-  const [university, college, invitations] = await Promise.all([
+  const [university, college, invitations, courses, departments] =
+    await Promise.all([
     UniversityModel.findById(representative.universityId).lean(),
     CollegeModel.findById(representative.collegeId).lean(),
     JoinInvitationModel.find({
@@ -381,12 +465,37 @@ export async function getRepresentativeInvitationPageData(): Promise<Representat
     })
       .sort({ createdAt: -1 })
       .lean(),
-  ]);
+      CourseModel.find({
+        universityId: representative.universityId,
+        collegeId: representative.collegeId,
+        status: "ACTIVE",
+        deletedAt: null,
+      })
+        .sort({ name: 1 })
+        .lean(),
+      DepartmentModel.find({
+        universityId: representative.universityId,
+        collegeId: representative.collegeId,
+        status: "ACTIVE",
+        deletedAt: null,
+      })
+        .select({ name: 1 })
+        .lean(),
+    ]);
 
   const universityName = university
     ? String(university.name)
     : "Unknown university";
   const collegeName = college ? String(college.name) : "Unknown college";
+  const departmentNames = new Map(
+    departments.map((department) => [
+      String(department._id),
+      String(department.name),
+    ]),
+  );
+  const courseNames = new Map(
+    courses.map((course) => [String(course._id), String(course.name)]),
+  );
 
   return {
     scope: {
@@ -395,10 +504,25 @@ export async function getRepresentativeInvitationPageData(): Promise<Representat
       collegeId: String(representative.collegeId),
       collegeName,
     },
+    courses: courses.map((course) => ({
+      id: String(course._id),
+      name: String(course.name),
+      code: String(course.code),
+      departmentId: String(course.departmentId),
+      departmentName:
+        departmentNames.get(String(course.departmentId)) ?? "Unknown department",
+      durationYears: Number(course.durationYears ?? 1),
+    })),
     invitations: invitations.map((invitation) =>
       serializeStudentInvitation(invitation, {
         universityName,
         collegeName,
+        departmentName: invitation.departmentId
+          ? departmentNames.get(String(invitation.departmentId)) ?? null
+          : null,
+        courseName: invitation.courseId
+          ? courseNames.get(String(invitation.courseId)) ?? null
+          : null,
       }),
     ),
   };
@@ -462,7 +586,7 @@ export async function resolveInvitation(token: string) {
     return { status: "usage_exceeded" as const, invitation };
   }
 
-  const [university, college, representative, representativeUser, departments] =
+  const [university, college, representative, representativeUser, departments, course] =
     await Promise.all([
       UniversityModel.findById(invitation.universityId).lean(),
       CollegeModel.findById(invitation.collegeId).lean(),
@@ -480,6 +604,7 @@ export async function resolveInvitation(token: string) {
       })
         .sort({ name: 1 })
         .lean(),
+      invitation.courseId ? CourseModel.findById(invitation.courseId).lean() : null,
     ]);
 
   if (!university || !college || !representative) {
@@ -498,6 +623,15 @@ export async function resolveInvitation(token: string) {
       name: String(department.name),
       code: String(department.code),
     })),
+    course: course
+      ? {
+          id: String(course._id),
+          name: String(course.name),
+          code: String(course.code),
+          departmentId: String(course.departmentId),
+          durationYears: Number(course.durationYears ?? 1),
+        }
+      : null,
   };
 }
 
@@ -550,6 +684,8 @@ export async function enrollStudentFromInvitation(
       userId,
       universityId: resolution.university._id,
       collegeId: resolution.college._id,
+      departmentId: resolution.invitation.departmentId,
+      courseId: resolution.invitation.courseId,
       invitationId: resolution.invitation._id,
       representativeId: resolution.representative._id,
       firstName: input.firstName,
@@ -558,10 +694,29 @@ export async function enrollStudentFromInvitation(
       nickname: input.nickname || null,
       username: input.username.toLowerCase(),
       email: input.email.toLowerCase(),
-      department: input.department,
-      yearOfStudy: input.yearOfStudy,
+      department:
+        resolution.departments.find(
+          (department) =>
+            department.id === String(resolution.invitation.departmentId),
+        )?.name ?? "Not assigned",
+      yearOfStudy: resolution.invitation.yearOfStudy,
+      enrollmentYear: resolution.invitation.enrollmentYear,
+      expectedGraduationYear: resolution.invitation.expectedGraduationYear,
       status: "PENDING_VERIFICATION",
     }),
+    UserModel.updateOne(
+      { _id: userId },
+      {
+        $set: {
+          departmentId: resolution.invitation.departmentId,
+          primaryDepartmentId: resolution.invitation.departmentId,
+          courseId: resolution.invitation.courseId,
+          yearOfStudy: resolution.invitation.yearOfStudy,
+          enrollmentYear: resolution.invitation.enrollmentYear,
+          expectedGraduationYear: resolution.invitation.expectedGraduationYear,
+        },
+      },
+    ),
     JoinInvitationModel.updateOne(
       {
         _id: resolution.invitation._id,

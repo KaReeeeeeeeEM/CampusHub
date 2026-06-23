@@ -30,17 +30,28 @@ export const SUPPORTED_PUSH_EVENTS = Object.keys(
   ENGAGEMENT_CAMPAIGNS,
 ) as EngagementEventType[];
 
+export function isSupportedPushEvent(
+  value: unknown,
+): value is EngagementEventType {
+  return (
+    typeof value === "string" &&
+    SUPPORTED_PUSH_EVENTS.includes(value as EngagementEventType)
+  );
+}
+
 export function resolvePushNotificationPayload(
   payload: CampusHubPushPayload,
 ): ResolvedPushNotification {
-  const campaign = ENGAGEMENT_CAMPAIGNS[payload.type];
+  const campaign = isSupportedPushEvent(payload.type)
+    ? ENGAGEMENT_CAMPAIGNS[payload.type]
+    : ENGAGEMENT_CAMPAIGNS.announcement;
 
   return {
     title: payload.title ?? campaign.defaultTitle,
     body: payload.body ?? campaign.defaultBody,
     url: payload.url ?? campaign.defaultUrl,
     tag: payload.tag ?? `campushub-${payload.type}`,
-    type: payload.type,
+    type: campaign.type,
     priority: campaign.priority,
     metadata: {
       ...(payload.metadata ?? {}),
@@ -71,4 +82,3 @@ export function getPushCapabilitySnapshot() {
     installPrompt: "BeforeInstallPromptEvent" in window,
   };
 }
-

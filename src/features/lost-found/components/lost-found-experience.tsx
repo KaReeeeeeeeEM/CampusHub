@@ -49,6 +49,7 @@ import {
   SelectValue,
 } from "@/components/ui/radix-select";
 import { AdminActionMenu } from "@/features/administration/components/admin-action-menu";
+import { formatCompactNumber } from "@/lib/number-format";
 import { cn } from "@/lib/utils";
 
 type LostFoundPortal =
@@ -1071,12 +1072,12 @@ export function LostFoundExperience({
             <StatCard
               icon={FiArchive}
               label="Active reports"
-              value={activeReports.toLocaleString()}
+              value={formatCompactNumber(activeReports)}
             />
             <StatCard
               icon={FiCheckCircle}
               label="Returned this month"
-              value={returnedReports.toLocaleString()}
+              value={formatCompactNumber(returnedReports)}
             />
             <StatCard
               icon={FiShield}
@@ -1086,7 +1087,7 @@ export function LostFoundExperience({
             <StatCard
               icon={FiMapPin}
               label="Campus pickup points"
-              value={pickupPoints.toLocaleString()}
+              value={formatCompactNumber(pickupPoints)}
             />
           </>
         )}

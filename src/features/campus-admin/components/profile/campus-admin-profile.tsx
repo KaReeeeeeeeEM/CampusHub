@@ -43,6 +43,7 @@ import type {
   AccountProfile,
   AccountProfileAnalytics,
 } from "@/features/account/lib/account-profile-service";
+import { formatCompactNumber } from "@/lib/number-format";
 import { cn } from "@/lib/utils";
 import { useUserStore } from "@/store/user-store";
 
@@ -169,6 +170,31 @@ function formatRole(value?: string | null) {
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function hasProfileRole(profile: AccountProfile | null, role: string) {
+  if (!profile) return false;
+
+  const roles = [profile.role, ...(profile.roles ?? [])]
+    .filter(Boolean)
+    .map((item) => String(item).toUpperCase());
+
+  return roles.includes(role);
+}
+
+function getLocationLine(profile: AccountProfile | null) {
+  if (!profile || hasProfileRole(profile, "EMPLOYER")) return "";
+
+  if (
+    hasProfileRole(profile, "CAMPUS_ADMIN") ||
+    hasProfileRole(profile, "SUPER_ADMIN")
+  ) {
+    return profile.universityName ?? "";
+  }
+
+  return [profile.universityName, profile.collegeName]
+    .filter(Boolean)
+    .join(" / ");
 }
 
 function formatDate(value?: string | null) {
@@ -390,9 +416,120 @@ export function AccountProfilePage({
       ? profile.title
       : formatRole(profile.role)
     : fallbackName;
-  const locationLine = profile
-    ? [profile.universityName, profile.collegeName].filter(Boolean).join(" / ")
-    : "";
+  const locationLine = getLocationLine(profile);
+  const isEmployerProfile = hasProfileRole(profile, "EMPLOYER");
+  const isCampusAdminProfile =
+    hasProfileRole(profile, "CAMPUS_ADMIN") || hasProfileRole(profile, "SUPER_ADMIN");
+  const overviewCards = profile
+    ? isEmployerProfile
+      ? [
+          {
+            label: "Account type",
+            value: formatRole(profile.role),
+            icon: FiBriefcase,
+          },
+          {
+            label: "Email",
+            value: fieldValue(profile.email),
+            icon: FiMail,
+          },
+          {
+            label: "Phone",
+            value: fieldValue(profile.phoneNumber),
+            icon: FiPhone,
+          },
+        ]
+      : isCampusAdminProfile
+        ? [
+            {
+              label: "University",
+              value: fieldValue(profile.universityName),
+              icon: FiMapPin,
+            },
+            {
+              label: "Access role",
+              value: formatRole(profile.role),
+              icon: FiShield,
+            },
+            {
+              label: "Status",
+              value: fieldValue(profile.status),
+              icon: FiUser,
+            },
+          ]
+        : [
+            {
+              label: "University",
+              value: fieldValue(profile.universityName),
+              icon: FiMapPin,
+            },
+            {
+              label: "College",
+              value: fieldValue(profile.collegeName),
+              icon: FiBriefcase,
+            },
+            {
+              label: "Department",
+              value: fieldValue(profile.departmentName),
+              icon: FiBriefcase,
+            },
+          ]
+    : [];
+  const scopeCards = profile
+    ? isEmployerProfile
+      ? [
+          {
+            label: "Role",
+            value: formatRole(profile.role),
+            icon: FiShield,
+          },
+          {
+            label: "Position",
+            value: fieldValue(profile.position),
+            icon: FiBriefcase,
+          },
+          {
+            label: "Status",
+            value: fieldValue(profile.status),
+            icon: FiUser,
+          },
+        ]
+      : isCampusAdminProfile
+        ? [
+            {
+              label: "Role",
+              value: formatRole(profile.role),
+              icon: FiShield,
+            },
+            {
+              label: "University",
+              value: fieldValue(profile.universityName),
+              icon: FiMapPin,
+            },
+            {
+              label: "Status",
+              value: fieldValue(profile.status),
+              icon: FiUser,
+            },
+          ]
+        : [
+            {
+              label: "Role",
+              value: formatRole(profile.role),
+              icon: FiShield,
+            },
+            {
+              label: "Position",
+              value: fieldValue(profile.position),
+              icon: FiUser,
+            },
+            {
+              label: "Staff ID",
+              value: fieldValue(profile.staffId),
+              icon: FiBriefcase,
+            },
+          ]
+    : [];
   const stats = profile
     ? [
         {
@@ -681,21 +818,14 @@ export function AccountProfilePage({
             {activeTab === "overview" ? (
               <div className="mt-8 space-y-6">
                 <div className="grid gap-5 md:grid-cols-3">
-                  <InfoCard
-                    label="University"
-                    value={fieldValue(profile.universityName)}
-                    icon={FiMapPin}
-                  />
-                  <InfoCard
-                    label="College"
-                    value={fieldValue(profile.collegeName)}
-                    icon={FiBriefcase}
-                  />
-                  <InfoCard
-                    label="Department"
-                    value={fieldValue(profile.departmentName)}
-                    icon={FiBriefcase}
-                  />
+                  {overviewCards.map((card) => (
+                    <InfoCard
+                      key={card.label}
+                      label={card.label}
+                      value={card.value}
+                      icon={card.icon}
+                    />
+                  ))}
                 </div>
 
                 {analytics ? (
@@ -710,7 +840,7 @@ export function AccountProfilePage({
                             {item.label}
                           </p>
                           <p className="mt-3 text-3xl font-semibold tracking-normal text-foreground">
-                            {item.value.toLocaleString()}
+                            {formatCompactNumber(item.value)}
                           </p>
                           <p className="mt-2 text-xs leading-5 text-muted-foreground">
                             {item.description}
@@ -873,21 +1003,14 @@ export function AccountProfilePage({
 
             {activeTab === "scope" ? (
               <div className="mt-8 grid gap-5 md:grid-cols-3">
-                <InfoCard
-                  label="Role"
-                  value={formatRole(profile.role)}
-                  icon={FiShield}
-                />
-                <InfoCard
-                  label="Position"
-                  value={fieldValue(profile.position)}
-                  icon={FiUser}
-                />
-                <InfoCard
-                  label="Staff ID"
-                  value={fieldValue(profile.staffId)}
-                  icon={FiBriefcase}
-                />
+                {scopeCards.map((card) => (
+                  <InfoCard
+                    key={card.label}
+                    label={card.label}
+                    value={card.value}
+                    icon={card.icon}
+                  />
+                ))}
               </div>
             ) : null}
 

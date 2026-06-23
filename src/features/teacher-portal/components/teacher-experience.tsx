@@ -107,6 +107,7 @@ import {
   type TeacherStudent,
 } from "@/features/teacher-portal/lib/mock-data";
 import { useAuth } from "@/features/auth/auth-provider";
+import { DashboardRemindersList } from "@/features/notifications/components/dashboard-reminders-panel";
 import { NotificationTabs } from "@/features/notifications/components/notification-tabs";
 import {
   deleteClientNotification,
@@ -1891,24 +1892,13 @@ export function TeacherDashboardView() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Recent Announcements</CardTitle>
+            <CardTitle>Recent Updates</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {teacherAnnouncements.length > 0 ? (
-              teacherAnnouncements.slice(0, 3).map((announcement) => (
-                <div key={announcement.id} className="rounded-lg bg-surface-muted p-3">
-                  <p className="font-medium text-foreground">{announcement.title}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {announcement.category} · {announcement.date}
-                  </p>
-                </div>
-              ))
-            ) : (
-              <DashboardEmptyState
-                title="No announcements yet"
-                description="Recent university announcements will appear here once published."
-              />
-            )}
+            <DashboardRemindersList
+              emptyTitle="No recent updates"
+              emptyDescription="Almanac entries, events, and announcements will appear here when scheduled or published."
+            />
           </CardContent>
         </Card>
 
@@ -3638,8 +3628,17 @@ function CalendarPanel({
       })),
     [items],
   );
-  const deadlines = items.filter((item) => item.type === "Deadline");
-  const exams = items.filter((item) => item.type === "Exam");
+  const todayKey = getTeacherAlmanacIsoDate(new Date().toISOString());
+  const upcomingItems = [...items]
+    .filter((item) => getTeacherAlmanacIsoDate(item.date) >= todayKey)
+    .sort((a, b) =>
+      getTeacherAlmanacIsoDate(a.date).localeCompare(
+        getTeacherAlmanacIsoDate(b.date),
+      ),
+    )
+    .slice(0, 5);
+  const deadlines = upcomingItems.filter((item) => item.type === "Deadline");
+  const exams = upcomingItems.filter((item) => item.type === "Exam");
 
   function openCalendarDate(arg: DateClickArg) {
     onDateSelect(arg.dateStr);
@@ -3691,6 +3690,39 @@ function CalendarPanel({
         </CardContent>
       </Card>
       <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Upcoming Items</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {upcomingItems.length > 0 ? (
+              upcomingItems.map((item) => (
+                <button
+                  key={item.id}
+                  className="w-full rounded-md border border-border p-3 text-left transition hover:border-primary/40 hover:bg-primary/5"
+                  type="button"
+                  onClick={() => onSelect(item)}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-sm font-medium">{item.title}</p>
+                    <span className="rounded-md bg-primary/10 px-2.5 py-1 text-xs text-primary">
+                      {item.type}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {item.date} · {item.time}
+                  </p>
+                </button>
+              ))
+            ) : (
+              <Empty
+                className="border-0 bg-transparent p-0"
+                title="No upcoming items"
+                description="Upcoming almanac items will appear here."
+              />
+            )}
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader>
             <CardTitle>Upcoming Deadlines</CardTitle>

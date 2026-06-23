@@ -68,6 +68,7 @@ export function StudentLeadershipInvitationsPageView({
     >
       <InvitationsManagement
         invitationScope={invitationData.scope}
+        courses={invitationData.courses}
         initialInvitations={invitationData.invitations}
       />
     </StudentLeadershipRoutePage>

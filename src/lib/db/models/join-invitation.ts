@@ -28,6 +28,32 @@ const joinInvitationSchema = new Schema(
       required: true,
       index: true,
     },
+    departmentId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    courseId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    yearOfStudy: {
+      type: Number,
+      required: true,
+      min: 1,
+      max: 8,
+    },
+    enrollmentYear: {
+      type: Number,
+      required: true,
+      index: true,
+    },
+    expectedGraduationYear: {
+      type: Number,
+      required: true,
+      index: true,
+    },
     representativeId: {
       type: String,
       required: true,

@@ -11,6 +11,11 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  SquareBarChartPanel,
+  SquareDonutChartPanel,
+  SquareGoalsPanel,
+} from "@/components/dashboard/square-dashboard-widgets";
 import { CampusAdminPageHeader } from "@/features/campus-admin/components/campus-admin-page-header";
 import {
   getCampusAdminDashboard,
@@ -123,23 +128,22 @@ export default async function CampusAdminDashboardPage() {
       </section>
 
       <section className="mt-6 grid gap-4 xl:grid-cols-[1.15fr_1fr_0.9fr]">
-        <EmptyDashboardPanel
-          title="No activity metrics yet"
-          description="Activity charts will appear after real university actions are captured in analytics."
-          href="/campus-admin/colleges"
-          action="Manage Colleges"
+        <SquareBarChartPanel
+          title="Campus Activity"
+          subtitle="Content and experience records created over the last six months."
+          data={dashboard.charts.activity}
+          primaryLabel="Content"
+          secondaryLabel="Experience"
         />
-        <EmptyDashboardPanel
-          title="No distribution chart yet"
-          description="Structure distribution will use live college, department, teacher, and representative records."
-          href="/campus-admin/departments"
-          action="Manage Departments"
+        <SquareDonutChartPanel
+          title="Structure Distribution"
+          subtitle="Live academic and people records for this university."
+          data={dashboard.charts.distribution}
         />
-        <EmptyDashboardPanel
-          title="No readiness goals yet"
-          description="Operational goals will appear when the backend analytics service publishes real targets."
-          href="/campus-admin/teachers"
-          action="Invite Teachers"
+        <SquareGoalsPanel
+          title="Readiness Goals"
+          subtitle="Setup progress based on records already configured."
+          goals={dashboard.charts.readinessGoals}
         />
       </section>
 
@@ -180,12 +184,36 @@ export default async function CampusAdminDashboardPage() {
             <CardTitle>University Engagement Snapshot</CardTitle>
           </CardHeader>
           <CardContent>
-            <EmptyDashboardPanel
-              title="No engagement data yet"
-              description="Engagement percentages will use real logins, participation, and onboarding records."
-              href="/campus-admin/representatives"
-              action="Manage Representatives"
-            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              {[
+                {
+                  label: "Almanac events",
+                  value: dashboard.engagement.almanacEventsCount,
+                },
+                {
+                  label: "Campus locations",
+                  value: dashboard.engagement.mapLocationsCount,
+                },
+                {
+                  label: "Marketplace shops",
+                  value: dashboard.engagement.shopsCount,
+                },
+                {
+                  label: "Showcase projects",
+                  value: dashboard.engagement.projectsCount,
+                },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded-lg border border-border bg-background p-4"
+                >
+                  <p className="text-2xl font-semibold">{item.value}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {item.label}
+                  </p>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
 

@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { createActivity } from "@/features/activity-feed/lib/activity-feed-service";
 import { PERMISSIONS } from "@/features/authorization/permissions";
 import { hasPermission, hasRole } from "@/features/authorization/rbac";
+import { notifySavedCandidateFollowers } from "@/features/career/lib/saved-candidate-activity-notifications";
 import {
   createBadgeSchema,
   earnBadgeSchema,
@@ -604,7 +605,9 @@ export async function grantBadgeToUser(actor: AuthUser, input: unknown) {
     entityType: "user_badge",
     entityId: String(userBadge._id),
     priority: "NORMAL",
+    channels: { inApp: true, email: false, push: true, sms: false },
     metadata: {
+      engagementType: "badge_unlock",
       badgeId: String(badge._id),
       badgeSlug: String(badge.slug),
       rarity: String(badge.rarity ?? "COMMON"),
@@ -663,6 +666,21 @@ export async function grantBadgeToUser(actor: AuthUser, input: unknown) {
       badgeId: String(badge._id),
       badgeSlug: String(badge.slug),
       source: payload.source ?? null,
+    },
+  });
+  await notifySavedCandidateFollowers({
+    candidateUserId: payload.userId,
+    universityId: user.universityId,
+    type: "ACHIEVEMENT_UNLOCKED",
+    title: `${String(user.name ?? "A saved candidate")} earned a badge`,
+    message: `${String(user.name ?? "A saved candidate")} earned the ${String(badge.name)} badge.`,
+    entityType: "user_badge",
+    entityId: String(userBadge._id),
+    actionUrl: `/employer/candidates/${payload.userId}`,
+    metadata: {
+      badgeId: String(badge._id),
+      badgeSlug: String(badge.slug),
+      rarity: String(badge.rarity ?? "COMMON"),
     },
   });
 

@@ -59,4 +59,6 @@ export const contactCandidateSchema = z.object({
   message: z.string().trim().min(1).max(3000),
   opportunityId: z.string().trim().min(1).optional().nullable(),
   contactEmail: z.string().trim().email().optional().nullable(),
+  contactPhone: z.string().trim().max(40).optional().nullable(),
+  contactMethod: z.enum(["EMAIL", "PHONE"]).optional().default("EMAIL"),
 });

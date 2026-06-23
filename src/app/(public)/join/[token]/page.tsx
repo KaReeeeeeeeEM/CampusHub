@@ -58,6 +58,18 @@ export default async function JoinInvitationPage({
                 <p className="text-muted-foreground">College</p>
                 <p className="font-medium">{resolution.college.name}</p>
               </div>
+              {resolution.course ? (
+                <div>
+                  <p className="text-muted-foreground">Course</p>
+                  <p className="font-medium">
+                    {resolution.course.name} ({resolution.course.code})
+                  </p>
+                  <p className="text-muted-foreground">
+                    Year {resolution.invitation.yearOfStudy} · graduates{" "}
+                    {resolution.invitation.expectedGraduationYear}
+                  </p>
+                </div>
+              ) : null}
               <div>
                 <p className="text-muted-foreground">Invited by</p>
                 <p className="font-medium">{representativeName}</p>
@@ -93,6 +105,12 @@ export default async function JoinInvitationPage({
                 universityName: resolution.university.name,
                 collegeName: resolution.college.name,
                 departments: resolution.departments,
+                course: resolution.course,
+                invitation: {
+                  yearOfStudy: resolution.invitation.yearOfStudy,
+                  expectedGraduationYear:
+                    resolution.invitation.expectedGraduationYear,
+                },
               }}
             />
           </CardContent>

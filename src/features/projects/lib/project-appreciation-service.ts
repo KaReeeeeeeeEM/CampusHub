@@ -93,7 +93,9 @@ async function notifyProjectStarred(
     actionUrl: `/projects/${projectId}`,
     image: typeof project.coverImage === "string" ? project.coverImage : null,
     priority: "NORMAL",
+    channels: { inApp: true, email: false, push: true, sms: false },
     metadata: {
+      engagementType: "project_star",
       starCount,
       milestone: null,
     },
@@ -112,7 +114,9 @@ async function notifyProjectStarred(
     actionUrl: `/projects/${projectId}`,
     image: typeof project.coverImage === "string" ? project.coverImage : null,
     priority: "HIGH",
+    channels: { inApp: true, email: false, push: true, sms: false },
     metadata: {
+      engagementType: "project_star",
       starCount,
       milestone: starCount,
     },

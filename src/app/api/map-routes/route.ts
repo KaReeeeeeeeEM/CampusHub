@@ -238,9 +238,11 @@ async function resolveRoadRoute(
   destination: RouteCoordinate,
   mode: RouteTravelMode,
 ) {
-  const providers: Array<() => Promise<RouteProviderResult>> = [
-    () => getOpenRouteServiceRoute(origin, destination, mode),
-  ];
+  const providers: Array<() => Promise<RouteProviderResult>> = [];
+
+  if (process.env.OPENROUTESERVICE_API_KEY) {
+    providers.push(() => getOpenRouteServiceRoute(origin, destination, mode));
+  }
 
   if (mode === "car") {
     providers.push(

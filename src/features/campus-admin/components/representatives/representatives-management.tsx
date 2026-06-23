@@ -41,7 +41,7 @@ import {
   type RepresentativeInvitationInput,
 } from "@/features/campus-admin/lib/schemas";
 import type {
-  SerializedCollege,
+  SerializedCourse,
   SerializedRepresentativeInvitation,
 } from "@/features/campus-admin/lib/campus-admin-service";
 import type { DataTableColumn } from "@/components/shared/data-table";
@@ -54,7 +54,7 @@ type ApiResponse<T> = {
 };
 
 type RepresentativesManagementProps = {
-  colleges: SerializedCollege[];
+  courses: SerializedCourse[];
   initialInvitations: Array<
     SerializedRepresentativeInvitation & {
       photo?: string | null;
@@ -97,11 +97,11 @@ function getRecipientLabel(invitation: SerializedRepresentativeInvitation) {
 }
 
 function RepresentativeInvitationForm({
-  colleges,
+  courses,
   onSubmit,
   isSubmitting,
 }: {
-  colleges: SerializedCollege[];
+  courses: SerializedCourse[];
   onSubmit: (values: RepresentativeInvitationInput) => void;
   isSubmitting: boolean;
 }) {
@@ -117,40 +117,75 @@ function RepresentativeInvitationForm({
   >({
     resolver: zodResolver(representativeInvitationInputSchema),
     defaultValues: {
-      collegeId: "",
+      courseId: "",
+      yearOfStudy: 1,
       expiresInDays: 14,
     },
   });
-  const collegeId = watch("collegeId");
+  const courseId = watch("courseId");
+  const selectedCourse = courses.find((course) => course.id === courseId);
+  const yearOptions = Array.from(
+    { length: selectedCourse?.durationYears ?? 1 },
+    (_, index) => index + 1,
+  );
   const expiresInDays = String(watch("expiresInDays") ?? 14);
 
   return (
     <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
       <label className="block space-y-2">
-        <span className="text-sm font-medium">College</span>
+        <span className="text-sm font-medium">Course</span>
         <Select
-          value={collegeId}
-          onValueChange={(value) =>
-            setValue("collegeId", value, {
+          value={courseId}
+          onValueChange={(value) => {
+            setValue("courseId", value, {
               shouldDirty: true,
               shouldValidate: true,
-            })
-          }
+            });
+            setValue("yearOfStudy", 1, {
+              shouldDirty: true,
+              shouldValidate: true,
+            });
+          }}
         >
           <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select college" />
+            <SelectValue placeholder="Select course" />
           </SelectTrigger>
           <SelectContent>
-            {colleges.map((college) => (
-              <SelectItem key={college.id} value={college.id}>
-                {college.name}
+            {courses.map((course) => (
+              <SelectItem key={course.id} value={course.id}>
+                {course.name} ({course.code}) · {course.departmentName}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        {errors.collegeId ? (
-          <p className="text-xs text-destructive">{errors.collegeId.message}</p>
+        {errors.courseId ? (
+          <p className="text-xs text-destructive">{errors.courseId.message}</p>
         ) : null}
+      </label>
+
+      <label className="block space-y-2">
+        <span className="text-sm font-medium">Year of study</span>
+        <Select
+          value={String(watch("yearOfStudy") ?? 1)}
+          onValueChange={(value) =>
+            setValue("yearOfStudy", Number(value), {
+              shouldDirty: true,
+              shouldValidate: true,
+            })
+          }
+          disabled={!selectedCourse}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select year" />
+          </SelectTrigger>
+          <SelectContent>
+            {yearOptions.map((year) => (
+              <SelectItem key={year} value={String(year)}>
+                Year {year}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </label>
 
       <label className="block space-y-2">
@@ -201,13 +236,14 @@ function InvitationDetails({
     "CampusHub representative invitation",
   );
   const shareBody = encodeURIComponent(
-    `Use this one-time CampusHub activation link for ${invitation.collegeName}: ${invitation.invitationUrl}`,
+    `Use this one-time CampusHub activation link for ${invitation.courseName ?? invitation.collegeName}: ${invitation.invitationUrl}`,
   );
 
   return (
     <div className="space-y-6">
       <div className="rounded-md border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-primary">
-        One-time representative activation link for {invitation.collegeName}.
+        One-time representative activation link for{" "}
+        {invitation.courseName ?? invitation.collegeName}.
         Expires on {expiresAt}.
       </div>
 
@@ -229,6 +265,18 @@ function InvitationDetails({
       <div className="grid gap-3 sm:grid-cols-2">
         {[
           ["College", invitation.collegeName],
+          ["Department", invitation.departmentName ?? "Not assigned"],
+          ["Course", invitation.courseName ?? "Not assigned"],
+          [
+            "Year",
+            invitation.yearOfStudy ? `Year ${invitation.yearOfStudy}` : "Not set",
+          ],
+          [
+            "Expected graduation",
+            invitation.expectedGraduationYear
+              ? `${invitation.expectedGraduationYear}`
+              : "Not set",
+          ],
           ["Recipient", getRecipientLabel(invitation)],
           ["Status", invitation.status],
           ["Expires", expiresAt],
@@ -262,7 +310,7 @@ function InvitationDetails({
 }
 
 export function RepresentativesManagement({
-  colleges,
+  courses,
   initialInvitations,
 }: RepresentativesManagementProps) {
   const [invitations, setInvitations] = useState(initialInvitations);
@@ -287,6 +335,8 @@ export function RepresentativesManagement({
         getRecipientLabel(invitation),
         invitation.email,
         invitation.collegeName,
+        invitation.departmentName,
+        invitation.courseName,
         invitation.status,
         invitation.invitationUrl,
       ]
@@ -395,8 +445,18 @@ export function RepresentativesManagement({
 
   const columns: DataTableColumn<SerializedRepresentativeInvitation>[] = [
     {
-      key: "collegeName",
-      header: "College",
+      key: "courseName",
+      header: "Course",
+      cell: (invitation) => (
+        <div>
+          <p className="font-medium">
+            {invitation.courseName ?? invitation.collegeName}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {invitation.departmentName ?? invitation.collegeName}
+          </p>
+        </div>
+      ),
     },
     {
       key: "recipient",
@@ -479,7 +539,7 @@ export function RepresentativesManagement({
             onValueChange={setViewMode}
           />
           <Button
-            disabled={colleges.length === 0}
+            disabled={courses.length === 0}
             type="button"
             onClick={() => setCreateOpen(true)}
           >
@@ -529,9 +589,12 @@ export function RepresentativesManagement({
                   />
                 </div>
                 <h3 className="mt-4 text-base font-semibold">
-                  {invitation.collegeName}
+                  {invitation.courseName ?? invitation.collegeName}
                 </h3>
                 <p className="mt-1 text-sm text-muted-foreground">
+                  {invitation.yearOfStudy
+                    ? `Year ${invitation.yearOfStudy} · `
+                    : ""}
                   {getRecipientLabel(invitation)}
                 </p>
                 <p className="mt-3 line-clamp-2 break-all text-sm text-muted-foreground">
@@ -549,15 +612,15 @@ export function RepresentativesManagement({
           ) : (
             <EmptyState
               title={
-                colleges.length === 0
-                  ? "Create a college first"
+                courses.length === 0
+                  ? "Create a course first"
                   : query
                     ? "No matching invitations"
                     : "No representative invitations yet"
               }
               description={
-                colleges.length === 0
-                  ? "Representatives must be invited into a college."
+                courses.length === 0
+                  ? "Representatives must be invited into a course."
                   : query
                     ? "Adjust your search and try again."
                     : "Generate a one-time activation link for the first college representative."
@@ -575,15 +638,15 @@ export function RepresentativesManagement({
             empty={
               <EmptyState
                 title={
-                  colleges.length === 0
-                    ? "Create a college first"
+                  courses.length === 0
+                    ? "Create a course first"
                     : query
                       ? "No matching invitations"
                       : "No representative invitations yet"
                 }
                 description={
-                  colleges.length === 0
-                    ? "Representatives must be invited into a college."
+                  courses.length === 0
+                    ? "Representatives must be invited into a course."
                     : query
                       ? "Adjust your search and try again."
                       : "Generate a one-time activation link for the first college representative."
@@ -599,11 +662,11 @@ export function RepresentativesManagement({
         open={createOpen}
         onOpenChange={setCreateOpen}
         title="Create Representative Invitation"
-        description="Generate a college-specific one-time activation link."
+        description="Generate a course-specific one-time activation link."
         className="max-h-[90vh] max-w-3xl overflow-y-auto"
       >
         <RepresentativeInvitationForm
-          colleges={colleges}
+          courses={courses}
           onSubmit={createInvitation}
           isSubmitting={isPending}
         />

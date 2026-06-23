@@ -7,6 +7,7 @@ export const notificationPreferenceSchema = z.object({
   marketplaceActivity: z.boolean(),
   projectActivity: z.boolean(),
   badgeUnlocks: z.boolean(),
+  almanacReminders: z.boolean(),
   mentorshipActivity: z.boolean(),
   opportunityAlerts: z.boolean(),
   announcements: z.boolean(),
@@ -24,6 +25,7 @@ export const defaultNotificationPreferences: NotificationPreferences = {
   marketplaceActivity: true,
   projectActivity: true,
   badgeUnlocks: true,
+  almanacReminders: true,
   mentorshipActivity: true,
   opportunityAlerts: true,
   announcements: true,
@@ -64,6 +66,11 @@ export const notificationPreferenceItems: Array<{
     key: "badgeUnlocks",
     title: "Badge unlocks",
     description: "Achievement rewards, XP moments, and badge celebrations.",
+  },
+  {
+    key: "almanacReminders",
+    title: "Almanac reminders",
+    description: "Academic calendar events, deadlines, and semester milestones.",
   },
   {
     key: "mentorshipActivity",

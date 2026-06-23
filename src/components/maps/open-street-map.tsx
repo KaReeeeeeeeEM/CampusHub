@@ -80,6 +80,16 @@ function toCoordinatePair(coordinates: LatLngExpression) {
   return { lat: coordinates.lat, lng: coordinates.lng };
 }
 
+function isValidRoutePath(path: RouteCoordinate[] | undefined) {
+  return (
+    Array.isArray(path) &&
+    path.length >= 2 &&
+    path.every(
+      (point) => Number.isFinite(point.lat) && Number.isFinite(point.lng),
+    )
+  );
+}
+
 function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -226,19 +236,21 @@ export function OpenStreetMap({
           route.origin.lat,
           route.origin.lng,
         ];
-        const routeCoordinates: LatLngExpression[] =
-          route.path && route.path.length > 1
-            ? route.path.map((point) => [point.lat, point.lng])
-            : [originCoordinates, destinationCoordinates];
+        const hasRoadPath = isValidRoutePath(route.path);
+        const routeCoordinates: LatLngExpression[] = hasRoadPath
+          ? route.path!.map((point) => [point.lat, point.lng])
+          : [];
         const destinationPair = toCoordinatePair(destinationCoordinates);
 
-        L.polyline(routeCoordinates, {
-          color: "#22c55e",
-          lineCap: "round",
-          lineJoin: "round",
-          opacity: 0.95,
-          weight: 5,
-        }).addTo(layerRef.current);
+        if (hasRoadPath) {
+          L.polyline(routeCoordinates, {
+            color: "#22c55e",
+            lineCap: "round",
+            lineJoin: "round",
+            opacity: 0.95,
+            weight: 5,
+          }).addTo(layerRef.current);
+        }
 
         L.circleMarker(originCoordinates, {
           radius: 8,
@@ -265,10 +277,17 @@ export function OpenStreetMap({
           .addTo(layerRef.current)
           .openPopup();
 
-        mapRef.current.fitBounds(L.latLngBounds(routeCoordinates), {
-          padding: [48, 48],
-          maxZoom: 18,
-        });
+        mapRef.current.fitBounds(
+          L.latLngBounds(
+            hasRoadPath
+              ? routeCoordinates
+              : [originCoordinates, destinationCoordinates],
+          ),
+          {
+            padding: [48, 48],
+            maxZoom: 18,
+          },
+        );
       }
 
       if (!route && !selectedLocationId && bounds.length > 1) {

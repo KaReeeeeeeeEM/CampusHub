@@ -58,6 +58,7 @@ export function SuperAdminMobileMenu() {
         <Link
           className="mb-4 flex items-center gap-3 rounded-lg px-2 py-2"
           href="/super-admin/dashboard"
+          prefetch={false}
           onClick={() => setOpen(false)}
         >
           <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md">
@@ -121,6 +122,7 @@ export function SuperAdminMobileMenu() {
                         : "text-muted-foreground hover:bg-background hover:text-foreground",
                     )}
                     href={item.href}
+                    prefetch={false}
                     onClick={() => setOpen(false)}
                   >
                     <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />

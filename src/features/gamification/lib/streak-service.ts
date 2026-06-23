@@ -300,7 +300,9 @@ async function grantMilestoneRewards(input: {
       entityType: "streak",
       entityId: input.streakId,
       priority: "NORMAL",
+      channels: { inApp: true, email: false, push: true, sms: false },
       metadata: {
+        engagementType: "streak_reminder",
         streakType: input.streakType,
         milestoneDays: milestone.days,
         badgeSlug: milestone.badgeSlug,

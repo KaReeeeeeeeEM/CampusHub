@@ -33,6 +33,7 @@ import {
   SuperAdminRecordsExplorer,
   type SuperAdminRecordsExplorerData,
 } from "@/features/super-admin/components/super-admin-records-explorer";
+import { formatCompactNumber } from "@/lib/number-format";
 
 type RawRecord = Record<string, unknown>;
 
@@ -93,7 +94,7 @@ function text(record: RawRecord, keys: string[], fallback = "Not set") {
   for (const key of keys) {
     const value = record[key];
     if (typeof value === "string" && value.trim()) return value;
-    if (typeof value === "number") return value.toLocaleString();
+    if (typeof value === "number") return formatCompactNumber(value);
     if (typeof value === "boolean") return value ? "Yes" : "No";
     if (value instanceof Date) return formatDate(value);
   }
@@ -137,7 +138,7 @@ function formatDate(value: Date) {
 }
 
 function metric(label: string, value: number, description: string) {
-  return { label, value: value.toLocaleString(), description };
+  return { label, value: formatCompactNumber(value), description };
 }
 
 async function count(model: QueryModel, filter: RawRecord = {}) {
@@ -361,11 +362,11 @@ async function buildAnalyticsPage(): Promise<SuperAdminPageData> {
         cells: {
           rank: `#${index + 1}`,
           university: row.name,
-          score: row.score.toLocaleString(),
-          identity: `${row.users.toLocaleString()} users / ${row.students.toLocaleString()} students / ${row.alumni.toLocaleString()} alumni`,
-          showcase: `${row.projects.toLocaleString()} projects`,
-          marketplace: `${row.shops.toLocaleString()} shops / ${row.products.toLocaleString()} products`,
-          xp: `${row.totalXp.toLocaleString()} total / ${row.weeklyXp.toLocaleString()} weekly`,
+          score: formatCompactNumber(row.score),
+          identity: `${formatCompactNumber(row.users)} users / ${formatCompactNumber(row.students)} students / ${formatCompactNumber(row.alumni)} alumni`,
+          showcase: `${formatCompactNumber(row.projects)} projects`,
+          marketplace: `${formatCompactNumber(row.shops)} shops / ${formatCompactNumber(row.products)} products`,
+          xp: `${formatCompactNumber(row.totalXp)} total / ${formatCompactNumber(row.weeklyXp)} weekly`,
           status: row.status,
         },
       })),
@@ -667,14 +668,16 @@ async function buildProjectAnalyticsPage(refs: ReferenceMaps): Promise<SuperAdmi
           project: mapValue(refs.projects, record.projectId),
           university: mapValue(refs.universities, record.universityId),
           date: dateText(record, ["date"]),
-          views: number(record, "views").toLocaleString(),
-          stars: number(record, "stars").toLocaleString(),
+          views: formatCompactNumber(number(record, "views")),
+          stars: formatCompactNumber(number(record, "stars")),
           engagement: (
-            number(record, "linkClicks") +
-            number(record, "documentClicks") +
-            number(record, "repositoryClicks") +
-            number(record, "shares")
-          ).toLocaleString(),
+            formatCompactNumber(
+              number(record, "linkClicks") +
+                number(record, "documentClicks") +
+                number(record, "repositoryClicks") +
+                number(record, "shares"),
+            )
+          ),
         },
       })),
       emptyTitle: "No project analytics yet",
@@ -766,7 +769,7 @@ async function buildProductsPage(refs: ReferenceMaps): Promise<SuperAdminPageDat
           shop: mapValue(refs.shops, record.shopId),
           university: mapValue(refs.universities, record.universityId),
           price: `${text(record, ["currency"], "TZS")} ${number(record, "price").toLocaleString()}`,
-          activity: `${number(record, "viewCount").toLocaleString()} views / ${number(record, "favoriteCount").toLocaleString()} favorites`,
+          activity: `${formatCompactNumber(number(record, "viewCount"))} views / ${formatCompactNumber(number(record, "favoriteCount"))} favorites`,
           status: renderStatus(text(record, ["status", "availability"])),
         },
       })),
@@ -814,9 +817,9 @@ async function buildMarketplaceAnalyticsPage(refs: ReferenceMaps): Promise<Super
           product: text(record, ["title", "name"]),
           shop: mapValue(refs.shops, record.shopId),
           university: mapValue(refs.universities, record.universityId),
-          views: number(record, "viewCount").toLocaleString(),
-          clicks: number(record, "clickCount").toLocaleString(),
-          requests: number(record, "orderRequestCount").toLocaleString(),
+          views: formatCompactNumber(number(record, "viewCount")),
+          clicks: formatCompactNumber(number(record, "clickCount")),
+          requests: formatCompactNumber(number(record, "orderRequestCount")),
         },
       })),
       emptyTitle: "No marketplace analytics yet",
@@ -912,7 +915,7 @@ async function buildAchievementsPage(refs: ReferenceMaps): Promise<SuperAdminPag
           achievement: text(record, ["name"]),
           university: mapValue(refs.universities, record.universityId, "Platform-wide"),
           visibility: renderStatus(text(record, ["visibility"])),
-          xp: number(record, "xpReward").toLocaleString(),
+          xp: formatCompactNumber(number(record, "xpReward")),
           global: text(record, ["isGlobal"]),
           status: renderStatus(text(record, ["status"])),
         },
@@ -960,8 +963,8 @@ async function buildXpLeaderboardsPage(refs: ReferenceMaps): Promise<SuperAdminP
           user: mapValue(refs.users, record.userId),
           university: mapValue(refs.universities, record.universityId),
           level: text(record, ["level"], "1"),
-          totalXp: number(record, "totalXp").toLocaleString(),
-          weeklyXp: number(record, "weeklyXp").toLocaleString(),
+          totalXp: formatCompactNumber(number(record, "totalXp")),
+          weeklyXp: formatCompactNumber(number(record, "weeklyXp")),
         },
       })),
       emptyTitle: "No XP profiles yet",

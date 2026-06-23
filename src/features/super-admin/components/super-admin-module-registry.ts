@@ -4,6 +4,7 @@ import {
   FiAward,
   FiBarChart2,
   FiBell,
+  FiBook,
   FiBookOpen,
   FiBriefcase,
   FiCalendar,
@@ -106,6 +107,15 @@ export const superAdminNavSections: SuperAdminNavSection[] = [
         title: "Departments",
         description:
           "Review departments across every college and university in the platform.",
+      },
+      {
+        label: "Courses",
+        href: "/super-admin/courses",
+        icon: FiBook,
+        eyebrow: "Institution structure",
+        title: "Courses",
+        description:
+          "Manage department courses and official years of study across universities.",
       },
     ],
   },

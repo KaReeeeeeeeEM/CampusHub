@@ -1,13 +1,13 @@
 import { CampusAdminPageHeader } from "@/features/campus-admin/components/campus-admin-page-header";
 import { RepresentativesManagement } from "@/features/campus-admin/components/representatives/representatives-management";
 import {
-  getColleges,
+  getCourses,
   getRepresentativeInvitations,
 } from "@/features/campus-admin/lib/campus-admin-service";
 
 export default async function CampusAdminRepresentativesPage() {
-  const [colleges, invitations] = await Promise.all([
-    getColleges(),
+  const [courses, invitations] = await Promise.all([
+    getCourses(),
     getRepresentativeInvitations(),
   ]);
 
@@ -19,7 +19,7 @@ export default async function CampusAdminRepresentativesPage() {
         description="Invite and manage college representatives. Representative accounts are activated through invitation links."
       />
       <RepresentativesManagement
-        colleges={colleges}
+        courses={courses}
         initialInvitations={invitations}
       />
     </main>

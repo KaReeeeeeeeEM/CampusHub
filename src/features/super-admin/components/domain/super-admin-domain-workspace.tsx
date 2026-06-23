@@ -29,6 +29,7 @@ import type {
   SuperAdminDomainWorkspace as SuperAdminDomainWorkspaceData,
   SuperAdminProjectShowcaseRecord,
 } from "@/features/super-admin/lib/super-admin-domain-service";
+import { formatCompactNumber } from "@/lib/number-format";
 import { cn } from "@/lib/utils";
 
 type SuperAdminDomainWorkspaceProps = {
@@ -128,15 +129,15 @@ function SuperAdminProjectCard({
         <div className="mt-4 grid grid-cols-3 gap-2 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             <FiEye className="h-3.5 w-3.5" aria-hidden="true" />
-            {project.views.toLocaleString()}
+            {formatCompactNumber(project.views)}
           </span>
           <span className="inline-flex items-center gap-1">
             <FiStar className="h-3.5 w-3.5 text-amber-500" aria-hidden="true" />
-            {project.stars.toLocaleString()}
+            {formatCompactNumber(project.stars)}
           </span>
           <span className="inline-flex items-center justify-end gap-1">
             <FiShare2 className="h-3.5 w-3.5" aria-hidden="true" />
-            {project.shares.toLocaleString()}
+            {formatCompactNumber(project.shares)}
           </span>
         </div>
         <div className="mt-auto pt-5">
@@ -249,7 +250,7 @@ function SuperAdminProjectsShowcase({
               <FiBarChart2 className="h-4 w-4" aria-hidden="true" />
             </span>
             <p className="mt-5 text-3xl font-semibold">
-              {metric.value.toLocaleString()}
+              {formatCompactNumber(metric.value)}
             </p>
             <p className="mt-2 text-sm font-medium">{metric.label}</p>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
@@ -356,7 +357,7 @@ function SuperAdminProjectsShowcase({
                     {label}
                   </p>
                   <p className="mt-1 text-lg font-semibold">
-                    {Number(value).toLocaleString()}
+                    {formatCompactNumber(Number(value))}
                   </p>
                 </div>
               ))}
@@ -501,7 +502,7 @@ export function SuperAdminDomainWorkspace({
               </span>
             </div>
             <p className="mt-5 text-3xl font-semibold">
-              {metric.value.toLocaleString()}
+              {formatCompactNumber(metric.value)}
             </p>
             <p className="mt-2 text-sm font-medium">{metric.label}</p>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">

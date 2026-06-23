@@ -1,5 +1,6 @@
 import { createSystemNotification } from "@/features/notifications/lib/notification-engine";
 import type { CreateNotificationInput } from "@/features/notifications/lib/schemas";
+import type { EngagementEventType } from "@/features/pwa/lib/engagement-events";
 
 export type NotificationEventType =
   | "INVITATION_CREATED"
@@ -46,11 +47,26 @@ function eventNotificationType(
   ) {
     return "ANNOUNCEMENT";
   }
-  if (type === "EVENT_REMINDER" || type.startsWith("ALMANAC_")) {
+  if (type.startsWith("ALMANAC_")) return "ALMANAC_REMINDER";
+  if (type === "EVENT_REMINDER") {
     return "EVENT_REMINDER";
   }
   if (type.startsWith("EVENT_")) return "EVENT";
   return "SYSTEM";
+}
+
+function eventEngagementType(
+  type: NotificationEventType,
+): EngagementEventType | null {
+  if (
+    type.startsWith("ANNOUNCEMENT") ||
+    type === "URGENT_ANNOUNCEMENT_CREATED"
+  ) {
+    return "announcement";
+  }
+  if (type.startsWith("ALMANAC_")) return "almanac_reminder";
+  if (type === "EVENT_REMINDER" || type.startsWith("EVENT_")) return "event";
+  return null;
 }
 
 function eventTitle(event: NotificationEvent) {
@@ -116,6 +132,7 @@ function eventMessage(event: NotificationEvent) {
 }
 
 export async function emitNotificationEvent(event: NotificationEvent) {
+  const engagementType = eventEngagementType(event.type);
   const target =
     event.recipientId || event.roles?.length || event.universityId
       ? {
@@ -143,11 +160,12 @@ export async function emitNotificationEvent(event: NotificationEvent) {
     channels: {
       inApp: true,
       email: false,
-      push: false,
+      push: Boolean(engagementType),
       sms: false,
     },
     metadata: {
       ...event.metadata,
+      engagementType,
       eventType: event.type,
       recipientEmail: event.recipientEmail ?? null,
     },

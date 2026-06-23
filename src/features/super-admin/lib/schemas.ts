@@ -121,6 +121,20 @@ export const superAdminDepartmentInputSchema = z.object({
   status: superAdminCampusEntityStatusSchema.default("ACTIVE"),
 });
 
+export const superAdminCourseInputSchema = z.object({
+  universityId: z.string().trim().min(1, "Select a university."),
+  departmentId: z.string().trim().min(1, "Select a department."),
+  name: z.string().trim().min(2, "Course name is required."),
+  code: z.string().trim().min(2, "Course code is required."),
+  durationYears: z.coerce
+    .number()
+    .int()
+    .min(1, "Duration must be at least 1 year.")
+    .max(8, "Duration cannot exceed 8 years."),
+  description: z.string().trim().min(10, "Add a short description."),
+  status: superAdminCampusEntityStatusSchema.default("ACTIVE"),
+});
+
 export type UniversityInput = z.infer<typeof universityInputSchema>;
 export type CampusAdminInvitationInput = z.infer<
   typeof campusAdminInvitationInputSchema
@@ -134,3 +148,4 @@ export type SuperAdminCollegeInput = z.infer<
 export type SuperAdminDepartmentInput = z.infer<
   typeof superAdminDepartmentInputSchema
 >;
+export type SuperAdminCourseInput = z.infer<typeof superAdminCourseInputSchema>;
