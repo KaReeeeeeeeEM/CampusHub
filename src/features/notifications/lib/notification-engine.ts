@@ -12,6 +12,7 @@ import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
 import { connectMongo } from "@/lib/db/mongodb";
 import { NotificationModel, UserModel } from "@/lib/db/models";
+import { deliverFirebaseNotifications } from "@/features/pwa/lib/firebase-admin";
 import type { AuthUser } from "@/types/auth";
 
 const deletedFilter = { deletedAt: null };
@@ -317,6 +318,8 @@ export async function createNotification(input: unknown) {
     senderId,
   );
 
+  await deliverNotificationPush(notifications);
+
   await writeAuditLog({
     actorId: actor.id,
     universityId: scopedUniversityId(actor, payload.target.universityId),
@@ -347,6 +350,8 @@ export async function createSystemNotification(input: unknown) {
     payload.senderId ?? null,
   );
 
+  await deliverNotificationPush(notifications);
+
   if (notifications.length) {
     await writeAuditLog({
       actorId: payload.senderId ?? null,
@@ -368,6 +373,18 @@ export async function createSystemNotification(input: unknown) {
     created: notifications.length,
     notifications: notifications.map(serializeNotification),
   };
+}
+
+async function deliverNotificationPush(
+  notifications: Awaited<ReturnType<typeof insertNotificationRecords>>,
+) {
+  if (!notifications.length) return;
+
+  try {
+    await deliverFirebaseNotifications(notifications);
+  } catch (error) {
+    console.error("Firebase notification delivery failed", error);
+  }
 }
 
 export async function listNotifications(query: unknown = {}) {

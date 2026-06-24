@@ -11,6 +11,11 @@ import {
   notificationPreferenceItems,
   type NotificationPreferences,
 } from "@/features/pwa/lib/notification-preferences";
+import {
+  deleteFirebaseMessagingToken,
+  getFirebaseMessagingStatus,
+  registerFirebaseMessagingToken,
+} from "@/features/pwa/lib/firebase-client";
 
 type ApiEnvelope<T> = {
   data: T | null;
@@ -30,7 +35,10 @@ export function NotificationSettingsPanel() {
   const [isPending, startTransition] = useTransition();
 
   const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const pushConfigured = Boolean(vapidPublicKey);
+  const firebaseStatus = useMemo(() => getFirebaseMessagingStatus(), []);
+  const firebasePushConfigured =
+    firebaseStatus.configured && firebaseStatus.vapidConfigured;
+  const pushConfigured = firebasePushConfigured || Boolean(vapidPublicKey);
 
   useEffect(() => {
     if (!("Notification" in window) || !("serviceWorker" in navigator)) {
@@ -57,8 +65,14 @@ export function NotificationSettingsPanel() {
       return "This browser does not support installable push notifications.";
     }
 
+    if (firebasePushConfigured) {
+      return pushStatus === "granted"
+        ? "Firebase push notifications are enabled for this browser."
+        : "Enable Firebase push notifications for time-sensitive CampusHub updates.";
+    }
+
     if (!pushConfigured) {
-      return "Browser notifications are available. Server push delivery is ready for VAPID, Firebase, or OneSignal configuration.";
+      return "Browser notifications are available. Add the Firebase web config and web push certificate key to activate server push delivery.";
     }
 
     if (pushStatus === "granted") {
@@ -70,7 +84,7 @@ export function NotificationSettingsPanel() {
     }
 
     return "Enable browser push notifications for time-sensitive CampusHub updates.";
-  }, [pushConfigured, pushStatus]);
+  }, [firebasePushConfigured, pushConfigured, pushStatus]);
 
   function setPreference(
     key: keyof NotificationPreferences,
@@ -131,11 +145,44 @@ export function NotificationSettingsPanel() {
       return;
     }
 
+    if (firebasePushConfigured) {
+      try {
+        const token = await registerFirebaseMessagingToken();
+
+        await fetch("/api/push-subscriptions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            provider: "firebase",
+            endpoint: `https://fcm.googleapis.com/fcm/send/${encodeURIComponent(token)}`,
+            token,
+            userAgent: navigator.userAgent,
+          }),
+        });
+
+        savePreferences({
+          ...preferences,
+          pushEnabled: true,
+        });
+        return;
+      } catch (error) {
+        campusToast.error({
+          title: "Firebase Push Not Enabled",
+          description:
+            error instanceof Error
+              ? error.message
+              : "CampusHub could not register this browser with Firebase.",
+        });
+        return;
+      }
+    }
+
     if (!vapidPublicKey) {
       campusToast.info({
         title: "Browser Notifications Allowed",
         description:
-          "Add NEXT_PUBLIC_VAPID_PUBLIC_KEY or connect Firebase/OneSignal to activate server push delivery.",
+          "Add NEXT_PUBLIC_FIREBASE_* keys or NEXT_PUBLIC_VAPID_PUBLIC_KEY to activate server push delivery.",
       });
       savePreferences({
         ...preferences,
@@ -180,6 +227,8 @@ export function NotificationSettingsPanel() {
   }
 
   async function disablePushNotifications() {
+    await deleteFirebaseMessagingToken().catch(() => undefined);
+
     const registration =
       "serviceWorker" in navigator ? await navigator.serviceWorker.ready : null;
     const subscription = registration

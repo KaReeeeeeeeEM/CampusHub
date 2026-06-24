@@ -7,6 +7,7 @@ import { useOverlayCoordinator } from "@/components/overlays/overlay-coordinator
 import { Button } from "@/components/ui/button";
 import { ReleaseNotesModal } from "@/features/pwa/components/release-notes-modal";
 import { ENGAGEMENT_CAMPAIGNS } from "@/features/pwa/lib/engagement-events";
+import { listenForFirebaseForegroundMessages } from "@/features/pwa/lib/firebase-client";
 import {
   RELEASE_NOTES_AFTER_UPDATE_KEY,
   RELEASE_NOTES_STORAGE_KEY,
@@ -148,6 +149,46 @@ export function PwaProvider({ children }: PwaProviderProps) {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    let unsubscribe: () => void = () => undefined;
+    let isMounted = true;
+
+    listenForFirebaseForegroundMessages((message) => {
+      const data = message.data ?? {};
+      const metadata = parseFirebaseMetadata(data.metadata);
+      const rawType = data.type ?? metadata.type ?? "announcement";
+      const campaign =
+        ENGAGEMENT_CAMPAIGNS[
+          rawType as keyof typeof ENGAGEMENT_CAMPAIGNS
+        ] ?? ENGAGEMENT_CAMPAIGNS.announcement;
+
+      showNotification({
+        animation:
+          (metadata.kiboAnimation as KiboAnimation | undefined) ??
+          campaign.kiboAnimation,
+        title:
+          data.title ?? message.notification?.title ?? campaign.defaultTitle,
+        description:
+          data.body ?? message.notification?.body ?? campaign.defaultBody,
+        category: campaign.kiboCategory as KiboCategory,
+        priority: campaign.priority as KiboPriority,
+        metadata,
+      });
+    })
+      .then((listener) => {
+        if (isMounted) unsubscribe = listener;
+        else listener();
+      })
+      .catch(() => undefined);
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, [showNotification]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
     if (!shouldShowReleaseNotesForPath(window.location.pathname)) {
       return;
     }
@@ -212,6 +253,20 @@ export function PwaProvider({ children }: PwaProviderProps) {
       <ReleaseNotesModal open={releaseNotesOpen} onClose={closeReleaseNotes} />
     </>
   );
+}
+
+function parseFirebaseMetadata(value: string | undefined) {
+  if (!value) return {};
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+
+    return parsed && typeof parsed === "object"
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
 }
 
 async function clearDevelopmentServiceWorkers() {

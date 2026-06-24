@@ -12,6 +12,7 @@ import {
   FiXCircle,
 } from "react-icons/fi";
 
+import { campusToast } from "@/components/campushub";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -32,6 +33,7 @@ import {
   resolvePushNotificationPayload,
   type CampusHubPushPayload,
 } from "@/features/pwa/lib/push-notifications";
+import { getFirebaseMessagingStatus } from "@/features/pwa/lib/firebase-client";
 import { CAMPUSHUB_RELEASE } from "@/features/pwa/lib/release-notes";
 import { KiboNotification, useKibo } from "@/lib/kibo";
 import { cn } from "@/lib/utils";
@@ -66,6 +68,7 @@ export default function PwaShowcasePage() {
   const [releaseNotesOpen, setReleaseNotesOpen] = useState(false);
 
   const capabilities = useMemo(() => getPushCapabilitySnapshot(), []);
+  const firebaseStatus = useMemo(() => getFirebaseMessagingStatus(), []);
   const selectedCampaign = engagementCampaigns.find(
     (campaign) => campaign.type === selectedEventType,
   );
@@ -172,6 +175,39 @@ export default function PwaShowcasePage() {
     });
   }
 
+  async function sendFirebaseTestPush() {
+    try {
+      const response = await fetch("/api/push-subscriptions/test", {
+        method: "POST",
+        credentials: "include",
+      });
+      const payload = (await response.json()) as {
+        data: { created?: number } | null;
+        error: { message: string } | null;
+      };
+
+      if (!response.ok || payload.error) {
+        throw new Error(payload.error?.message ?? "Firebase test push failed.");
+      }
+
+      campusToast.success({
+        title: "Firebase Test Sent",
+        description:
+          payload.data?.created && payload.data.created > 0
+            ? "A test notification was created and queued for Firebase delivery."
+            : "No matching notification recipient was found for the test.",
+      });
+    } catch (error) {
+      campusToast.error({
+        title: "Firebase Test Failed",
+        description:
+          error instanceof Error
+            ? error.message
+            : "CampusHub could not send the Firebase test notification.",
+      });
+    }
+  }
+
   return (
     <main className="mx-auto w-full max-w-none space-y-8 px-4 py-6 sm:px-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -197,6 +233,10 @@ export default function PwaShowcasePage() {
             <FiSend className="h-4 w-4" aria-hidden="true" />
             Test notification
           </Button>
+          <Button type="button" variant="secondary" onClick={sendFirebaseTestPush}>
+            <FiBell className="h-4 w-4" aria-hidden="true" />
+            Test Firebase push
+          </Button>
         </div>
       </header>
 
@@ -217,10 +257,19 @@ export default function PwaShowcasePage() {
         />
         <CapabilityCard
           icon={FiBell}
-          title="Push"
-          status={notificationPermission}
-          pass={capabilities.notifications && capabilities.pushManager}
-          description="Native Web Push is available now, with provider metadata ready for Firebase or OneSignal."
+          title="Firebase Push"
+          status={
+            firebaseStatus.configured && firebaseStatus.vapidConfigured
+              ? notificationPermission
+              : "Needs env"
+          }
+          pass={
+            capabilities.notifications &&
+            capabilities.pushManager &&
+            firebaseStatus.configured &&
+            firebaseStatus.vapidConfigured
+          }
+          description="FCM device tokens, foreground messages, background service worker handling, and server dispatch are wired for Firebase."
         />
         <CapabilityCard
           icon={FiRefreshCw}
@@ -254,6 +303,24 @@ export default function PwaShowcasePage() {
               label="Push manager"
               value={capabilities.pushManager ? "Supported" : "Unavailable"}
               pass={capabilities.pushManager}
+            />
+            <StatusRow
+              label="Firebase web config"
+              value={
+                firebaseStatus.configured
+                  ? "Configured"
+                  : `Missing ${firebaseStatus.missing.join(", ")}`
+              }
+              pass={firebaseStatus.configured}
+            />
+            <StatusRow
+              label="Firebase web push key"
+              value={
+                firebaseStatus.vapidConfigured
+                  ? "Configured"
+                  : "Missing NEXT_PUBLIC_FIREBASE_VAPID_KEY"
+              }
+              pass={firebaseStatus.vapidConfigured}
             />
             <StatusRow
               label="Background sync"

@@ -396,7 +396,15 @@ function readPushPayload(event) {
 }
 
 function normalizePushPayload(rawPayload) {
-  const rawType = rawPayload.type || rawPayload.entityType || "announcement";
+  const data = rawPayload.data || {};
+  const notification = rawPayload.notification || {};
+  const metadata = parsePushMetadata(data.metadata || rawPayload.metadata);
+  const rawType =
+    data.type ||
+    metadata.type ||
+    rawPayload.type ||
+    rawPayload.entityType ||
+    "announcement";
   const type = Object.prototype.hasOwnProperty.call(PUSH_CAMPAIGNS, rawType)
     ? rawType
     : "announcement";
@@ -404,18 +412,46 @@ function normalizePushPayload(rawPayload) {
 
   return {
     type,
-    title: rawPayload.title || campaign.title,
+    title: data.title || notification.title || rawPayload.title || campaign.title,
     body:
+      data.body ||
+      notification.body ||
       rawPayload.body ||
       rawPayload.description ||
       rawPayload.message ||
       campaign.body,
-    url: rawPayload.url || rawPayload.actionUrl || campaign.url,
-    tag: rawPayload.tag || campaign.tag,
-    kiboAnimation: rawPayload.kiboAnimation || campaign.kiboAnimation,
-    renotify: Boolean(rawPayload.renotify),
-    entityId: rawPayload.entityId || null,
-    entityType: rawPayload.entityType || null,
-    metadata: rawPayload.metadata || {},
+    url:
+      data.url ||
+      rawPayload.url ||
+      rawPayload.actionUrl ||
+      rawPayload.fcmOptions?.link ||
+      campaign.url,
+    tag: data.tag || rawPayload.tag || campaign.tag,
+    kiboAnimation:
+      metadata.kiboAnimation ||
+      data.kiboAnimation ||
+      rawPayload.kiboAnimation ||
+      campaign.kiboAnimation,
+    renotify: Boolean(data.renotify || rawPayload.renotify),
+    entityId: data.entityId || rawPayload.entityId || metadata.entityId || null,
+    entityType:
+      data.entityType || rawPayload.entityType || metadata.entityType || null,
+    metadata,
   };
+}
+
+function parsePushMetadata(value) {
+  if (!value) return {};
+
+  if (typeof value === "object") {
+    return value;
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
 }
