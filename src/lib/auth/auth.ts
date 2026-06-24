@@ -25,26 +25,48 @@ type AuthHookContext = {
   request?: Request;
 };
 
+function normalizeOrigin(origin: string | undefined | null) {
+  if (!origin) return null;
+
+  try {
+    return new URL(origin).origin;
+  } catch {
+    return origin.replace(/\/+$/, "");
+  }
+}
+
 function getAuthBaseUrl() {
-  return (
+  return normalizeOrigin(
     process.env.BETTER_AUTH_URL ??
-    process.env.NEXT_PUBLIC_APP_URL ??
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined) ??
-    "http://localhost:3000"
-  );
+      process.env.NEXT_PUBLIC_APP_URL ??
+      (process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : undefined) ??
+      "http://localhost:3000",
+  )!;
 }
 
 function getTrustedOrigins() {
   return Array.from(
     new Set(
       [
-        process.env.NEXT_PUBLIC_APP_URL,
-        process.env.BETTER_AUTH_URL,
-        process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
-        "http://localhost:3000",
+        normalizeOrigin(process.env.NEXT_PUBLIC_APP_URL),
+        normalizeOrigin(process.env.BETTER_AUTH_URL),
+        normalizeOrigin(
+          process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+        ),
+        normalizeOrigin("http://localhost:3000"),
       ].filter((origin): origin is string => Boolean(origin)),
     ),
   );
+}
+
+function getAuthRpId() {
+  try {
+    return new URL(getAuthBaseUrl()).hostname;
+  } catch {
+    return "localhost";
+  }
 }
 
 export function getAcquisitionSecret() {
@@ -309,8 +331,9 @@ export const auth = betterAuth({
       allowPasswordless: true,
     }),
     passkey({
+      rpID: getAuthRpId(),
       rpName: "CampusHub",
-      origin: getAuthBaseUrl(),
+      origin: getTrustedOrigins(),
     }),
   ],
   hooks: {
