@@ -24,7 +24,7 @@ export const applyOpportunitySchema = z.object({
     )
     .optional()
     .default([]),
-  answers: z.record(z.unknown()).optional().nullable(),
+  answers: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
 export const applicationQuerySchema = z.object({

@@ -35,7 +35,7 @@ export const networkConnectionQuerySchema = z.object({
 export const createNetworkFollowSchema = z.object({
   entityType: networkFollowEntityTypeSchema,
   entityId: z.string().trim().min(1),
-  metadata: z.record(z.unknown()).optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
 export const networkFollowQuerySchema = z.object({

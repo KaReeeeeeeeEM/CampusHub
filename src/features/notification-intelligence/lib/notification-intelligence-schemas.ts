@@ -37,7 +37,7 @@ export const notificationIntelligenceDispatchSchema = z.object({
     .max(60 * 24 * 30)
     .optional()
     .default(60 * 24),
-  metadata: z.record(z.unknown()).optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
   expiresAt: z.coerce.date().optional().nullable(),
 });
 

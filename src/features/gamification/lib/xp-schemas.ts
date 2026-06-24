@@ -57,7 +57,7 @@ export const awardXpSchema = z.object({
   sourceType: xpSourceTypeSchema,
   sourceId: z.string().trim().min(1).max(120).optional().nullable(),
   idempotencyKey: z.string().trim().min(8).max(180).optional().nullable(),
-  metadata: z.record(z.unknown()).optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
 export const removeXpSchema = z.object({
@@ -67,7 +67,7 @@ export const removeXpSchema = z.object({
   sourceType: xpSourceTypeSchema.default("SYSTEM"),
   sourceId: z.string().trim().min(1).max(120).optional().nullable(),
   reason: z.string().trim().min(1).max(240).optional(),
-  metadata: z.record(z.unknown()).optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
 export const xpHistoryQuerySchema = z.object({

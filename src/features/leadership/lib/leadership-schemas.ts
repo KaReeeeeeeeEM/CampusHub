@@ -40,7 +40,7 @@ const leadershipPositionBaseSchema = z.object({
   level: leadershipScopeSchema,
   permissions: z.array(z.string().trim().min(1)).optional().default([]),
   status: z.enum(["ACTIVE", "INACTIVE", "ARCHIVED"]).optional(),
-  metadata: z.record(z.unknown()).optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
 export const createLeadershipPositionSchema = leadershipPositionBaseSchema
@@ -86,7 +86,7 @@ export const assignLeadershipSchema = z.object({
   termLabel: z.string().trim().max(120).optional().nullable(),
   startDate: z.coerce.date().optional(),
   startedAt: z.coerce.date().optional(),
-  metadata: z.record(z.unknown()).optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
 export const endLeadershipTermSchema = z.object({
@@ -108,7 +108,7 @@ export const transferLeadershipSchema = z.object({
   startDate: z.coerce.date().optional(),
   startedAt: z.coerce.date().optional(),
   endReason: z.string().trim().max(240).optional().nullable(),
-  metadata: z.record(z.unknown()).optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
 export const leadershipAssignmentQuerySchema = z.object({
@@ -148,7 +148,7 @@ export const createLeadershipReportSchema = z.object({
   reportingPeriodEnd: z.coerce.date().optional().nullable(),
   attachments: z.array(attachmentSchema).optional().default([]),
   status: z.enum(["DRAFT", "SUBMITTED"]).optional().default("DRAFT"),
-  metadata: z.record(z.unknown()).optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
 }).superRefine((value, context) => {
   if (!value.description && !value.content) {
     context.addIssue({

@@ -39,8 +39,8 @@ export const createMapLocationSchema = z.object({
   contactInformation: contactInformationSchema,
   images: z.array(z.string().trim().url()).optional().default([]),
   status: mapLocationStatusSchema.default("ACTIVE"),
-  navigation: z.record(z.unknown()).optional().nullable(),
-  liveLocation: z.record(z.unknown()).optional().nullable(),
+  navigation: z.record(z.string(), z.unknown()).optional().nullable(),
+  liveLocation: z.record(z.string(), z.unknown()).optional().nullable(),
   marketplaceDelivery: z
     .object({
       enabled: z.coerce.boolean().optional().default(false),

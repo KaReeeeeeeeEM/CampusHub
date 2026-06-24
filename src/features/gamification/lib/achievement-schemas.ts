@@ -40,13 +40,13 @@ export const createAchievementSchema = z.object({
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
     .optional(),
   description: z.string().trim().max(1200).optional().nullable(),
-  requirements: z.record(z.unknown()),
+  requirements: z.record(z.string(), z.unknown()),
   xpReward: z.coerce.number().int().min(0).max(50000).optional().default(0),
   badgeReward: badgeRewardSchema.optional().nullable(),
   visibility: achievementVisibilitySchema.optional().default("UNIVERSITY"),
   isGlobal: z.coerce.boolean().optional().default(false),
   status: achievementStatusSchema.optional().default("ACTIVE"),
-  metadata: z.record(z.unknown()).optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
 export const listAchievementsQuerySchema = z.object({
@@ -75,12 +75,12 @@ export const updateAchievementProgressSchema = z
   .object({
     ...achievementIdentityShape,
     userId: z.string().trim().min(1),
-    progress: z.record(z.unknown()).optional().nullable(),
+    progress: z.record(z.string(), z.unknown()).optional().nullable(),
     progressValue: z.coerce.number().min(0).optional(),
     incrementBy: z.coerce.number().min(0).optional(),
     targetValue: z.coerce.number().min(1).optional(),
     complete: z.coerce.boolean().optional().default(false),
-    metadata: z.record(z.unknown()).optional().nullable(),
+    metadata: z.record(z.string(), z.unknown()).optional().nullable(),
   })
   .refine((value) => Boolean(value.achievementId) || Boolean(value.slug), {
     message: "Either achievementId or slug is required.",
@@ -91,7 +91,7 @@ export const completeAchievementSchema = z
   .object({
     ...achievementIdentityShape,
     userId: z.string().trim().min(1),
-    metadata: z.record(z.unknown()).optional().nullable(),
+    metadata: z.record(z.string(), z.unknown()).optional().nullable(),
   })
   .refine((value) => Boolean(value.achievementId) || Boolean(value.slug), {
     message: "Either achievementId or slug is required.",

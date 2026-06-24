@@ -113,7 +113,7 @@ export const shareOpportunitySchema = z.object({
     .enum(["COPY_LINK", "EMAIL", "SOCIAL", "IN_APP", "OTHER"])
     .optional()
     .default("COPY_LINK"),
-  metadata: z.record(z.unknown()).optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
 export const opportunityViewTrackingSchema = z.object({
@@ -121,5 +121,5 @@ export const opportunityViewTrackingSchema = z.object({
     .enum(["DETAIL", "SEARCH", "FEED", "SHARE", "EMAIL", "RECOMMENDATION", "OTHER"])
     .optional()
     .default("DETAIL"),
-  metadata: z.record(z.unknown()).optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
 });

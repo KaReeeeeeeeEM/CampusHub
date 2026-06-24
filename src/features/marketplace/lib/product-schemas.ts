@@ -79,5 +79,5 @@ export const productClickTrackingSchema = z.object({
     .enum(["DETAIL", "CONTACT", "ORDER_REQUEST", "EXTERNAL_LINK"])
     .optional()
     .default("DETAIL"),
-  metadata: z.record(z.unknown()).optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
 });

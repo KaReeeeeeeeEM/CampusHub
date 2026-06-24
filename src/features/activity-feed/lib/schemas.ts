@@ -38,7 +38,7 @@ export const createActivitySchema = z.object({
   entityId: z.string().trim().min(1).max(120),
   image: z.string().trim().url().optional().nullable(),
   visibility: activityVisibilitySchema.default("UNIVERSITY"),
-  metadata: z.record(z.unknown()).optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
   score: z.coerce.number().optional().default(0),
   expiresAt: z.coerce.date().optional().nullable(),
 });

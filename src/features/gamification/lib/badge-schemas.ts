@@ -25,10 +25,10 @@ export const createBadgeSchema = z.object({
   category: z.string().trim().min(1).max(80),
   rarity: badgeRaritySchema.default("COMMON"),
   xpReward: z.coerce.number().int().min(0).max(10000).optional().default(0),
-  criteria: z.record(z.unknown()),
+  criteria: z.record(z.string(), z.unknown()),
   isGlobal: z.coerce.boolean().optional().default(false),
   status: badgeStatusSchema.optional().default("ACTIVE"),
-  metadata: z.record(z.unknown()).optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
 export const listBadgesQuerySchema = z.object({
@@ -49,7 +49,7 @@ export const earnBadgeSchema = z
     slug: z.string().trim().min(1).optional(),
     source: z.string().trim().min(1).max(120).optional().nullable(),
     displayOnProfile: z.coerce.boolean().optional().default(true),
-    metadata: z.record(z.unknown()).optional().nullable(),
+    metadata: z.record(z.string(), z.unknown()).optional().nullable(),
   })
   .refine((value) => Boolean(value.badgeId) || Boolean(value.slug), {
     message: "Either badgeId or slug is required.",

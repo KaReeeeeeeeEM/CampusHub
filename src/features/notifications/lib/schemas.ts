@@ -85,7 +85,7 @@ export const createNotificationSchema = z.object({
   image: z.string().trim().url().optional().nullable(),
   priority: notificationPrioritySchema.default("NORMAL"),
   channels: notificationChannelsSchema,
-  metadata: z.record(z.unknown()).optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
   expiresAt: z.coerce.date().optional().nullable(),
 });
 

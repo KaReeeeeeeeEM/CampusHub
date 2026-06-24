@@ -26,13 +26,13 @@ export const createRewardEventSchema = z.object({
   trigger: rewardEventTriggerSchema,
   title: z.string().trim().min(1).max(160),
   description: z.string().trim().max(1000).optional().nullable(),
-  reward: z.record(z.unknown()).optional().nullable(),
+  reward: z.record(z.string(), z.unknown()).optional().nullable(),
   xp: z.coerce.number().int().min(0).max(100000).optional().default(0),
-  badge: z.record(z.unknown()).optional().nullable(),
+  badge: z.record(z.string(), z.unknown()).optional().nullable(),
   animationType: rewardAnimationTypeSchema.optional().default("CONFETTI"),
   entityType: z.string().trim().min(1).max(80).optional().nullable(),
   entityId: z.string().trim().min(1).max(120).optional().nullable(),
-  metadata: z.record(z.unknown()).optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
 export const rewardEventQuerySchema = z.object({

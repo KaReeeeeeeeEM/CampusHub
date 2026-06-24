@@ -56,7 +56,7 @@ const sponsorshipBaseSchema = z.object({
   requestedAmount: moneySchema,
   committedAmount: moneySchema,
   benefits: z.array(z.string().trim().min(1).max(200)).optional().default([]),
-  eligibility: z.record(z.unknown()).optional().nullable(),
+  eligibility: z.record(z.string(), z.unknown()).optional().nullable(),
   applicationDeadline: z.coerce.date().optional().nullable(),
   startsAt: z.coerce.date().optional().nullable(),
   endsAt: z.coerce.date().optional().nullable(),
@@ -113,7 +113,7 @@ export const submitSponsorshipInterestSchema = z.object({
   sponsorName: z.string().trim().max(180).optional().nullable(),
   message: z.string().trim().max(2000).optional().nullable(),
   proposedAmount: moneySchema,
-  metadata: z.record(z.unknown()).optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
 export const sponsorshipInterestQuerySchema = z.object({

@@ -564,23 +564,6 @@ export async function searchTalent(input: unknown = {}) {
   };
 }
 
-async function findCandidateProfile(userId: string, actor: AuthUser) {
-  const profile = await CareerProfileModel.findOne({
-    userId,
-    ...deletedFilter,
-  }).lean();
-  if (!profile) throw notFound("Career profile not found.");
-
-  if (
-    !hasRole(actor.role, ["EMPLOYER", "SUPER_ADMIN"], actor.roles) &&
-    profile.universityId !== actor.universityId
-  ) {
-    throw notFound("Career profile not found.");
-  }
-
-  return profile;
-}
-
 async function findCandidateUser(userId: string, actor: AuthUser) {
   const user = await UserModel.findOne({
     _id: userId,

@@ -362,7 +362,7 @@ export const auditEventSchema = z.object({
   ipAddress: z.string().nullable().optional(),
   userAgent: z.string().nullable().optional(),
   requestId: z.string().nullable().optional(),
-  metadata: z.record(z.unknown()).nullable().optional(),
+  metadata: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
 export type UserRoleInput = z.infer<typeof userRoleSchema>;

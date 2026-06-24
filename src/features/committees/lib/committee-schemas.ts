@@ -42,7 +42,7 @@ export const createCommitteeSchema = z.object({
   viceChairpersonId: z.string().trim().min(1).optional().nullable(),
   secretaryId: z.string().trim().min(1).optional().nullable(),
   chairUserId: z.string().trim().min(1).optional().nullable(),
-  metadata: z.record(z.unknown()).optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
 export const committeeQuerySchema = z.object({
@@ -61,13 +61,13 @@ export const committeeQuerySchema = z.object({
 export const assignCommitteeMemberSchema = z.object({
   userId: z.string().trim().min(1),
   role: committeeMemberRoleSchema.default("MEMBER"),
-  metadata: z.record(z.unknown()).optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
 export const transferCommitteeRoleSchema = z.object({
   userId: z.string().trim().min(1),
   role: committeeMemberRoleSchema,
-  metadata: z.record(z.unknown()).optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
 export const committeeAnalyticsQuerySchema = z.object({
@@ -146,7 +146,7 @@ export const createCommitteeReportSchema = z.object({
   content: z.string().trim().min(1),
   status: z.enum(["DRAFT", "SUBMITTED"]).default("DRAFT"),
   attachments: z.array(attachmentSchema).optional().default([]),
-  metadata: z.record(z.unknown()).optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
 export const createCommitteeMeetingSchema = z.object({
@@ -154,7 +154,7 @@ export const createCommitteeMeetingSchema = z.object({
   agenda: z.array(z.string().trim().min(1).max(240)).optional().default([]),
   attendeeIds: z.array(z.string().trim().min(1)).optional().default([]),
   scheduledAt: z.coerce.date(),
-  metadata: z.record(z.unknown()).optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
 export const completeCommitteeMeetingSchema = z.object({
