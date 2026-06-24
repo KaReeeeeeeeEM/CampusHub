@@ -1,11 +1,5 @@
-import { PageLoadingState } from "@/components/shared/page-loading-state";
+import { PublicLoadingState } from "@/components/public/public-loading-state";
 
 export default function PublicLoading() {
-  return (
-    <PageLoadingState
-      title="Loading CampusHub"
-      description="Preparing the latest public content."
-      withSidebar={false}
-    />
-  );
+  return <PublicLoadingState />;
 }

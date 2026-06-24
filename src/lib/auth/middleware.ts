@@ -80,10 +80,6 @@ export function withAuthGuard(request: NextRequest) {
     );
   }
 
-  if (isAuthRoute && hasSessionCookie) {
-    return redirectTo(request, DEFAULT_AUTHENTICATED_REDIRECT);
-  }
-
   if (isAuthRoute) {
     return NextResponse.next();
   }

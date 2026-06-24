@@ -29,7 +29,21 @@ function getAuthBaseUrl() {
   return (
     process.env.BETTER_AUTH_URL ??
     process.env.NEXT_PUBLIC_APP_URL ??
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined) ??
     "http://localhost:3000"
+  );
+}
+
+function getTrustedOrigins() {
+  return Array.from(
+    new Set(
+      [
+        process.env.NEXT_PUBLIC_APP_URL,
+        process.env.BETTER_AUTH_URL,
+        process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
+        "http://localhost:3000",
+      ].filter((origin): origin is string => Boolean(origin)),
+    ),
   );
 }
 
@@ -130,7 +144,7 @@ export const auth = betterAuth({
     client: getMongoNativeClient(),
     transaction: false,
   }),
-  trustedOrigins: [process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"],
+  trustedOrigins: getTrustedOrigins(),
   advanced: {
     database: {
       generateId: () => randomUUID(),
