@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "seed:platform": "node scripts/seed-platform.mjs",
+    "seed:test-accounts": "node scripts/seed-test-accounts.mjs",
     "format": "prettier --check .",
     "format:write": "prettier --write ."
   },
