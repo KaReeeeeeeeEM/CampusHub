@@ -10,6 +10,8 @@ import {
   FiMail,
   FiPlus,
   FiSearch,
+  FiSend,
+  FiShield,
 } from "react-icons/fi";
 import type { z } from "zod";
 
@@ -39,6 +41,7 @@ import type {
   SerializedUniversity,
 } from "@/features/super-admin/lib/super-admin-service";
 import type { DataTableColumn } from "@/components/shared/data-table";
+import { cn } from "@/lib/utils";
 
 type ApiResponse<T> = {
   data: T | null;
@@ -60,6 +63,21 @@ const expiryOptions = [
   { label: "60 days", value: "60" },
   { label: "90 days", value: "90" },
 ] as const;
+
+const campusAdminTabs = [
+  {
+    id: "invitations",
+    label: "Invitations",
+    icon: FiSend,
+  },
+  {
+    id: "admins",
+    label: "Admins",
+    icon: FiShield,
+  },
+] as const;
+
+type CampusAdminTab = (typeof campusAdminTabs)[number]["id"];
 
 function StatusBadge({
   status,
@@ -230,11 +248,14 @@ export function CampusAdminInvitationsManagement({
 }: CampusAdminInvitationsManagementProps) {
   const [accounts] = useState(initialAccounts);
   const [invitations, setInvitations] = useState(initialInvitations);
+  const [activeTab, setActiveTab] = useState<CampusAdminTab>("admins");
   const [query, setQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [viewing, setViewing] =
     useState<SerializedCampusAdminInvitation | null>(null);
   const [isPending, startTransition] = useTransition();
+  const activeTabConfig =
+    campusAdminTabs.find((tab) => tab.id === activeTab) ?? campusAdminTabs[0];
 
   const filteredInvitations = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -416,92 +437,153 @@ export function CampusAdminInvitationsManagement({
 
   return (
     <>
-      <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full sm:max-w-sm">
-          <FiSearch
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <CampusInput
-            className="pl-9"
-            placeholder="Search Campus Admins"
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </div>
-        <Button
-          disabled={universities.length === 0}
-          type="button"
-          onClick={() => setCreateOpen(true)}
+      <div className="mt-8 space-y-5">
+        <div
+          className="inline-flex rounded-lg border border-border bg-surface p-1"
+          role="tablist"
+          aria-label="Campus Admin management sections"
         >
-          <FiPlus className="h-4 w-4" aria-hidden="true" />
-          Create Invitation
-        </Button>
+          {campusAdminTabs.map((tab) => {
+            const Icon = tab.icon;
+            const active = activeTab === tab.id;
+            const count =
+              tab.id === "admins" ? accounts.length : invitations.length;
+
+            return (
+              <Button
+                key={tab.id}
+                className={cn(
+                  "h-10 justify-start gap-2 rounded-md px-4 text-sm shadow-none",
+                  active &&
+                    "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
+                )}
+                type="button"
+                variant={active ? "default" : "ghost"}
+                role="tab"
+                aria-selected={active}
+                aria-controls={`campus-admins-panel-${tab.id}`}
+                id={`campus-admins-tab-${tab.id}`}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                <Icon className="h-4 w-4" aria-hidden="true" />
+                {tab.label}
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-xs",
+                    active
+                      ? "bg-primary-foreground/15 text-primary-foreground"
+                      : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  {count}
+                </span>
+              </Button>
+            );
+          })}
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-sm">
+            <FiSearch
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <CampusInput
+              className="pl-9"
+              placeholder={
+                activeTab === "admins"
+                  ? "Search Campus Admins"
+                  : "Search Invitations"
+              }
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
+          <Button
+            disabled={universities.length === 0}
+            type="button"
+            onClick={() => setCreateOpen(true)}
+          >
+            <FiPlus className="h-4 w-4" aria-hidden="true" />
+            Create Invitation
+          </Button>
+        </div>
       </div>
 
-      <div className="mt-5">
-        <div className="mb-6">
+      <div
+        className="mt-6"
+        role="tabpanel"
+        id={`campus-admins-panel-${activeTabConfig.id}`}
+        aria-labelledby={`campus-admins-tab-${activeTabConfig.id}`}
+      >
+        {activeTab === "admins" ? (
+          <>
+            <div className="mb-3">
+              <h2 className="text-base font-semibold">
+                Active Campus Admin Accounts
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Campus Admin users currently assigned to universities.
+              </p>
+            </div>
+            <CampusDataTable
+              columns={accountColumns}
+              data={filteredAccounts}
+              getRowId={(account) => account.id}
+              empty={
+                <EmptyState
+                  title={
+                    query
+                      ? "No matching Campus Admin accounts"
+                      : "No active Campus Admin accounts yet"
+                  }
+                  description={
+                    query
+                      ? "Adjust your search and try again."
+                      : "Activated or seeded Campus Admin accounts will appear here."
+                  }
+                  className="mx-auto border-0 bg-transparent"
+                />
+              }
+            />
+          </>
+        ) : null}
+
+        {activeTab === "invitations" ? (
+          <>
           <div className="mb-3">
-            <h2 className="text-base font-semibold">
-              Active Campus Admin Accounts
-            </h2>
+            <h2 className="text-base font-semibold">Campus Admin Invitations</h2>
             <p className="text-sm text-muted-foreground">
-              Campus Admin users currently assigned to universities.
+              Generated activation links and their redemption status.
             </p>
           </div>
           <CampusDataTable
-            columns={accountColumns}
-            data={filteredAccounts}
-            getRowId={(account) => account.id}
+            columns={invitationColumns}
+            data={filteredInvitations}
+            getRowId={(invitation) => invitation.id}
             empty={
               <EmptyState
                 title={
-                  query
-                    ? "No matching Campus Admin accounts"
-                    : "No active Campus Admin accounts yet"
+                  universities.length === 0
+                    ? "Create a university first"
+                    : query
+                      ? "No matching invitations"
+                      : "No Campus Admin invitations yet"
                 }
                 description={
-                  query
-                    ? "Adjust your search and try again."
-                    : "Activated or seeded Campus Admin accounts will appear here."
+                  universities.length === 0
+                    ? "Campus Admin invitations must be associated with an existing university tenant."
+                    : query
+                      ? "Adjust your search and try again."
+                      : "Generated invitations will appear here with their status and activation URL."
                 }
                 className="mx-auto border-0 bg-transparent"
               />
             }
           />
-        </div>
-
-        <div className="mb-3">
-          <h2 className="text-base font-semibold">Campus Admin Invitations</h2>
-          <p className="text-sm text-muted-foreground">
-            Generated activation links and their redemption status.
-          </p>
-        </div>
-        <CampusDataTable
-          columns={invitationColumns}
-          data={filteredInvitations}
-          getRowId={(invitation) => invitation.id}
-          empty={
-            <EmptyState
-              title={
-                universities.length === 0
-                  ? "Create a university first"
-                  : query
-                    ? "No matching invitations"
-                    : "No Campus Admin invitations yet"
-              }
-              description={
-                universities.length === 0
-                  ? "Campus Admin invitations must be associated with an existing university tenant."
-                  : query
-                    ? "Adjust your search and try again."
-                    : "Generated invitations will appear here with their status and activation URL."
-              }
-              className="mx-auto border-0 bg-transparent"
-            />
-          }
-        />
+          </>
+        ) : null}
       </div>
 
       <Modal
