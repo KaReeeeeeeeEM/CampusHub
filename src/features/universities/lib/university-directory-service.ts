@@ -1,4 +1,4 @@
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import { CollegeModel, UniversityModel } from "@/lib/db/models";
 
 export type PublicUniversity = {
@@ -98,7 +98,7 @@ function serializeUniversity(
 }
 
 export async function listPublicUniversities() {
-  await connectMongo();
+  await connectPostgres();
 
   const universities = await UniversityModel.find({ deletedAt: null })
     .sort({ name: 1 })
@@ -116,7 +116,7 @@ export async function listPublicUniversities() {
 }
 
 export async function getPublicUniversityBySlug(slug: string) {
-  await connectMongo();
+  await connectPostgres();
 
   const university = await UniversityModel.findOne({ slug, deletedAt: null }).lean();
 

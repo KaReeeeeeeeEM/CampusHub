@@ -4,7 +4,7 @@ import { employabilityAnalyticsQuerySchema } from "@/features/employability-anal
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   ApplicationModel,
   ApplicationStatusEventModel,
@@ -233,7 +233,7 @@ export async function getEmployabilityAnalytics(query: unknown = {}) {
     throw forbidden("Employability analytics access is required.");
   }
 
-  await connectMongo();
+  await connectPostgres();
   const filters = employabilityAnalyticsQuerySchema.parse(query);
   const universityId = scopedUniversityId(actor, filters.universityId);
   if (!universityId) throw forbidden("University scope is required.");

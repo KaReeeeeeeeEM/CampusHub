@@ -13,7 +13,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { requireAuth } from "@/lib/auth/session";
 import { forbidden, notFound } from "@/lib/api/response";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   CollegeModel,
   DepartmentModel,
@@ -440,7 +440,7 @@ export async function createEvent(input: CreateEventInput) {
     throw forbidden("You cannot create events.");
   }
 
-  await connectMongo();
+  await connectPostgres();
   const payload = createEventSchema.parse(input);
   const collegeIds = normalizeIds(payload.collegeIds);
   const departmentIds = normalizeIds(payload.departmentIds);
@@ -513,7 +513,7 @@ export async function createEvent(input: CreateEventInput) {
 export async function listEvents(query: unknown = {}) {
   const actor = await requireAuth();
   const universityId = assertUniversityScope(actor);
-  await connectMongo();
+  await connectPostgres();
   const filters = eventQuerySchema.parse(query);
   const dbFilter: Record<string, unknown> = canManageAllEvents(actor)
     ? { universityId, ...deletedFilter }
@@ -550,7 +550,7 @@ export async function listEvents(query: unknown = {}) {
 
 export async function getEvent(eventId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const event = await getEventForActor(eventId, actor);
 
   return serializeEvent(event as Record<string, unknown>);
@@ -558,7 +558,7 @@ export async function getEvent(eventId: string) {
 
 export async function updateEvent(eventId: string, input: UpdateEventInput) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const payload = updateEventSchema.parse(input);
   const before = await getEventForActor(eventId, actor);
 
@@ -652,7 +652,7 @@ export async function updateEvent(eventId: string, input: UpdateEventInput) {
 
 export async function deleteEvent(eventId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const before = await getEventForActor(eventId, actor);
 
   assertCanMutate(actor, before as Record<string, unknown>);
@@ -685,7 +685,7 @@ export async function deleteEvent(eventId: string) {
 
 export async function cancelEvent(eventId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const before = await getEventForActor(eventId, actor);
 
   assertCanMutate(actor, before as Record<string, unknown>);
@@ -724,7 +724,7 @@ function assertCanRegister(event: Record<string, unknown>) {
 
 export async function joinEvent(eventId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const event = await getEventForActor(eventId, actor);
 
   assertCanRegister(event as Record<string, unknown>);
@@ -851,7 +851,7 @@ export async function joinEvent(eventId: string) {
 
 export async function sendEventReminder(eventId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const event = await getEventForActor(eventId, actor);
 
   assertCanMutate(actor, event as Record<string, unknown>);
@@ -874,7 +874,7 @@ export async function sendEventReminder(eventId: string) {
 
 export async function leaveEvent(eventId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const event = await getEventForActor(eventId, actor);
   const attendance = await EventAttendanceModel.findOneAndUpdate(
     {
@@ -932,7 +932,7 @@ export async function leaveEvent(eventId: string) {
 
 export async function listEventAttendance(eventId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const event = await getEventForActor(eventId, actor);
 
   assertCanMutate(actor, event as Record<string, unknown>);
@@ -948,7 +948,7 @@ export async function listEventAttendance(eventId: string) {
 
 export async function validateEventQr(eventId: string, input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const payload = qrValidationSchema.parse(input);
   const event = await getEventForActor(eventId, actor);
 
@@ -977,7 +977,7 @@ export async function validateEventQr(eventId: string, input: unknown) {
 
 export async function checkInEventAttendance(eventId: string, input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const payload = qrValidationSchema.parse(input);
   const event = await getEventForActor(eventId, actor);
 

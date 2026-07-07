@@ -10,7 +10,7 @@ import {
 import { forbidden, notFound } from "@/lib/api/response";
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import { StudentDocumentModel, StudentModel } from "@/lib/db/models";
 import type { AuthUser } from "@/types/auth";
 
@@ -105,7 +105,7 @@ export async function listStudentDocuments(query: unknown = {}) {
   const actor = await requireAuth();
   const universityId = assertStudentActor(actor);
 
-  await connectMongo();
+  await connectPostgres();
 
   const filters = studentDocumentQuerySchema.parse(query);
   const dbFilter: Record<string, unknown> = {
@@ -178,7 +178,7 @@ export async function createStudentDocument(input: unknown) {
   const actor = await requireAuth();
   const universityId = assertStudentActor(actor);
 
-  await connectMongo();
+  await connectPostgres();
 
   const payload = createStudentDocumentSchema.parse(input);
   const studentProfile = await getStudentProfile(actor);
@@ -226,7 +226,7 @@ export async function updateStudentDocument(input: unknown) {
   const actor = await requireAuth();
   const universityId = assertStudentActor(actor);
 
-  await connectMongo();
+  await connectPostgres();
 
   const payload = updateStudentDocumentSchema.parse(input);
   const before = await StudentDocumentModel.findOne({
@@ -313,7 +313,7 @@ export async function archiveStudentDocument(input: unknown) {
   const actor = await requireAuth();
   const universityId = assertStudentActor(actor);
 
-  await connectMongo();
+  await connectPostgres();
 
   const payload = archiveStudentDocumentSchema.parse(input);
   const before = await StudentDocumentModel.findOneAndUpdate(

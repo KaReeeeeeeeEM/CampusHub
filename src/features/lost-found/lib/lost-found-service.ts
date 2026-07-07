@@ -9,7 +9,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import { LostFoundItemModel } from "@/lib/db/models";
 
 const deletedFilter = { deletedAt: null };
@@ -122,7 +122,7 @@ export async function listLostFoundItems(query: unknown = {}) {
   const actor = await requireAuth();
   const universityId = assertUniversityScope(actor.universityId);
 
-  await connectMongo();
+  await connectPostgres();
 
   const filters = lostFoundQuerySchema.parse(query);
   const dbFilter: Record<string, unknown> = {
@@ -151,7 +151,7 @@ export async function createLostFoundItem(input: unknown) {
   const actor = await requireAuth();
   const universityId = assertUniversityScope(actor.universityId);
 
-  await connectMongo();
+  await connectPostgres();
 
   const payload = createLostFoundItemSchema.parse(input);
   const status = statusToDb[payload.status];
@@ -194,7 +194,7 @@ export async function updateLostFoundItem(input: unknown) {
   const actor = await requireAuth();
   const universityId = assertUniversityScope(actor.universityId);
 
-  await connectMongo();
+  await connectPostgres();
 
   const payload = updateLostFoundItemSchema.parse(input);
   const status = statusToDb[payload.status];
@@ -248,7 +248,7 @@ export async function archiveLostFoundItem(input: unknown) {
   const actor = await requireAuth();
   const universityId = assertUniversityScope(actor.universityId);
 
-  await connectMongo();
+  await connectPostgres();
 
   const payload = archiveLostFoundItemSchema.parse(input);
   const before = await LostFoundItemModel.findOneAndUpdate(

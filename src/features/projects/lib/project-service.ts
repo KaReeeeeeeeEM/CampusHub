@@ -14,7 +14,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   ProjectDocumentModel,
   ProjectMemberModel,
@@ -216,7 +216,7 @@ export async function canManageProjectForActor(
 export async function createProject(input: unknown) {
   const actor = await requireAuth();
   const universityId = assertUniversityScope(actor);
-  await connectMongo();
+  await connectPostgres();
   const payload = createProjectSchema.parse(input);
   const project = await ProjectModel.create({
     _id: randomUUID(),
@@ -281,7 +281,7 @@ export async function createProject(input: unknown) {
 
 export async function listProjects(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = projectQuerySchema.parse(query);
   const dbFilter: Record<string, unknown> = {
     ...deletedFilter,
@@ -317,7 +317,7 @@ export async function listProjects(query: unknown = {}) {
 
 export async function getProject(projectId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const project = await getVisibleProjectForActor(projectId, actor);
 
   return serializeProject(project as Record<string, unknown>);
@@ -325,7 +325,7 @@ export async function getProject(projectId: string) {
 
 export async function updateProject(projectId: string, input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const project = await getVisibleProjectForActor(projectId, actor);
   if (
     !(await canManageProjectForActor(actor, project as Record<string, unknown>))
@@ -386,7 +386,7 @@ export async function updateProject(projectId: string, input: unknown) {
 
 export async function publishProject(projectId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const project = await getVisibleProjectForActor(projectId, actor);
   if (
     !(await canManageProjectForActor(actor, project as Record<string, unknown>))
@@ -427,7 +427,7 @@ export async function publishProject(projectId: string) {
 
 export async function archiveProject(projectId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const project = await getVisibleProjectForActor(projectId, actor);
   if (
     !(await canManageProjectForActor(actor, project as Record<string, unknown>))
@@ -459,7 +459,7 @@ export async function archiveProject(projectId: string) {
 
 export async function deleteProject(projectId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const project = await getVisibleProjectForActor(projectId, actor);
   if (
     !(await canManageProjectForActor(actor, project as Record<string, unknown>))
@@ -484,7 +484,7 @@ export async function deleteProject(projectId: string) {
 
 export async function addProjectMember(projectId: string, input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const project = await getVisibleProjectForActor(projectId, actor);
   if (
     !(await canManageProjectForActor(actor, project as Record<string, unknown>))
@@ -532,7 +532,7 @@ export async function addProjectMember(projectId: string, input: unknown) {
 
 export async function removeProjectMember(projectId: string, userId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const project = await getVisibleProjectForActor(projectId, actor);
   if (
     !(await canManageProjectForActor(actor, project as Record<string, unknown>))
@@ -561,7 +561,7 @@ export async function removeProjectMember(projectId: string, userId: string) {
 
 export async function listProjectMembers(projectId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   await getVisibleProjectForActor(projectId, actor);
   const members = await ProjectMemberModel.find({ projectId })
     .sort({ role: 1, joinedAt: 1 })
@@ -574,7 +574,7 @@ export async function listProjectMembers(projectId: string) {
 
 export async function addProjectLink(projectId: string, input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const project = await getVisibleProjectForActor(projectId, actor);
   if (
     !(await canManageProjectForActor(actor, project as Record<string, unknown>))
@@ -617,7 +617,7 @@ export async function addProjectLink(projectId: string, input: unknown) {
 
 export async function listProjectLinks(projectId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   await getVisibleProjectForActor(projectId, actor);
   const links = await ProjectDocumentModel.find({
     projectId,
@@ -635,7 +635,7 @@ export async function updateProjectVisibility(
   input: unknown,
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const project = await getVisibleProjectForActor(projectId, actor);
   if (
     !(await canManageProjectForActor(actor, project as Record<string, unknown>))
@@ -669,7 +669,7 @@ export async function updateProjectVisibility(
 
 export async function setProjectFeatured(projectId: string, featured: boolean) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   if (!canModerateProjects(actor))
     throw forbidden("Project moderation access is required.");
   const project = await getVisibleProjectForActor(projectId, actor);

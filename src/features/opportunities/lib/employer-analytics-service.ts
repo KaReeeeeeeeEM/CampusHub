@@ -7,7 +7,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   ApplicationModel,
   ApplicationStatusEventModel,
@@ -15,7 +15,7 @@ import {
   OpportunityViewModel,
 } from "@/lib/db/models";
 import type { AuthUser } from "@/types/auth";
-import type { PipelineStage } from "mongoose";
+import type { PipelineStage } from "@/lib/db/model-compat";
 
 const deletedFilter = { deletedAt: null };
 
@@ -145,7 +145,7 @@ export async function getEmployerAnalytics(query: unknown = {}) {
   if (!canViewEmployerAnalytics(actor)) {
     throw forbidden("Employer analytics access is required.");
   }
-  await connectMongo();
+  await connectPostgres();
 
   const filters = employerAnalyticsQuerySchema.parse(query);
   const universityId = resolveUniversityId(actor, filters.universityId);

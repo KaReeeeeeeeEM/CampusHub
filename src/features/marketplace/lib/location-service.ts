@@ -10,7 +10,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   MapLocationModel,
   MarketplaceSavedLocationModel,
@@ -220,7 +220,7 @@ export async function resolveMarketplaceLocation(
 
 export async function createSavedLocation(input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const payload = createSavedLocationSchema.parse(input);
   let snapshot: Record<string, unknown>;
 
@@ -251,7 +251,7 @@ export async function createSavedLocation(input: unknown) {
 
 export async function listSavedLocations(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = savedLocationQuerySchema.parse(query);
   const dbFilter: Record<string, unknown> = {
     universityId: requireUniversity(actor),
@@ -273,7 +273,7 @@ export async function listSavedLocations(query: unknown = {}) {
 
 export async function updateSavedLocation(locationId: string, input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const payload = updateSavedLocationSchema.parse(input);
   const before = await MarketplaceSavedLocationModel.findOne({
     _id: locationId,
@@ -329,7 +329,7 @@ export async function updateSavedLocation(locationId: string, input: unknown) {
 
 export async function deleteSavedLocation(locationId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const saved = await MarketplaceSavedLocationModel.findOneAndUpdate(
     {
       _id: locationId,
@@ -360,7 +360,7 @@ export async function deleteSavedLocation(locationId: string) {
 
 export async function searchMarketplaceLocations(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = marketplaceLocationSearchSchema.parse(query);
   const results: {
     savedLocations: ReturnType<typeof serializeSavedLocation>[];

@@ -21,7 +21,7 @@ import { createSystemNotification } from "@/features/notifications/lib/notificat
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   AnnouncementModel,
   CollegeModel,
@@ -374,7 +374,7 @@ export async function createCommittee(input: unknown) {
     throw forbidden("Committee management access is required.");
   }
 
-  await connectMongo();
+  await connectPostgres();
   const payload = createCommitteeSchema.parse(input);
   const universityId = scopedUniversityId(actor, payload.universityId);
   if (!universityId) throw forbidden("University scope is required.");
@@ -482,7 +482,7 @@ export async function createCommittee(input: unknown) {
 
 export async function listCommittees(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = committeeQuerySchema.parse(query);
   const universityId = scopedUniversityId(actor, filters.universityId);
   if (!universityId) throw forbidden("University scope is required.");
@@ -512,7 +512,7 @@ export async function listCommittees(query: unknown = {}) {
 
 export async function assignCommitteeMember(committeeId: string, input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const committee = await getCommitteeOrThrow(committeeId);
   await assertCanManageCommittee(actor, committee);
   const payload = assignCommitteeMemberSchema.parse(input);
@@ -589,7 +589,7 @@ export async function assignCommitteeMember(committeeId: string, input: unknown)
 
 export async function removeCommitteeMember(committeeId: string, memberId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const committee = await getCommitteeOrThrow(committeeId);
   await assertCanManageCommittee(actor, committee);
   const member = await CommitteeMemberModel.findOneAndUpdate(
@@ -634,7 +634,7 @@ export async function removeCommitteeMember(committeeId: string, memberId: strin
 
 export async function transferCommitteeRole(committeeId: string, input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const committee = await getCommitteeOrThrow(committeeId);
   await assertCanManageCommittee(actor, committee);
   const payload = transferCommitteeRoleSchema.parse(input);
@@ -709,7 +709,7 @@ export async function transferCommitteeRole(committeeId: string, input: unknown)
 
 export async function listCommitteeMembers(committeeId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const committee = await getCommitteeOrThrow(committeeId);
   await assertCanAccessCommittee(actor, committee);
   const members = await CommitteeMemberModel.find({
@@ -727,7 +727,7 @@ export async function createCommitteeAnnouncement(
   input: unknown,
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const committee = await getCommitteeOrThrow(committeeId);
   await assertCanManageCommittee(actor, committee);
   const payload = createCommitteeAnnouncementSchema.parse(input);
@@ -776,7 +776,7 @@ export async function createCommitteeAnnouncement(
 
 export async function createCommitteeEvent(committeeId: string, input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const committee = await getCommitteeOrThrow(committeeId);
   await assertCanManageCommittee(actor, committee);
   const payload = createCommitteeEventSchema.parse(input);
@@ -818,7 +818,7 @@ export async function createCommitteeEvent(committeeId: string, input: unknown) 
 
 export async function createCommitteePoll(committeeId: string, input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const committee = await getCommitteeOrThrow(committeeId);
   await assertCanManageCommittee(actor, committee);
   const payload = createCommitteePollSchema.parse(input);
@@ -865,7 +865,7 @@ export async function createCommitteeSuggestion(
   input: unknown,
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const committee = await getCommitteeOrThrow(committeeId);
   await assertCanManageCommittee(actor, committee);
   const payload = createCommitteeSuggestionSchema.parse(input);
@@ -902,7 +902,7 @@ export async function createCommitteeCommunity(
   input: unknown,
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const committee = await getCommitteeOrThrow(committeeId);
   await assertCanManageCommittee(actor, committee);
   const payload = createCommitteeCommunitySchema.parse(input);
@@ -944,7 +944,7 @@ export async function createCommitteeCommunity(
 
 export async function getCommitteeAnalytics(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = committeeAnalyticsQuerySchema.parse(query);
   const universityId = scopedUniversityId(actor, filters.universityId);
   if (!universityId) throw forbidden("University scope is required.");
@@ -1032,7 +1032,7 @@ export async function getCommitteeAnalytics(query: unknown = {}) {
 
 export async function createCommitteeReport(committeeId: string, input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const committee = await getCommitteeOrThrow(committeeId);
   await assertCanManageCommittee(actor, committee);
   const payload = createCommitteeReportSchema.parse(input);
@@ -1063,7 +1063,7 @@ export async function createCommitteeReport(committeeId: string, input: unknown)
 
 export async function listCommitteeReports(committeeId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const committee = await getCommitteeOrThrow(committeeId);
   await assertCanAccessCommittee(actor, committee);
   const reports = await CommitteeReportModel.find({ committeeId })
@@ -1075,7 +1075,7 @@ export async function listCommitteeReports(committeeId: string) {
 
 export async function createCommitteeMeeting(committeeId: string, input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const committee = await getCommitteeOrThrow(committeeId);
   await assertCanManageCommittee(actor, committee);
   const payload = createCommitteeMeetingSchema.parse(input);
@@ -1109,7 +1109,7 @@ export async function completeCommitteeMeeting(
   input: unknown,
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const committee = await getCommitteeOrThrow(committeeId);
   await assertCanManageCommittee(actor, committee);
   const payload = completeCommitteeMeetingSchema.parse(input);
@@ -1141,7 +1141,7 @@ export async function completeCommitteeMeeting(
 
 export async function listCommitteeMeetings(committeeId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const committee = await getCommitteeOrThrow(committeeId);
   await assertCanAccessCommittee(actor, committee);
   const meetings = await CommitteeMeetingModel.find({ committeeId })

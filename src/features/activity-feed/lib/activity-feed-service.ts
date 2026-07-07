@@ -11,7 +11,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import { ActivityFeedModel } from "@/lib/db/models";
 import type { AuthUser } from "@/types/auth";
 
@@ -177,7 +177,7 @@ async function executeFeedQuery(
 }
 
 export async function createActivity(input: CreateActivityInput) {
-  await connectMongo();
+  await connectPostgres();
   const payload = createActivitySchema.parse(input);
   const activity = await ActivityFeedModel.create({
     _id: randomUUID(),
@@ -211,7 +211,7 @@ export async function createActivity(input: CreateActivityInput) {
 
 export async function getPersonalFeed(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = activityFeedQuerySchema.parse(query);
   const dbFilter = {
     $or: visibilityFilter(actor, actor.universityId),
@@ -222,7 +222,7 @@ export async function getPersonalFeed(query: unknown = {}) {
 
 export async function getUniversityFeed(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = scopedFeedQuerySchema.parse(query);
   const feedFilters = { ...filters, visibility: undefined };
   const universityId = assertUniversityAccess(actor, filters.universityId);
@@ -242,7 +242,7 @@ export async function getUniversityFeed(query: unknown = {}) {
 
 export async function getCollegeFeed(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = scopedFeedQuerySchema.parse(query);
   const feedFilters = { ...filters, visibility: undefined };
   const universityId = assertUniversityAccess(actor, filters.universityId);
@@ -271,7 +271,7 @@ export async function getCollegeFeed(query: unknown = {}) {
 
 export async function getDepartmentFeed(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = scopedFeedQuerySchema.parse(query);
   const feedFilters = { ...filters, visibility: undefined };
   const universityId = assertUniversityAccess(actor, filters.universityId);
@@ -301,7 +301,7 @@ export async function getDepartmentFeed(query: unknown = {}) {
 
 export async function getTrendingFeed(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = scopedFeedQuerySchema.parse(query);
   const universityId = assertUniversityAccess(actor, filters.universityId);
   const dbFilter: Record<string, unknown> = {

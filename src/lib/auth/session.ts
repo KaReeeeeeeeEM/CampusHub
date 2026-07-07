@@ -5,7 +5,7 @@ import { isStudentLeadershipPosition } from "@/features/authorization/roles";
 import { hasRole } from "@/features/authorization/rbac";
 import { auth } from "@/lib/auth/auth";
 import { writeAuthAuditLog } from "@/lib/audit/audit-log-service";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import { UserModel } from "@/lib/db/models";
 import { forbidden, unauthorized } from "@/lib/api/response";
 import type { AuthSession, AuthUser } from "@/types/auth";
@@ -61,7 +61,7 @@ export async function getCurrentUser() {
     return null;
   }
 
-  await connectMongo();
+  await connectPostgres();
 
   const user = await UserModel.findById(session.user.id).lean();
 

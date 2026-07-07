@@ -1,4 +1,4 @@
-import { model, models, Schema, type InferSchemaType } from "mongoose";
+import { model, models, Schema, type InferSchemaType } from "@/lib/db/model-compat";
 
 const representativeSchema = new Schema(
   {

@@ -1,11 +1,5 @@
-import { PageLoadingState } from "@/components/shared/page-loading-state";
+import { CenteredSpinner } from "@/components/shared/centered-spinner";
 
 export default function InvitationsLoading() {
-  return (
-    <PageLoadingState
-      title="Loading invitation"
-      description="Validating the invitation and preparing the activation form."
-      withSidebar={false}
-    />
-  );
+  return <CenteredSpinner label="Loading invitation" />;
 }

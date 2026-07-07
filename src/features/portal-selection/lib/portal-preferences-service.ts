@@ -16,7 +16,7 @@ import {
   type PortalKey,
 } from "@/features/portal-selection/lib/portals";
 import { requireCompletedOnboarding } from "@/lib/auth/route-guards";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   PortalPreferenceModel,
   UserModel,
@@ -159,7 +159,7 @@ function serializePreferenceState(
 }
 
 async function getOrCreatePortalPreference(session: AuthSession) {
-  await connectMongo();
+  await connectPostgres();
 
   const { roles } = await resolvePreviewableAccess(session);
   const availablePortals = getAvailablePortalsForAccess(roles);

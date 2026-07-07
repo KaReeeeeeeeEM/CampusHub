@@ -12,7 +12,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   OrderModel,
   ProductModel,
@@ -182,7 +182,7 @@ export async function createShop(input: unknown) {
   if (!canCreateShop(actor))
     throw forbidden("Shop creation access is required.");
 
-  await connectMongo();
+  await connectPostgres();
   const payload = createShopSchema.parse(input);
   const shop = await ShopModel.create({
     _id: randomUUID(),
@@ -237,7 +237,7 @@ export async function createShop(input: unknown) {
 export async function listShops(query: unknown = {}) {
   const actor = await requireAuth();
   const universityId = requireUniversity(actor);
-  await connectMongo();
+  await connectPostgres();
   const filters = shopQuerySchema.parse(query);
   const dbFilter: Record<string, unknown> = {
     universityId,
@@ -277,13 +277,13 @@ export async function searchShops(query: unknown = {}) {
 
 export async function listMyShops(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   return listShops({ ...shopQuerySchema.parse(query), ownerId: actor.id });
 }
 
 export async function getShop(shopIdOrSlug: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const shop = await getVisibleShopForActor(shopIdOrSlug, actor);
 
   return serializeShop(shop as Record<string, unknown>);
@@ -291,7 +291,7 @@ export async function getShop(shopIdOrSlug: string) {
 
 export async function updateShop(shopIdOrSlug: string, input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const shop = await getVisibleShopForActor(shopIdOrSlug, actor);
   if (!canMutateShop(actor, shop as Record<string, unknown>)) {
     throw forbidden("You cannot update this shop.");
@@ -353,7 +353,7 @@ async function setShopStatus(
   auditAction: "SHOP_PAUSED" | "SHOP_CLOSED",
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const shop = await getVisibleShopForActor(shopIdOrSlug, actor);
   if (!canMutateShop(actor, shop as Record<string, unknown>)) {
     throw forbidden("You cannot manage this shop.");
@@ -387,7 +387,7 @@ export function closeShop(shopIdOrSlug: string) {
 
 export async function trackShopView(shopIdOrSlug: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const shop = await getVisibleShopForActor(shopIdOrSlug, actor);
 
   await ShopViewModel.create({
@@ -414,7 +414,7 @@ export async function getShopAnalytics(
   query: unknown = {},
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = shopAnalyticsQuerySchema.parse(query);
   const shop = await getVisibleShopForActor(shopIdOrSlug, actor);
   if (!canMutateShop(actor, shop as Record<string, unknown>)) {

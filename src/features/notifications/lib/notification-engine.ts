@@ -10,7 +10,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import { NotificationModel, UserModel } from "@/lib/db/models";
 import { deliverFirebaseNotifications } from "@/features/pwa/lib/firebase-admin";
 import type { AuthUser } from "@/types/auth";
@@ -300,7 +300,7 @@ async function insertNotificationRecords(
 export async function createNotification(input: unknown) {
   const actor = await requireAuth();
   assertCanManageNotifications(actor);
-  await connectMongo();
+  await connectPostgres();
   const payload = createNotificationSchema.parse(input);
   const users = await resolveTargetRecipients(actor, payload);
   const senderId = payload.senderId ?? actor.id;
@@ -341,7 +341,7 @@ export async function createNotification(input: unknown) {
 }
 
 export async function createSystemNotification(input: unknown) {
-  await connectMongo();
+  await connectPostgres();
   const payload = createNotificationSchema.parse(input);
   const users = await resolveSystemTargetRecipients(payload);
   const notifications = await insertNotificationRecords(
@@ -389,7 +389,7 @@ async function deliverNotificationPush(
 
 export async function listNotifications(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = notificationQuerySchema.parse(query);
   const dbFilter: Record<string, unknown> = {
     recipientId: actor.id,
@@ -415,7 +415,7 @@ export async function listNotifications(query: unknown = {}) {
 
 export async function getUnreadNotificationCount() {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const count = await NotificationModel.countDocuments({
     recipientId: actor.id,
     status: "UNREAD",
@@ -442,7 +442,7 @@ export async function markNotificationRead(
   input: unknown = {},
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const payload = markNotificationReadSchema.parse(input);
   await getOwnedNotification(notificationId, actor);
   const readAt = payload.read ? new Date() : null;
@@ -472,7 +472,7 @@ export async function markNotificationRead(
 
 export async function markAllNotificationsRead() {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const readAt = new Date();
   const result = await NotificationModel.updateMany(
     {
@@ -505,7 +505,7 @@ export async function markAllNotificationsRead() {
 
 export async function archiveNotification(notificationId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   await getOwnedNotification(notificationId, actor);
   const notification = await NotificationModel.findOneAndUpdate(
     { _id: notificationId, recipientId: actor.id, ...deletedFilter },
@@ -531,7 +531,7 @@ export async function archiveNotification(notificationId: string) {
 
 export async function deleteNotification(notificationId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   await getOwnedNotification(notificationId, actor);
   const notification = await NotificationModel.findOneAndUpdate(
     { _id: notificationId, recipientId: actor.id, ...deletedFilter },
@@ -562,7 +562,7 @@ export async function deleteNotification(notificationId: string) {
 
 export async function deleteAllNotifications() {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const deletedAt = new Date();
   const result = await NotificationModel.updateMany(
     {

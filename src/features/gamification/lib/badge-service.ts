@@ -18,7 +18,7 @@ import { createSystemNotification } from "@/features/notifications/lib/notificat
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import { BadgeModel, UserBadgeModel, UserModel } from "@/lib/db/models";
 import type { AuthUser } from "@/types/auth";
 
@@ -412,7 +412,7 @@ async function badgesById(badgeIds: string[]) {
 export async function createBadge(input: unknown) {
   const actor = await requireAuth();
   assertCanManageBadges(actor);
-  await connectMongo();
+  await connectPostgres();
   const payload = createBadgeSchema.parse(input);
   const universityId = scopedBadgeUniversity(actor, payload.universityId);
   const slug = payload.slug ?? slugify(payload.name);
@@ -459,7 +459,7 @@ export async function createBadge(input: unknown) {
 export async function seedDefaultBadges(input: unknown = {}) {
   const actor = await requireAuth();
   assertCanManageBadges(actor);
-  await connectMongo();
+  await connectPostgres();
   const payload = createBadgeSchema
     .pick({ universityId: true })
     .partial()
@@ -512,7 +512,7 @@ export async function seedDefaultBadges(input: unknown = {}) {
 
 export async function listBadges(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = listBadgesQuerySchema.parse(query);
   const universityId = scopedBadgeUniversity(actor, filters.universityId);
   const scopeFilters: Record<string, unknown>[] = [];
@@ -546,7 +546,7 @@ export async function listBadges(query: unknown = {}) {
 }
 
 export async function grantBadgeToUser(actor: AuthUser, input: unknown) {
-  await connectMongo();
+  await connectPostgres();
   const payload = earnBadgeSchema.parse(input);
   const user = await getActiveUserOrThrow(payload.userId);
 
@@ -708,14 +708,14 @@ export async function grantBadgeToUser(actor: AuthUser, input: unknown) {
 export async function earnBadge(input: unknown) {
   const actor = await requireAuth();
   assertCanManageBadges(actor);
-  await connectMongo();
+  await connectPostgres();
 
   return grantBadgeToUser(actor, input);
 }
 
 export async function getBadgeCollection(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = userBadgeQuerySchema.parse(query);
   const targetUserId = filters.userId ?? actor.id;
   const user = await getActiveUserOrThrow(targetUserId);
@@ -759,7 +759,7 @@ export async function updateUserBadgeDisplay(
   input: unknown,
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const payload = updateUserBadgeDisplaySchema.parse(input);
   const userBadge = await UserBadgeModel.findById(userBadgeId).lean();
 

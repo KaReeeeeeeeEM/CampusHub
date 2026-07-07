@@ -1,4 +1,4 @@
-import type { Query, Schema } from "mongoose";
+import type { Query, Schema } from "@/lib/db/model-compat";
 
 import { forbidden } from "@/lib/api/response";
 
@@ -62,7 +62,8 @@ export function tenantScopedSchemaPlugin(schema: Schema) {
       "updateMany",
       "updateOne",
     ],
-    function enforceTenantScope() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    function enforceTenantScope(this: any) {
       const options = this.getOptions() as TenantQueryOptions;
 
       if (options.skipTenantScope) {

@@ -7,7 +7,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   CommunityMemberModel,
   CommunityModel,
@@ -620,7 +620,7 @@ async function achievementsRanking(
 
 export async function getRanking(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = rankingQuerySchema.parse(query);
   const scope = assertScopeAccess(actor, filters);
   let rows: RankingRow[] = [];

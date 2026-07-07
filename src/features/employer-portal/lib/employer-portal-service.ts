@@ -1,7 +1,7 @@
 import { forbidden } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   ApplicationModel,
   CareerProfileModel,
@@ -259,7 +259,7 @@ export async function getEmployerPortalSummary() {
     throw forbidden("Employer access is required.");
   }
 
-  await connectMongo();
+  await connectPostgres();
   const employerUser = await UserModel.findById(actor.id)
     .select("name email phone phoneNumber metadata")
     .lean();
@@ -659,7 +659,7 @@ export async function updateEmployerCompanyProfile(input: unknown) {
   }
 
   const payload = employerCompanySchema.parse(input);
-  await connectMongo();
+  await connectPostgres();
 
   const existingUser = await UserModel.findById(actor.id)
     .select("name email phone phoneNumber metadata")

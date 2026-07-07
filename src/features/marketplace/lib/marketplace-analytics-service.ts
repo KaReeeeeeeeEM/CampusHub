@@ -6,7 +6,7 @@ import {
 } from "@/features/marketplace/lib/marketplace-analytics-schemas";
 import { forbidden } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   OrderRequestModel,
   ProductClickModel,
@@ -17,7 +17,7 @@ import {
   ShopViewModel,
 } from "@/lib/db/models";
 import type { AuthUser } from "@/types/auth";
-import type { PipelineStage } from "mongoose";
+import type { PipelineStage } from "@/lib/db/model-compat";
 
 const deletedFilter = { deletedAt: null };
 
@@ -139,7 +139,7 @@ function buildSeriesPipeline(input: {
 
 export async function getMarketplaceAnalytics(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = marketplaceAnalyticsQuerySchema.parse(query);
   const universityId = resolveUniversityId(actor, filters.universityId);
   const canManage = canManageMarketplace(actor);

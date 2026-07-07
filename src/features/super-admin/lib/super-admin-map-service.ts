@@ -1,5 +1,5 @@
 import { requireApiRole } from "@/lib/auth/authorization";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import { MapLocationModel, UniversityModel } from "@/lib/db/models";
 
 export type SuperAdminMapPoint = {
@@ -52,7 +52,7 @@ function serializePoint(location: Record<string, unknown>): SuperAdminMapPoint {
 
 export async function listSuperAdminCampusMaps() {
   await requireApiRole(["SUPER_ADMIN"]);
-  await connectMongo();
+  await connectPostgres();
 
   const [universities, locations] = await Promise.all([
     UniversityModel.find({ deletedAt: null }).sort({ name: 1 }).lean(),

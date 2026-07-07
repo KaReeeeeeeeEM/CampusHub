@@ -1,4 +1,4 @@
-import { model, models, Schema, type InferSchemaType } from "mongoose";
+import { model, models, Schema, type InferSchemaType } from "@/lib/db/model-compat";
 
 import { STUDENT_LEADERSHIP_POSITIONS } from "@/features/authorization/roles";
 import {
@@ -292,14 +292,16 @@ userSchema.index({
   status: 1,
 });
 
-userSchema.pre("validate", function validateEmployerRoleExclusivity() {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+userSchema.pre("validate", function validateEmployerRoleExclusivity(this: any) {
   if (hasEmployerRoleConflict(this.roles ?? [])) {
     throw new Error("Employer accounts cannot hold any other CampusHub role.");
   }
 
   if (
     this.role === "EMPLOYER" &&
-    this.roles?.some((role) => role !== "EMPLOYER")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.roles?.some((role: any) => role !== "EMPLOYER")
   ) {
     throw new Error("Employer accounts cannot hold any other CampusHub role.");
   }

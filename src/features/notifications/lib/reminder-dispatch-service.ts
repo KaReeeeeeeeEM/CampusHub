@@ -2,7 +2,7 @@ import { hasRole } from "@/features/authorization/rbac";
 import { createSystemNotification } from "@/features/notifications/lib/notification-engine";
 import { forbidden } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   AlmanacEventModel,
   AnnouncementModel,
@@ -293,7 +293,7 @@ export async function dispatchDueNotificationReminders(
   const actor = await requireAuth();
   const universityId = requireDispatchScope(actor, input.universityId);
 
-  await connectMongo();
+  await connectPostgres();
 
   const [almanac, events, announcements] = await Promise.all([
     dispatchAlmanacReminders(universityId),

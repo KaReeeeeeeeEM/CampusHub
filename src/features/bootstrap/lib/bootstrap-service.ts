@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 
 import { hashPassword } from "better-auth/crypto";
-import { MongoServerError } from "mongodb";
 
 import { ROLE_PERMISSIONS } from "@/features/authorization/permissions";
 import { calculateProfileCompletionPercentage } from "@/features/auth/lib/profile-completion";
@@ -10,11 +9,13 @@ import {
   type SuperAdminBootstrapInput,
 } from "@/features/bootstrap/lib/schemas";
 import { ensureSystemRoles } from "@/lib/auth/user-sync";
-import { connectMongo, getMongoDb } from "@/lib/db/mongodb";
+import { connectPostgres, queryPostgres } from "@/lib/db/postgres";
 import { AccountModel, RoleModel, UserModel } from "@/lib/db/models";
+import { createPgModel } from "@/lib/db/pg-document-model";
 
 const SUPER_ADMIN_ROLE = "SUPER_ADMIN";
 const BOOTSTRAP_LOCK_ID = "super-admin-bootstrap";
+const BootstrapLockModel = createPgModel("BootstrapLock", "bootstrap_locks");
 
 type BootstrapLock = {
   _id: typeof BOOTSTRAP_LOCK_ID;
@@ -49,10 +50,6 @@ function normalizeUsername(email: string) {
   );
 }
 
-function isDuplicateKeyError(error: unknown) {
-  return error instanceof MongoServerError && error.code === 11000;
-}
-
 async function resolveUniqueUsername(email: string) {
   const base = normalizeUsername(email);
   const existingUser = await UserModel.exists({ username: base });
@@ -65,7 +62,7 @@ async function resolveUniqueUsername(email: string) {
 }
 
 export async function hasSuperAdmin() {
-  await connectMongo();
+  await connectPostgres();
 
   const superAdmin = await UserModel.exists({
     $or: [{ role: SUPER_ADMIN_ROLE }, { roles: SUPER_ADMIN_ROLE }],
@@ -81,46 +78,40 @@ export async function isSuperAdminBootstrapEnabled() {
     return false;
   }
 
-  const db = await getMongoDb();
-  const completedLock = await db
-    .collection<BootstrapLock>("bootstrap_locks")
-    .findOne({ _id: BOOTSTRAP_LOCK_ID, status: "COMPLETED" });
+  const completedLock = await BootstrapLockModel.findOne({
+    _id: BOOTSTRAP_LOCK_ID,
+    status: "COMPLETED",
+  });
 
   return !completedLock;
 }
 
 async function acquireBootstrapLock() {
-  const db = await getMongoDb();
+  const existingLock = await BootstrapLockModel.findOne({
+    _id: BOOTSTRAP_LOCK_ID,
+  });
 
-  try {
-    await db.collection<BootstrapLock>("bootstrap_locks").insertOne({
-      _id: BOOTSTRAP_LOCK_ID,
-      status: "IN_PROGRESS",
-      startedAt: new Date(),
-    });
-  } catch (error) {
-    if (isDuplicateKeyError(error)) {
-      throw new BootstrapDisabledError(
-        "Super Admin bootstrap is already in progress or has completed.",
-      );
-    }
-
-    throw error;
+  if (existingLock) {
+    throw new BootstrapDisabledError(
+      "Super Admin bootstrap is already in progress or has completed.",
+    );
   }
+
+  await BootstrapLockModel.create({
+    _id: BOOTSTRAP_LOCK_ID,
+    status: "IN_PROGRESS",
+    startedAt: new Date(),
+  } satisfies BootstrapLock);
 }
 
 async function releaseBootstrapLock() {
-  const db = await getMongoDb();
-
-  await db.collection<BootstrapLock>("bootstrap_locks").deleteOne({
+  await BootstrapLockModel.deleteOne({
     _id: BOOTSTRAP_LOCK_ID,
     status: "IN_PROGRESS",
   });
 }
 
 async function completeBootstrapLock(userId?: string) {
-  const db = await getMongoDb();
-
   const updates: Partial<BootstrapLock> = {
     status: "COMPLETED",
     completedAt: new Date(),
@@ -130,7 +121,7 @@ async function completeBootstrapLock(userId?: string) {
     updates.createdUserId = userId;
   }
 
-  await db.collection<BootstrapLock>("bootstrap_locks").updateOne(
+  await BootstrapLockModel.updateOne(
     { _id: BOOTSTRAP_LOCK_ID },
     {
       $set: updates,
@@ -142,7 +133,7 @@ export async function createInitialSuperAdmin(
   input: SuperAdminBootstrapInput,
 ) {
   const values = superAdminBootstrapSchema.parse(input);
-  await connectMongo();
+  await connectPostgres();
 
   if (await hasSuperAdmin()) {
     throw new BootstrapDisabledError();
@@ -235,6 +226,18 @@ export async function createInitialSuperAdmin(
       updatedAt: now,
     });
 
+    await upsertAuthCredentialUser({
+      userId,
+      displayName,
+      email: values.email,
+      username,
+      firstName: values.firstName,
+      lastName: values.lastName,
+      passwordHash,
+      profileCompletionPercentage,
+      now,
+    });
+
     await completeBootstrapLock(userId);
 
     return {
@@ -257,4 +260,76 @@ export async function createInitialSuperAdmin(
 
     throw error;
   }
+}
+
+async function upsertAuthCredentialUser(input: {
+  userId: string;
+  displayName: string;
+  email: string;
+  username: string;
+  firstName: string;
+  lastName: string;
+  passwordHash: string;
+  profileCompletionPercentage: number;
+  now: Date;
+}) {
+  await queryPostgres(
+    `
+      INSERT INTO "user" (
+        "id", "name", "email", "emailVerified", "createdAt", "updatedAt",
+        "intendedRole", "role", "username", "firstName", "lastName",
+        "position", "status", "isVerified", "profileCompletionPercentage",
+        "roles", "permissions", "studentLeadershipPositions",
+        "onboardingCompleted", "twoFactorEnabled"
+      )
+      VALUES (
+        $1, $2, $3, TRUE, $4, $4,
+        $5, $5, $6, $7, $8,
+        'NONE', 'ACTIVE', TRUE, $9,
+        $10::jsonb, $11::jsonb, '[]'::jsonb,
+        TRUE, FALSE
+      )
+      ON CONFLICT ("id") DO UPDATE SET
+        "name" = EXCLUDED."name",
+        "email" = EXCLUDED."email",
+        "emailVerified" = TRUE,
+        "updatedAt" = EXCLUDED."updatedAt",
+        "role" = EXCLUDED."role",
+        "username" = EXCLUDED."username",
+        "firstName" = EXCLUDED."firstName",
+        "lastName" = EXCLUDED."lastName",
+        "status" = 'ACTIVE',
+        "isVerified" = TRUE,
+        "profileCompletionPercentage" = EXCLUDED."profileCompletionPercentage",
+        "roles" = EXCLUDED."roles",
+        "permissions" = EXCLUDED."permissions",
+        "onboardingCompleted" = TRUE
+    `,
+    [
+      input.userId,
+      input.displayName,
+      input.email,
+      input.now,
+      SUPER_ADMIN_ROLE,
+      input.username,
+      input.firstName,
+      input.lastName,
+      input.profileCompletionPercentage,
+      JSON.stringify([SUPER_ADMIN_ROLE]),
+      JSON.stringify(ROLE_PERMISSIONS.SUPER_ADMIN),
+    ],
+  );
+
+  await queryPostgres(
+    `
+      INSERT INTO "account" (
+        "id", "accountId", "providerId", "userId", "password", "createdAt", "updatedAt"
+      )
+      VALUES ($1, $2, 'credential', $2, $3, $4, $4)
+      ON CONFLICT ("id") DO UPDATE SET
+        "password" = EXCLUDED."password",
+        "updatedAt" = EXCLUDED."updatedAt"
+    `,
+    [`bootstrap-account-${input.userId}`, input.userId, input.passwordHash, input.now],
+  );
 }

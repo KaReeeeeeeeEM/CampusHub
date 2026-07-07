@@ -14,7 +14,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   ProjectAnalyticsModel,
   ProjectDocumentModel,
@@ -75,7 +75,7 @@ async function assertDashboardAccess(universityId: string | null) {
 
 export async function trackProjectView(projectId: string, input: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const payload = projectViewTrackingSchema.parse(input);
   const project = await getVisibleProjectForActor(projectId, actor);
   const visitorFilter = payload.anonymousId
@@ -130,7 +130,7 @@ export async function trackProjectEngagement(
   input: unknown = {},
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const payload = projectEngagementTrackingSchema.parse(input);
   const project = await getVisibleProjectForActor(projectId, actor);
 
@@ -216,7 +216,7 @@ export async function getProjectAnalytics(
   query: unknown = {},
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = projectAnalyticsQuerySchema.parse(query);
   const project = await getVisibleProjectForActor(projectId, actor);
   if (
@@ -287,7 +287,7 @@ export async function getProjectAnalytics(
 export async function getProjectAnalyticsDashboard(query: unknown = {}) {
   const filters = projectAnalyticsQuerySchema.parse(query);
   const actor = await assertDashboardAccess(filters.universityId ?? null);
-  await connectMongo();
+  await connectPostgres();
   const universityId = hasRole(actor.role, ["SUPER_ADMIN"], actor.roles)
     ? filters.universityId
     : actor.universityId;

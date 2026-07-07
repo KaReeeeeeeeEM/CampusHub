@@ -14,7 +14,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   SuggestionCommentModel,
   SuggestionModel,
@@ -152,7 +152,7 @@ async function notifyAuthor(
 export async function createSuggestion(input: unknown) {
   const actor = await requireAuth();
   const universityId = assertUniversityScope(actor);
-  await connectMongo();
+  await connectPostgres();
   const payload = createSuggestionSchema.parse(input);
   const suggestion = await SuggestionModel.create({
     _id: randomUUID(),
@@ -184,7 +184,7 @@ export async function createSuggestion(input: unknown) {
 export async function listSuggestions(query: unknown = {}) {
   const actor = await requireAuth();
   const universityId = assertUniversityScope(actor);
-  await connectMongo();
+  await connectPostgres();
   const filters = suggestionQuerySchema.parse(query);
   const dbFilter: Record<string, unknown> = {
     universityId,
@@ -212,7 +212,7 @@ export async function listSuggestions(query: unknown = {}) {
 
 export async function getSuggestion(suggestionId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const suggestion = await getVisibleSuggestion(suggestionId, actor);
 
   return serializeSuggestion(suggestion as Record<string, unknown>, actor);
@@ -223,7 +223,7 @@ export async function commentOnSuggestion(
   input: unknown,
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const payload = suggestionCommentSchema.parse(input);
   const suggestion = await getVisibleSuggestion(suggestionId, actor);
 
@@ -262,7 +262,7 @@ export async function commentOnSuggestion(
 
 export async function listSuggestionComments(suggestionId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   await getVisibleSuggestion(suggestionId, actor);
   const dbFilter: Record<string, unknown> = {
     suggestionId,
@@ -284,7 +284,7 @@ export async function assignSuggestion(suggestionId: string, input: unknown) {
   const actor = await requireAuth();
   if (!canReviewSuggestions(actor))
     throw forbidden("Suggestion review access is required.");
-  await connectMongo();
+  await connectPostgres();
   const payload = assignSuggestionSchema.parse(input);
   const suggestion = await getVisibleSuggestion(suggestionId, actor);
   const assignee = await UserModel.findOne({
@@ -333,7 +333,7 @@ export async function updateSuggestionStatus(
   const actor = await requireAuth();
   if (!canReviewSuggestions(actor))
     throw forbidden("Suggestion review access is required.");
-  await connectMongo();
+  await connectPostgres();
   const payload = updateSuggestionStatusSchema.parse(input);
   const suggestion = await getVisibleSuggestion(suggestionId, actor);
   const update: Record<string, unknown> = {
@@ -379,7 +379,7 @@ export async function escalateSuggestion(suggestionId: string) {
   const actor = await requireAuth();
   if (!canReviewSuggestions(actor))
     throw forbidden("Suggestion review access is required.");
-  await connectMongo();
+  await connectPostgres();
   const suggestion = await getVisibleSuggestion(suggestionId, actor);
   const updated = await SuggestionModel.findOneAndUpdate(
     { _id: suggestionId, ...deletedFilter },
@@ -409,7 +409,7 @@ export async function resolveSuggestion(suggestionId: string, input: unknown) {
   const actor = await requireAuth();
   if (!canReviewSuggestions(actor))
     throw forbidden("Suggestion review access is required.");
-  await connectMongo();
+  await connectPostgres();
   const payload = resolveSuggestionSchema.parse(input);
   const suggestion = await getVisibleSuggestion(suggestionId, actor);
   const updated = await SuggestionModel.findOneAndUpdate(
@@ -446,7 +446,7 @@ export async function rejectSuggestion(suggestionId: string, input: unknown) {
   const actor = await requireAuth();
   if (!canReviewSuggestions(actor))
     throw forbidden("Suggestion review access is required.");
-  await connectMongo();
+  await connectPostgres();
   const payload = rejectSuggestionSchema.parse(input);
   const suggestion = await getVisibleSuggestion(suggestionId, actor);
   const updated = await SuggestionModel.findOneAndUpdate(
@@ -484,7 +484,7 @@ export async function getSuggestionAnalytics() {
   const universityId = assertUniversityScope(actor);
   if (!canReviewSuggestions(actor))
     throw forbidden("Suggestion review access is required.");
-  await connectMongo();
+  await connectPostgres();
   const [total, resolved, topCategories, openIssues, resolutionStats] =
     await Promise.all([
       SuggestionModel.countDocuments({ universityId, ...deletedFilter }),

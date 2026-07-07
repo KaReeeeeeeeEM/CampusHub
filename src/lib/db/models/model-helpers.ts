@@ -1,4 +1,4 @@
-import { Schema } from "mongoose";
+import { Schema } from "@/lib/db/model-compat";
 
 export const VISIBILITY_VALUES = [
   "PRIVATE",

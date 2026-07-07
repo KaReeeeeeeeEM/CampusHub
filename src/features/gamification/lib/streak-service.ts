@@ -16,7 +16,7 @@ import { createSystemNotification } from "@/features/notifications/lib/notificat
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import { StreakModel, UserModel } from "@/lib/db/models";
 import { STREAK_MILESTONE_REWARDS as KIBO_STREAK_MILESTONE_REWARDS } from "@/lib/kibo/config";
 import type { AuthUser } from "@/types/auth";
@@ -337,7 +337,7 @@ async function grantMilestoneRewards(input: {
 
 export async function recordStreakActivity(input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const payload = recordStreakActivitySchema.parse(input);
   const userId = payload.userId ?? actor.id;
   const user = await getActiveUserOrThrow(userId);
@@ -540,7 +540,7 @@ export async function recordStreakActivity(input: unknown) {
 
 export async function listStreaks(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = streakQuerySchema.parse(query);
   const userId = filters.userId ?? actor.id;
   const user = await getActiveUserOrThrow(userId);
@@ -567,7 +567,7 @@ export async function listStreaks(query: unknown = {}) {
 
 export async function getStreakSummary(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = streakSummaryQuerySchema.parse(query);
   const userId = filters.userId ?? actor.id;
   const user = await getActiveUserOrThrow(userId);
@@ -590,7 +590,7 @@ export async function grantRecoveryTokens(input: unknown) {
     throw forbidden("Streak management access is required.");
   }
 
-  await connectMongo();
+  await connectPostgres();
   const payload = grantRecoveryTokenSchema.parse(input);
   const user = await getActiveUserOrThrow(payload.userId);
   const universityId = streakUniversityId(user);

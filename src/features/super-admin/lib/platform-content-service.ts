@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 
 import { requireApiRole } from "@/lib/auth/authorization";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   AlmanacEventModel,
   AnnouncementModel,
@@ -600,7 +600,7 @@ export async function listPlatformContent(query?: {
   q?: string;
 }) {
   await requireApiRole(["SUPER_ADMIN"]);
-  await connectMongo();
+  await connectPostgres();
 
   const universities = await UniversityModel.find({ deletedAt: null })
     .sort({ name: 1 })
@@ -682,7 +682,7 @@ export async function listPlatformContent(query?: {
 
 export async function createPlatformContent(input: unknown) {
   const actor = await requireApiRole(["SUPER_ADMIN"]);
-  await connectMongo();
+  await connectPostgres();
 
   const payload = input as PlatformContentInput;
   const type = normalizeType(payload.type);
@@ -703,7 +703,7 @@ export async function updatePlatformContent(
   input: unknown,
 ) {
   await requireApiRole(["SUPER_ADMIN"]);
-  await connectMongo();
+  await connectPostgres();
 
   const type = normalizeType(typeValue);
   const updated = await contentModels[type]
@@ -722,7 +722,7 @@ export async function updatePlatformContent(
 
 export async function deletePlatformContent(typeValue: string, id: string) {
   await requireApiRole(["SUPER_ADMIN"]);
-  await connectMongo();
+  await connectPostgres();
 
   const type = normalizeType(typeValue);
   const archivedStatus =

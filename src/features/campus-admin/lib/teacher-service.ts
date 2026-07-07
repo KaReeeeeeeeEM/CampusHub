@@ -3,7 +3,7 @@ import { passwordSchema } from "@/features/auth/lib/schemas";
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { auth, getAcquisitionSecret } from "@/lib/auth/auth";
 import { requireAuthorizedResource } from "@/lib/auth/authorization";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import { CollegeModel, DepartmentModel, UserModel } from "@/lib/db/models";
 import { z } from "zod";
 
@@ -35,7 +35,7 @@ export async function createTeacher(input: CreateTeacherInput) {
     throw new Error("Campus Admin must be assigned to a university.");
   }
 
-  await connectMongo();
+  await connectPostgres();
 
   const [college, department, existingUser] = await Promise.all([
     CollegeModel.findOne({

@@ -18,7 +18,7 @@ import { createSystemNotification } from "@/features/notifications/lib/notificat
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   AchievementModel,
   UserAchievementModel,
@@ -386,7 +386,7 @@ async function grantAchievementRewards(input: {
 export async function createAchievement(input: unknown) {
   const actor = await requireAuth();
   assertCanManageAchievements(actor);
-  await connectMongo();
+  await connectPostgres();
   const payload = createAchievementSchema.parse(input);
   const universityId = scopedAchievementUniversity(actor, payload.universityId);
   const slug = payload.slug ?? slugify(payload.name);
@@ -431,7 +431,7 @@ export async function createAchievement(input: unknown) {
 export async function seedDefaultAchievements(input: unknown = {}) {
   const actor = await requireAuth();
   assertCanManageAchievements(actor);
-  await connectMongo();
+  await connectPostgres();
   const payload = createAchievementSchema
     .pick({ universityId: true })
     .partial()
@@ -483,7 +483,7 @@ export async function seedDefaultAchievements(input: unknown = {}) {
 
 export async function listAchievements(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = listAchievementsQuerySchema.parse(query);
   const universityId = scopedAchievementUniversity(actor, filters.universityId);
   const scopeFilters: Record<string, unknown>[] = [];
@@ -516,7 +516,7 @@ export async function listAchievements(query: unknown = {}) {
 export async function updateAchievementProgress(input: unknown) {
   const actor = await requireAuth();
   assertCanManageAchievements(actor);
-  await connectMongo();
+  await connectPostgres();
   const payload = updateAchievementProgressSchema.parse(input);
   const user = await getActiveUserOrThrow(payload.userId);
 
@@ -623,7 +623,7 @@ export async function completeAchievement(input: unknown) {
 
 export async function getUserAchievements(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = userAchievementQuerySchema.parse(query);
   const targetUserId = filters.userId ?? actor.id;
   const user = await getActiveUserOrThrow(targetUserId);

@@ -8,7 +8,7 @@ import {
   isRoleKey,
   isStudentLeadershipPosition,
 } from "@/features/authorization/roles";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   CollegeModel,
   CourseModel,
@@ -195,7 +195,7 @@ async function getRepresentativeProfile(
   user: RepresentativeSessionUser,
   input?: Pick<CreateInvitationInput, "universityId" | "collegeId">,
 ) {
-  await connectMongo();
+  await connectPostgres();
 
   const existingRepresentative = await RepresentativeModel.findOne({
     userId: user.id,
@@ -223,7 +223,7 @@ async function getRepresentativeProfile(
 
 export async function createStudentInvitation(input: CreateInvitationInput) {
   const session = await requireRepresentativeSession();
-  await connectMongo();
+  await connectPostgres();
 
   const [university, college] = await Promise.all([
     UniversityModel.findOne({ _id: input.universityId, status: "ACTIVE" }),
@@ -566,7 +566,7 @@ export async function getInvitationUsage(invitationId: string) {
 }
 
 export async function resolveInvitation(token: string) {
-  await connectMongo();
+  await connectPostgres();
 
   const invitation = await JoinInvitationModel.findOne({ token }).lean();
 

@@ -9,7 +9,7 @@ import {
 } from "@/features/projects/lib/schemas";
 import { serializeProject } from "@/features/projects/lib/project-service";
 import { notFound } from "@/lib/api/response";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   ProjectAnalyticsModel,
   ProjectModel,
@@ -141,7 +141,7 @@ async function incrementPublicViewAnalytics(input: {
 }
 
 export async function listPublicProjects(query: unknown = {}) {
-  await connectMongo();
+  await connectPostgres();
   const { filters, dbFilter } = publicProjectDbFilter(query);
   const projects = await ProjectModel.find(dbFilter)
     .sort({ featured: -1, featuredAt: -1, createdAt: -1 })
@@ -158,7 +158,7 @@ export async function searchPublicProjects(query: unknown = {}) {
 }
 
 export async function getPublicProject(projectIdOrSlug: string) {
-  await connectMongo();
+  await connectPostgres();
   const project = await ProjectModel.findOne({
     ...publicProjectFilter,
     $or: [{ _id: projectIdOrSlug }, { slug: projectIdOrSlug }],
@@ -177,7 +177,7 @@ export async function getPublicFeaturedProjects(query: unknown = {}) {
 }
 
 export async function getPublicProjectCategories(query: unknown = {}) {
-  await connectMongo();
+  await connectPostgres();
   const filters = publicProjectQuerySchema.parse(query);
   const dbFilter: Record<string, unknown> = { ...publicProjectFilter };
   if (filters.universityId) dbFilter.universityId = filters.universityId;
@@ -204,7 +204,7 @@ export async function getPublicProjectCategories(query: unknown = {}) {
 }
 
 export async function getPublicProjectLeaderboard(query: unknown = {}) {
-  await connectMongo();
+  await connectPostgres();
   const filters = projectLeaderboardQuerySchema.parse({
     ...(typeof query === "object" && query !== null ? query : {}),
     scope: "GLOBAL",
@@ -302,7 +302,7 @@ export async function trackPublicProjectView(
   projectIdOrSlug: string,
   input: unknown = {},
 ) {
-  await connectMongo();
+  await connectPostgres();
   const payload = publicProjectViewTrackingSchema.parse(input);
   const project = await ProjectModel.findOne({
     ...publicProjectFilter,

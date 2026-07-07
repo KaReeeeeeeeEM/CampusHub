@@ -5,7 +5,7 @@ import {
 } from "@/features/auth/lib/schemas";
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import { UserModel } from "@/lib/db/models";
 import { notFound } from "@/lib/api/response";
 import { ApiError } from "@/lib/errors/api-error";
@@ -42,7 +42,7 @@ function serializeUser(user: Record<string, unknown>) {
 export async function getAuthenticatedUserProfile() {
   const actor = await requireAuth();
 
-  await connectMongo();
+  await connectPostgres();
 
   const user = await UserModel.findById(actor.id).lean();
 
@@ -59,9 +59,12 @@ export async function updateAuthenticatedUserProfile(
   const actor = await requireAuth();
   const payload = userProfileUpdateSchema.parse(input);
 
-  await connectMongo();
+  await connectPostgres();
 
-  const existing = await UserModel.findById(actor.id).lean();
+  const existing = (await UserModel.findById(actor.id).lean()) as
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    | Record<string, any>
+    | null;
 
   if (!existing) {
     throw notFound("User profile not found.");
@@ -90,7 +93,8 @@ export async function updateAuthenticatedUserProfile(
       payload.phoneNumber === undefined
         ? existing.phoneNumber
         : payload.phoneNumber,
-  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as Record<string, any>;
   const profileCompletionPercentage = calculateProfileCompletionPercentage({
     email: nextUser.email,
     username: nextUser.username,

@@ -21,7 +21,7 @@ import {
 } from "@/features/super-admin/lib/schemas";
 import { auth, getAcquisitionSecret } from "@/lib/auth/auth";
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   AuditLogModel,
   AnnouncementModel,
@@ -479,7 +479,7 @@ function serializeInvitation(
 
 export async function getSuperAdminDashboard() {
   await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
 
   const [
     universitiesCount,
@@ -531,7 +531,7 @@ export async function getSuperAdminDashboard() {
 
 export async function getUniversities() {
   await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
 
   const universities = await UniversityModel.find()
     .sort({ createdAt: -1 })
@@ -544,7 +544,7 @@ export async function getUniversities() {
 
 export async function listSuperAdminColleges() {
   await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
 
   const colleges = await CollegeModel.find({ deletedAt: null })
     .sort({ createdAt: -1 })
@@ -600,7 +600,7 @@ export async function listSuperAdminColleges() {
 
 export async function createSuperAdminCollege(input: SuperAdminCollegeInput) {
   const session = await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const payload = superAdminCollegeInputSchema.parse(input);
   const university = await UniversityModel.findOne({
     _id: payload.universityId,
@@ -663,7 +663,7 @@ export async function updateSuperAdminCollege(
   input: SuperAdminCollegeInput,
 ) {
   const session = await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const payload = superAdminCollegeInputSchema.parse(input);
   const university = await UniversityModel.findOne({
     _id: payload.universityId,
@@ -752,7 +752,7 @@ export async function deactivateSuperAdminCollege(collegeId: string) {
 
 export async function deleteSuperAdminCollege(collegeId: string) {
   const session = await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const before = await CollegeModel.findOne({
     _id: collegeId,
     deletedAt: null,
@@ -793,7 +793,7 @@ async function updateSuperAdminCollegeStatus(
   status: SerializedSuperAdminCollege["status"],
 ) {
   const session = await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const before = await CollegeModel.findOne({
     _id: collegeId,
     deletedAt: null,
@@ -844,7 +844,7 @@ async function updateSuperAdminCollegeStatus(
 
 export async function listSuperAdminDepartments() {
   await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
 
   const departments = await DepartmentModel.find({ deletedAt: null })
     .sort({ createdAt: -1 })
@@ -910,7 +910,7 @@ export async function createSuperAdminDepartment(
   input: SuperAdminDepartmentInput,
 ) {
   const session = await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const payload = superAdminDepartmentInputSchema.parse(input);
   const [university, college] = await Promise.all([
     UniversityModel.findOne({ _id: payload.universityId, deletedAt: null }).lean(),
@@ -995,7 +995,7 @@ export async function updateSuperAdminDepartment(
   input: SuperAdminDepartmentInput,
 ) {
   const session = await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const payload = superAdminDepartmentInputSchema.parse(input);
   const [university, college, before] = await Promise.all([
     UniversityModel.findOne({ _id: payload.universityId, deletedAt: null }).lean(),
@@ -1105,7 +1105,7 @@ async function updateSuperAdminDepartmentStatus(
   status: SerializedSuperAdminDepartment["status"],
 ) {
   const session = await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const before = await DepartmentModel.findOne({
     _id: departmentId,
     deletedAt: null,
@@ -1156,7 +1156,7 @@ async function updateSuperAdminDepartmentStatus(
 
 export async function deleteSuperAdminDepartment(departmentId: string) {
   const session = await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const before = await DepartmentModel.findOne({
     _id: departmentId,
     deletedAt: null,
@@ -1194,7 +1194,7 @@ export async function deleteSuperAdminDepartment(departmentId: string) {
 
 export async function listSuperAdminCourses() {
   await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
 
   const courses = await CourseModel.find({ deletedAt: null })
     .sort({ createdAt: -1 })
@@ -1278,7 +1278,7 @@ export async function listSuperAdminCourses() {
 
 export async function createSuperAdminCourse(input: SuperAdminCourseInput) {
   const session = await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const payload = superAdminCourseInputSchema.parse(input);
   const [university, department] = await Promise.all([
     UniversityModel.findOne({ _id: payload.universityId, deletedAt: null }).lean(),
@@ -1362,7 +1362,7 @@ export async function updateSuperAdminCourse(
   input: SuperAdminCourseInput,
 ) {
   const session = await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const payload = superAdminCourseInputSchema.parse(input);
   const [university, department, before] = await Promise.all([
     UniversityModel.findOne({ _id: payload.universityId, deletedAt: null }).lean(),
@@ -1466,7 +1466,7 @@ export async function updateSuperAdminCourse(
 
 export async function deactivateSuperAdminCourse(courseId: string) {
   const session = await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const before = await CourseModel.findOne({
     _id: courseId,
     deletedAt: null,
@@ -1526,7 +1526,7 @@ export async function deactivateSuperAdminCourse(courseId: string) {
 
 export async function deleteSuperAdminCourse(courseId: string) {
   const session = await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const before = await CourseModel.findOne({
     _id: courseId,
     deletedAt: null,
@@ -1632,7 +1632,7 @@ function serializeSuperAdminCommittee(
 
 export async function listSuperAdminCommitteeCommunities() {
   await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
 
   const communities = await CommunityModel.find({ deletedAt: null })
     .sort({ universityId: 1, name: 1 })
@@ -1707,7 +1707,7 @@ export async function getSuperAdminCommitteeCommunityDetail(
   communityId: string,
 ): Promise<SerializedSuperAdminCommitteeCommunityDetail> {
   await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
 
   const community = await CommunityModel.findOne({
     _id: communityId,
@@ -1796,7 +1796,7 @@ export async function removeSuperAdminCommitteeMember(
   memberId: string,
 ) {
   const session = await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
 
   const committee = await CommitteeModel.findOne({
     _id: committeeId,
@@ -1845,7 +1845,7 @@ export async function removeSuperAdminCommitteeMember(
 
 export async function getUniversityProfile(universityId: string) {
   await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
 
   const university = await UniversityModel.findById(universityId).lean();
 
@@ -1916,7 +1916,7 @@ export async function getUniversityProfile(universityId: string) {
 
 export async function listSuperAdminUsers() {
   await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
 
   const users = await UserModel.find({ deletedAt: null })
     .sort({ createdAt: -1 })
@@ -1990,7 +1990,7 @@ export async function listSuperAdminUsers() {
 
 export async function deleteSuperAdminUser(userId: string) {
   const session = await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
 
   if (userId === session.user.id) {
     throw forbidden("You cannot delete your own active Super Admin account.");
@@ -2039,7 +2039,7 @@ export async function deleteSuperAdminUser(userId: string) {
 
 export async function listSuperAdminAuditLogs() {
   await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
 
   const logs = await AuditLogModel.find()
     .sort({ createdAt: -1 })
@@ -2103,7 +2103,7 @@ export async function listSuperAdminAuditLogs() {
 
 export async function createUniversity(input: UniversityInput) {
   const session = await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
 
   const payload = universityInputSchema.parse(input);
   const slug = slugify(payload.slug || payload.name);
@@ -2151,7 +2151,7 @@ export async function updateUniversity(
   input: UniversityInput,
 ) {
   const session = await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
 
   const payload = universityInputSchema.parse(input);
   const slug = slugify(payload.slug || payload.name);
@@ -2215,7 +2215,7 @@ export async function updateUniversity(
 
 export async function deactivateUniversity(universityId: string) {
   const session = await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
 
   const before = await UniversityModel.findById(universityId).lean();
 
@@ -2246,7 +2246,7 @@ export async function deactivateUniversity(universityId: string) {
 
 export async function getCampusAdminInvitations() {
   await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
 
   const [invitations, universities] = await Promise.all([
     CampusAdminInvitationModel.find().sort({ createdAt: -1 }).lean(),
@@ -2273,7 +2273,7 @@ export async function createCampusAdminInvitation(
   input: CampusAdminInvitationInput,
 ) {
   const session = await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
 
   const payload = campusAdminInvitationInputSchema.parse(input);
   const university = await UniversityModel.findById(
@@ -2347,7 +2347,7 @@ export async function createCampusAdminInvitation(
 }
 
 export async function resolveCampusAdminActivation(token: string) {
-  await connectMongo();
+  await connectPostgres();
 
   const invitation = await CampusAdminInvitationModel.findOne({
     token,

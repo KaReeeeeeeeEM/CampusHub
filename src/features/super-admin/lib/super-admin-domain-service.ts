@@ -1,7 +1,7 @@
-import type { Model } from "mongoose";
+import type { Model } from "@/lib/db/model-compat";
 
 import { requireApiRole } from "@/lib/auth/authorization";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   AchievementModel,
   ActivityFeedModel,
@@ -709,7 +709,7 @@ export async function getSuperAdminDomainWorkspace(
   if (!route) return null;
 
   await requireApiRole(["SUPER_ADMIN"]);
-  await connectMongo();
+  await connectPostgres();
 
   const [universities, users] = await Promise.all([
     UniversityModel.find({ deletedAt: null }).lean(),

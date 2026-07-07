@@ -13,7 +13,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import { PollModel, PollVoteModel, UserModel } from "@/lib/db/models";
 import type { AuthUser } from "@/types/auth";
 
@@ -251,7 +251,7 @@ export async function createPoll(input: unknown) {
   const universityId = assertUniversityScope(actor);
   if (!canCreatePoll(actor))
     throw forbidden("Poll creation access is required.");
-  await connectMongo();
+  await connectPostgres();
   const payload = createPollSchema.parse(input);
   assertPollTargetScope(actor, payload);
   const options = normalizeOptions(payload.options);
@@ -321,7 +321,7 @@ export async function createPoll(input: unknown) {
 
 export async function listPolls(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = pollQuerySchema.parse(query);
   const dbFilter: Record<string, unknown> = canCreatePoll(actor)
     ? { universityId: assertUniversityScope(actor), ...deletedFilter }
@@ -348,7 +348,7 @@ export async function listPolls(query: unknown = {}) {
 
 export async function getPoll(pollId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const poll = await getVisiblePoll(pollId, actor);
 
   return serializePoll(poll as Record<string, unknown>);
@@ -356,7 +356,7 @@ export async function getPoll(pollId: string) {
 
 export async function updatePoll(pollId: string, input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const poll = await getVisiblePoll(pollId, actor);
   if (!canManagePoll(actor, poll as Record<string, unknown>)) {
     throw forbidden("You cannot update this poll.");
@@ -414,7 +414,7 @@ export async function updatePoll(pollId: string, input: unknown) {
 
 export async function closePoll(pollId: string, input: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const payload = closePollSchema.parse(input);
   const poll = await getVisiblePoll(pollId, actor);
   if (!canManagePoll(actor, poll as Record<string, unknown>)) {
@@ -441,7 +441,7 @@ export async function closePoll(pollId: string, input: unknown = {}) {
 
 export async function reopenPoll(pollId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const poll = await getVisiblePoll(pollId, actor);
   if (!canManagePoll(actor, poll as Record<string, unknown>)) {
     throw forbidden("You cannot reopen this poll.");
@@ -468,7 +468,7 @@ export async function reopenPoll(pollId: string) {
 
 export async function votePoll(pollId: string, input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   if (!canVote(actor)) throw forbidden("Only students and teachers can vote.");
   const payload = votePollSchema.parse(input);
   const poll = await getVisiblePoll(pollId, actor);
@@ -600,14 +600,14 @@ async function pollResults(pollId: string, actor: AuthUser) {
 
 export async function getPollResults(pollId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
 
   return pollResults(pollId, actor);
 }
 
 export async function exportPollResults(pollId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const poll = await getVisiblePoll(pollId, actor);
   if (!canManagePoll(actor, poll as Record<string, unknown>)) {
     throw forbidden("You cannot export this poll.");

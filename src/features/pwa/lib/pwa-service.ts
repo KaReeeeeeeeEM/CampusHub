@@ -6,7 +6,7 @@ import {
   notificationPreferenceSchema,
   type NotificationPreferences,
 } from "@/features/pwa/lib/notification-preferences";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import { PushSubscriptionModel, UserModel } from "@/lib/db/models";
 import { requireAuth } from "@/lib/auth/session";
 
@@ -25,7 +25,7 @@ type PushSubscriptionInput = {
 
 export async function getNotificationPreferences() {
   const user = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
 
   const record = await UserModel.findById(user.id)
     .select({ notificationPreferences: 1 })
@@ -38,7 +38,7 @@ export async function getNotificationPreferences() {
 
 export async function updateNotificationPreferences(input: unknown) {
   const user = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
 
   const preferences = notificationPreferenceSchema.parse(input);
 
@@ -56,7 +56,7 @@ export async function updateNotificationPreferences(input: unknown) {
 
 export async function registerPushSubscription(input: PushSubscriptionInput) {
   const user = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
 
   const provider = input.provider ?? "native";
   await PushSubscriptionModel.findOneAndUpdate(
@@ -102,7 +102,7 @@ export async function registerPushSubscription(input: PushSubscriptionInput) {
 
 export async function disablePushSubscription(endpoint?: string | null) {
   const user = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filter = endpoint
     ? { userId: user.id, endpoint }
     : { userId: user.id, disabledAt: null };

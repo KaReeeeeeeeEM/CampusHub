@@ -7,7 +7,7 @@ import {
 import { serializeProject } from "@/features/projects/lib/project-service";
 import { forbidden } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import { ProjectModel } from "@/lib/db/models";
 import type { AuthUser } from "@/types/auth";
 
@@ -170,7 +170,7 @@ function serializeLeaderboardProject(
 
 export async function getProjectLeaderboard(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = projectLeaderboardQuerySchema.parse(query);
   const since = timeWindowStart(filters.timeFilter);
   const allTime = filters.timeFilter === "ALL_TIME";

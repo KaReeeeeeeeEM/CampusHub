@@ -14,7 +14,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   AlumniProfileModel,
   NetworkConnectionModel,
@@ -224,7 +224,7 @@ async function resolveFollowTarget(input: {
 export async function connectUser(input: unknown) {
   const actor = await requireAuth();
   if (!canConnect(actor)) throw forbidden("Network connection access is required.");
-  await connectMongo();
+  await connectPostgres();
 
   const payload = createNetworkConnectionSchema.parse(input);
   if (payload.receiverId === actor.id) {
@@ -299,7 +299,7 @@ export async function connectUser(input: unknown) {
 export async function listConnections(query: unknown = {}) {
   const actor = await requireAuth();
   if (!canReadNetwork(actor)) throw forbidden("Network read access is required.");
-  await connectMongo();
+  await connectPostgres();
 
   const filters = networkConnectionQuerySchema.parse(query);
   const dbFilter: Record<string, unknown> = {};
@@ -326,7 +326,7 @@ export async function listConnections(query: unknown = {}) {
 
 export async function respondToConnection(connectionId: string, input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
 
   const payload = networkConnectionResponseSchema.parse(input);
   const connection = await NetworkConnectionModel.findById(connectionId).lean();
@@ -387,7 +387,7 @@ export async function respondToConnection(connectionId: string, input: unknown) 
 export async function followEntity(input: unknown) {
   const actor = await requireAuth();
   if (!canFollow(actor)) throw forbidden("Network follow access is required.");
-  await connectMongo();
+  await connectPostgres();
 
   const payload = createNetworkFollowSchema.parse(input);
   if (payload.entityType === "USER" && payload.entityId === actor.id) {
@@ -481,7 +481,7 @@ export async function followEntity(input: unknown) {
 export async function listFollows(query: unknown = {}) {
   const actor = await requireAuth();
   if (!canReadNetwork(actor)) throw forbidden("Network read access is required.");
-  await connectMongo();
+  await connectPostgres();
 
   const filters = networkFollowQuerySchema.parse(query);
   const universityId = resolveUniversityScope(actor, filters.universityId);
@@ -506,7 +506,7 @@ export async function unfollowEntity(
   entityId: string,
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
 
   const follow = await NetworkFollowModel.findOneAndDelete({
     followerId: actor.id,

@@ -16,7 +16,7 @@ import { createSystemNotification } from "@/features/notifications/lib/notificat
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   UserModel,
   UserXpProfileModel,
@@ -374,7 +374,7 @@ export async function awardXpToUser(
   input: unknown,
   options: { enforceManage?: boolean } = {},
 ) {
-  await connectMongo();
+  await connectPostgres();
   const payload = awardXpSchema.parse(input);
   const user = await getActiveUserOrThrow(payload.userId);
 
@@ -521,7 +521,7 @@ export async function awardXp(input: unknown) {
 
 export async function removeXp(input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const payload = removeXpSchema.parse(input);
   const user = await getActiveUserOrThrow(payload.userId);
 
@@ -612,7 +612,7 @@ export async function removeXp(input: unknown) {
 
 export async function getXpHistory(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = xpHistoryQuerySchema.parse(query);
   const targetUserId = filters.userId ?? actor.id;
   const user = await getActiveUserOrThrow(targetUserId);
@@ -643,7 +643,7 @@ export async function getXpHistory(query: unknown = {}) {
 
 export async function getXpBalance(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = xpBalanceQuerySchema.parse(query);
   const targetUserId = filters.userId ?? actor.id;
   const user = await getActiveUserOrThrow(targetUserId);
@@ -664,7 +664,7 @@ export async function getXpBalance(query: unknown = {}) {
 
 export async function getXpLeaderboard(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = xpLeaderboardQuerySchema.parse(query);
   const universityId = filters.universityId ?? actor.universityId;
 

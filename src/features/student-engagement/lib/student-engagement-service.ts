@@ -4,7 +4,7 @@ import { studentEngagementAnalyticsQuerySchema } from "@/features/student-engage
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   AuditLogModel,
   CommunityMemberModel,
@@ -167,7 +167,7 @@ export async function getStudentEngagementAnalytics(query: unknown = {}) {
     throw forbidden("Student engagement analytics access is required.");
   }
 
-  await connectMongo();
+  await connectPostgres();
   const filters = studentEngagementAnalyticsQuerySchema.parse(query);
   const universityId = scopedUniversityId(actor, filters.universityId);
   if (!universityId) throw forbidden("University scope is required.");

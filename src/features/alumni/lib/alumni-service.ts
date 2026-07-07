@@ -14,14 +14,14 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   AlumniConnectionModel,
   AlumniProfileModel,
   UserModel,
 } from "@/lib/db/models";
 import type { AuthUser } from "@/types/auth";
-import type { PipelineStage } from "mongoose";
+import type { PipelineStage } from "@/lib/db/model-compat";
 
 const deletedFilter = { deletedAt: null };
 
@@ -246,7 +246,7 @@ export async function becomeAlumni(input: unknown) {
     throw forbidden("Alumni profile creation access is required.");
   }
   if (!actor.universityId) throw forbidden("University scope is required.");
-  await connectMongo();
+  await connectPostgres();
 
   const payload = createAlumniProfileSchema.parse(input);
   const existing = await AlumniProfileModel.exists({
@@ -299,7 +299,7 @@ export async function becomeAlumni(input: unknown) {
 
 export async function getMyAlumniProfile() {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
 
   const profile = await AlumniProfileModel.findOne({
     userId: actor.id,
@@ -312,7 +312,7 @@ export async function getMyAlumniProfile() {
 
 export async function updateMyAlumniProfile(input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const profile = await AlumniProfileModel.findOne({
     userId: actor.id,
     ...deletedFilter,
@@ -353,7 +353,7 @@ export async function searchAlumni(query: unknown = {}) {
   if (!canReadAlumniProfile(actor)) {
     throw forbidden("Alumni profile read access is required.");
   }
-  await connectMongo();
+  await connectPostgres();
 
   const filters = alumniSearchQuerySchema.parse(query);
   const dbFilter: Record<string, unknown> = {
@@ -401,7 +401,7 @@ export async function getAlumniProfile(userId: string) {
   if (!canReadAlumniProfile(actor)) {
     throw forbidden("Alumni profile read access is required.");
   }
-  await connectMongo();
+  await connectPostgres();
 
   const profile = await AlumniProfileModel.findOne({
     userId,
@@ -439,7 +439,7 @@ export async function connectAlumni(userId: string, input: unknown = {}) {
     throw forbidden("Alumni connection access is required.");
   }
   if (userId === actor.id) throw forbidden("You cannot connect with yourself.");
-  await connectMongo();
+  await connectPostgres();
 
   const payload = alumniConnectionRequestSchema.parse(input);
   const profile = await AlumniProfileModel.findOne({
@@ -508,7 +508,7 @@ export async function respondToAlumniConnection(
   input: unknown,
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
 
   const payload = alumniConnectionResponseSchema.parse(input);
   const connection = await AlumniConnectionModel.findById(connectionId).lean();
@@ -597,7 +597,7 @@ export async function getAlumniAnalytics(query: unknown = {}) {
   if (!canReadAlumniAnalytics(actor)) {
     throw forbidden("Alumni analytics access is required.");
   }
-  await connectMongo();
+  await connectPostgres();
 
   const filters = alumniAnalyticsQuerySchema.parse(query);
   const universityId = resolveUniversityScope(actor, filters.universityId);

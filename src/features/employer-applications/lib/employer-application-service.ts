@@ -10,7 +10,7 @@ import type {
 } from "@/features/employer-applications/lib/schemas";
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { auth, getAcquisitionSecret } from "@/lib/auth/auth";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import { EmployerApplicationModel, UserModel } from "@/lib/db/models";
 import { emitNotificationEvent } from "@/lib/notifications/notification-events";
 import type { AuthSession } from "@/types/auth";
@@ -67,7 +67,7 @@ async function requireSuperAdminSession() {
 export async function submitEmployerApplication(
   input: EmployerApplicationInput,
 ) {
-  await connectMongo();
+  await connectPostgres();
 
   const existingUser = await UserModel.findOne({
     email: input.email.toLowerCase(),
@@ -119,7 +119,7 @@ export async function submitEmployerApplication(
 
 export async function getEmployerApplications() {
   await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
 
   return EmployerApplicationModel.find().sort({ createdAt: -1 }).lean();
 }
@@ -129,7 +129,7 @@ export async function reviewEmployerApplication(
   input: EmployerApplicationReviewInput,
 ) {
   const session = await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
 
   const application = await EmployerApplicationModel.findById(applicationId);
 
@@ -250,7 +250,7 @@ export async function reviewEmployerApplication(
 }
 
 export async function resolveEmployerActivation(token: string) {
-  await connectMongo();
+  await connectPostgres();
 
   const application = await EmployerApplicationModel.findOne({
     activationTokenHash: hashToken(token),

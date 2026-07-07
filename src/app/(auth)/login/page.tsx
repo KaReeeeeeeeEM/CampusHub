@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { AuthShell } from "@/features/auth/components/auth-shell";
 import { LoginForm } from "@/features/auth/components/login-form";
-import { LoadingState } from "@/components/shared/loading-state";
+import { CenteredSpinner } from "@/components/shared/centered-spinner";
 import { isSuperAdminBootstrapEnabled } from "@/features/bootstrap/lib/bootstrap-service";
 import { redirectAuthenticatedUser } from "@/lib/auth/route-guards";
 
@@ -24,7 +24,14 @@ export default async function LoginPage() {
       title="Welcome back to CampusHub."
       description="Access your CampusHub account with your verified email and password."
     >
-      <Suspense fallback={<LoadingState label="Loading login form" />}>
+      <Suspense
+        fallback={
+          <CenteredSpinner
+            label="Loading login form"
+            className="min-h-40 bg-transparent"
+          />
+        }
+      >
         <LoginForm />
       </Suspense>
     </AuthShell>

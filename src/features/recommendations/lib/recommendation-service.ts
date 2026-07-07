@@ -7,7 +7,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   ApplicationModel,
   BadgeModel,
@@ -852,7 +852,7 @@ async function usersById(userIds: string[]) {
 
 export async function getRecommendations(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const { filters, context } = await buildRecommendationContext(actor, query);
   const requestedTypes =
     filters.type === "ALL"

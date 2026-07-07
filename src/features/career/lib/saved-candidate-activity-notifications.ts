@@ -1,5 +1,5 @@
 import { createSystemNotification } from "@/features/notifications/lib/notification-engine";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import { SavedCandidateModel } from "@/lib/db/models";
 
 export type SavedCandidateActivityType =
@@ -23,7 +23,7 @@ type NotifySavedCandidateFollowersInput = {
 export async function notifySavedCandidateFollowers(
   input: NotifySavedCandidateFollowersInput,
 ) {
-  await connectMongo();
+  await connectPostgres();
 
   const savedCandidates = await SavedCandidateModel.find({
     candidateUserId: input.candidateUserId,

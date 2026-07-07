@@ -1,6 +1,6 @@
-import type { Model } from "mongoose";
+import type { Model } from "@/lib/db/model-compat";
 
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   ApplicationModel,
   CollegeModel,
@@ -122,7 +122,7 @@ export async function getSuperAdminReports(
   params: QueryParams = {},
 ): Promise<ReportsPayload> {
   await requireSuperAdminSession();
-  await connectMongo();
+  await connectPostgres();
 
   const context = resolveReportDateRange(params);
   const scope = {};
@@ -150,7 +150,7 @@ export async function getCampusAdminReports(
   params: QueryParams = {},
 ): Promise<ReportsPayload> {
   const session = await requireCampusAdminSession();
-  await connectMongo();
+  await connectPostgres();
 
   const context = resolveReportDateRange(params);
   const universityId =

@@ -16,7 +16,7 @@ import { createSystemNotification } from "@/features/notifications/lib/notificat
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   CommunityMemberModel,
   CommunityModel,
@@ -293,7 +293,7 @@ export async function createCommunity(input: unknown) {
     throw forbidden("Community creation access is required.");
   }
   const universityId = assertUniversityScope(actor);
-  await connectMongo();
+  await connectPostgres();
 
   const payload = createCommunitySchema.parse(input);
   const community = await CommunityModel.create({
@@ -334,7 +334,7 @@ export async function createCommunity(input: unknown) {
 export async function listCommunities(query: unknown = {}) {
   const actor = await requireAuth();
   if (!canReadCommunity(actor)) throw forbidden("Community read access is required.");
-  await connectMongo();
+  await connectPostgres();
 
   const filters = communityQuerySchema.parse(query);
   const dbFilter: Record<string, unknown> = {
@@ -378,7 +378,7 @@ export async function listCommunities(query: unknown = {}) {
 
 export async function getCommunity(communityId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const community = await getCommunityOrThrow(communityId);
   await assertCommunityVisible(actor, community as Record<string, unknown>);
 
@@ -387,7 +387,7 @@ export async function getCommunity(communityId: string) {
 
 export async function updateCommunity(communityId: string, input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const community = await getCommunityOrThrow(communityId);
   await assertCanManageCommunity(actor, community as Record<string, unknown>);
 
@@ -423,7 +423,7 @@ export async function updateCommunity(communityId: string, input: unknown) {
 
 export async function joinCommunity(communityId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const community = await getCommunityOrThrow(communityId);
   if (community.status !== "ACTIVE") throw forbidden("Community is not active.");
   if (
@@ -472,7 +472,7 @@ export async function joinCommunity(communityId: string) {
 
 export async function leaveCommunity(communityId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const membership = await CommunityMemberModel.findOne({
     communityId,
     userId: actor.id,
@@ -511,7 +511,7 @@ export async function assignCommunityModerator(
   input: unknown,
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const community = await getCommunityOrThrow(communityId);
   if (community.ownerId !== actor.id && !canModerateCommunities(actor)) {
     throw forbidden("Only community owners can assign moderators.");
@@ -579,7 +579,7 @@ export async function postCommunityUpdate(
   input: unknown,
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const community = await getCommunityOrThrow(communityId);
   await assertCanManageCommunity(actor, community as Record<string, unknown>);
   const payload = createCommunityUpdateSchema.parse(input);
@@ -624,7 +624,7 @@ export async function listCommunityUpdates(
   query: unknown = {},
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const community = await getCommunityOrThrow(communityId);
   await assertCommunityVisible(actor, community as Record<string, unknown>);
   const filters = communityUpdateQuerySchema.parse(query);
@@ -666,7 +666,7 @@ export async function createCommunityEvent(
   input: unknown,
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const community = await getCommunityOrThrow(communityId);
   await assertCanManageCommunity(actor, community as Record<string, unknown>);
   const payload = createCommunityEventSchema.parse(input);
@@ -730,7 +730,7 @@ export async function createCommunityPoll(
   input: unknown,
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const community = await getCommunityOrThrow(communityId);
   await assertCanManageCommunity(actor, community as Record<string, unknown>);
   const payload = createCommunityPollSchema.parse(input);

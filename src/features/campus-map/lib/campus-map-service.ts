@@ -13,7 +13,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   MapDirectionRequestModel,
   MapLocationModel,
@@ -131,7 +131,7 @@ export async function createMapLocation(input: CreateMapLocationInput) {
   const actor = await requireAuth();
   const universityId = assertUniversityScope(actor);
   assertCanManage(actor);
-  await connectMongo();
+  await connectPostgres();
   const payload = createMapLocationSchema.parse(input);
 
   const location = await MapLocationModel.create({
@@ -175,7 +175,7 @@ export async function createMapLocation(input: CreateMapLocationInput) {
 export async function listMapLocations(query: unknown = {}) {
   const actor = await requireAuth();
   const universityId = assertUniversityScope(actor);
-  await connectMongo();
+  await connectPostgres();
   const filters = mapLocationQuerySchema.parse(query);
   const dbFilter: Record<string, unknown> = {
     universityId,
@@ -199,7 +199,7 @@ export async function listMapLocations(query: unknown = {}) {
 
 export async function getMapLocation(locationId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const location = await getLocationForActor(locationId, actor);
 
   await trackLocationView(actor, location as Record<string, unknown>);
@@ -215,7 +215,7 @@ export async function updateMapLocation(
   const actor = await requireAuth();
   const universityId = assertUniversityScope(actor);
   assertCanManage(actor);
-  await connectMongo();
+  await connectPostgres();
   const payload = updateMapLocationSchema.parse(input);
   const before = await getLocationForActor(locationId, actor);
   const update: Record<string, unknown> = {
@@ -278,7 +278,7 @@ export async function deleteMapLocation(locationId: string) {
   const actor = await requireAuth();
   const universityId = assertUniversityScope(actor);
   assertCanManage(actor);
-  await connectMongo();
+  await connectPostgres();
   const before = await getLocationForActor(locationId, actor);
   const location = await MapLocationModel.findOneAndUpdate(
     { _id: locationId, universityId, ...deletedFilter },
@@ -311,7 +311,7 @@ export async function deleteMapLocation(locationId: string) {
 export async function getNearbyLocations(query: unknown) {
   const actor = await requireAuth();
   const universityId = assertUniversityScope(actor);
-  await connectMongo();
+  await connectPostgres();
   const filters = nearbyLocationsQuerySchema.parse(query);
   const locations = await MapLocationModel.find({
     universityId,
@@ -339,7 +339,7 @@ export async function getNearbyLocations(query: unknown) {
 export async function getPopularLocations() {
   const actor = await requireAuth();
   const universityId = assertUniversityScope(actor);
-  await connectMongo();
+  await connectPostgres();
   const locations = await MapLocationModel.find({
     universityId,
     status: "ACTIVE",
@@ -359,7 +359,7 @@ export async function requestDirections(
   input: unknown = {},
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const payload = directionRequestSchema.parse(input);
   const location = await getLocationForActor(locationId, actor);
   const request = await MapDirectionRequestModel.create({

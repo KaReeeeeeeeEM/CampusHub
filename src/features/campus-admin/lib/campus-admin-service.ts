@@ -20,7 +20,7 @@ import {
 import { auth } from "@/lib/auth/auth";
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, unauthorized } from "@/lib/api/response";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   AlmanacEventModel,
   AnnouncementModel,
@@ -396,7 +396,7 @@ async function getCourseNameMap(universityId: string) {
 
 export async function getCampusAdminDashboard() {
   const session = await requireCampusAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const universityId = session.user.universityId as string;
   const baseFilter = { universityId, ...deletedFilter };
   const recentMonths = getRecentMonthBuckets();
@@ -556,7 +556,7 @@ export async function getCampusAdminDashboard() {
 
 export async function getColleges() {
   const session = await requireCampusAdminSession();
-  await connectMongo();
+  await connectPostgres();
 
   const colleges = await CollegeModel.find(
     withUniversityFilter(String(session.user.universityId)),
@@ -571,7 +571,7 @@ export async function getColleges() {
 
 export async function createCollege(input: CollegeInput) {
   const session = await requireCampusAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const payload = collegeInputSchema.parse(input);
   const universityId = session.user.universityId as string;
   const slug = slugify(payload.name);
@@ -616,7 +616,7 @@ export async function createCollege(input: CollegeInput) {
 
 export async function updateCollege(collegeId: string, input: CollegeInput) {
   const session = await requireCampusAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const payload = collegeInputSchema.parse(input);
   const universityId = session.user.universityId as string;
   const slug = slugify(payload.name);
@@ -681,7 +681,7 @@ export async function updateCollege(collegeId: string, input: CollegeInput) {
 
 export async function deactivateCollege(collegeId: string) {
   const session = await requireCampusAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const universityId = session.user.universityId as string;
   const before = await CollegeModel.findOne({
     _id: collegeId,
@@ -718,7 +718,7 @@ export async function deactivateCollege(collegeId: string) {
 
 export async function getDepartments() {
   const session = await requireCampusAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const universityId = session.user.universityId as string;
   const [departments, collegeNames] = await Promise.all([
     DepartmentModel.find({ universityId }).sort({ createdAt: -1 }).lean(),
@@ -735,7 +735,7 @@ export async function getDepartments() {
 
 export async function getCourses() {
   const session = await requireCampusAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const universityId = session.user.universityId as string;
   const [courses, collegeNames, departmentNames] = await Promise.all([
     CourseModel.find({ universityId }).sort({ createdAt: -1 }).lean(),
@@ -754,7 +754,7 @@ export async function getCourses() {
 
 export async function createCourse(input: CourseInput) {
   const session = await requireCampusAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const payload = courseInputSchema.parse(input);
   const universityId = session.user.universityId as string;
   const code = normalizeCode(payload.code);
@@ -815,7 +815,7 @@ export async function createCourse(input: CourseInput) {
 
 export async function updateCourse(courseId: string, input: CourseInput) {
   const session = await requireCampusAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const payload = courseInputSchema.parse(input);
   const universityId = session.user.universityId as string;
   const code = normalizeCode(payload.code);
@@ -901,7 +901,7 @@ export async function updateCourse(courseId: string, input: CourseInput) {
 
 export async function deactivateCourse(courseId: string) {
   const session = await requireCampusAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const universityId = session.user.universityId as string;
   const before = await CourseModel.findOne({
     _id: courseId,
@@ -953,7 +953,7 @@ export async function deactivateCourse(courseId: string) {
 
 export async function createDepartment(input: DepartmentInput) {
   const session = await requireCampusAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const payload = departmentInputSchema.parse(input);
   const universityId = session.user.universityId as string;
   const code = normalizeCode(payload.code);
@@ -1009,7 +1009,7 @@ export async function updateDepartment(
   input: DepartmentInput,
 ) {
   const session = await requireCampusAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const payload = departmentInputSchema.parse(input);
   const universityId = session.user.universityId as string;
   const code = normalizeCode(payload.code);
@@ -1093,7 +1093,7 @@ export async function updateDepartment(
 
 export async function deactivateDepartment(departmentId: string) {
   const session = await requireCampusAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const universityId = session.user.universityId as string;
   const before = await DepartmentModel.findOne({
     _id: departmentId,
@@ -1142,7 +1142,7 @@ export async function deactivateDepartment(departmentId: string) {
 
 export async function getRepresentativeInvitations() {
   const session = await requireCampusAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const universityId = session.user.universityId as string;
   const [invitations, collegeNames, departmentNames, courseNames] =
     await Promise.all([
@@ -1176,7 +1176,7 @@ export async function createRepresentativeInvitation(
   input: RepresentativeInvitationInput,
 ) {
   const session = await requireCampusAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const payload = representativeInvitationInputSchema.parse(input);
   const universityId = session.user.universityId as string;
   const course = await CourseModel.findOne({
@@ -1270,7 +1270,7 @@ export async function updateRepresentativeInvitation(
   input: RepresentativeInvitationInput,
 ) {
   const session = await requireCampusAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const payload = representativeInvitationInputSchema.parse(input);
   const universityId = session.user.universityId as string;
   const course = await CourseModel.findOne({
@@ -1346,7 +1346,7 @@ export async function updateRepresentativeInvitation(
 
 export async function resendRepresentativeInvitation(invitationId: string) {
   const session = await requireCampusAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const invitation = await RepresentativeInvitationModel.findOneAndUpdate(
     { _id: invitationId, universityId: session.user.universityId },
     {
@@ -1400,7 +1400,7 @@ export async function resendRepresentativeInvitation(invitationId: string) {
 
 export async function deactivateRepresentativeInvitation(invitationId: string) {
   const session = await requireCampusAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const universityId = session.user.universityId as string;
   const invitation = await RepresentativeInvitationModel.findOneAndUpdate(
     { _id: invitationId, universityId },
@@ -1455,7 +1455,7 @@ export async function deactivateRepresentativeInvitation(invitationId: string) {
 
 export async function getTeacherInvitations() {
   const session = await requireCampusAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const universityId = session.user.universityId as string;
   const [invitations, departmentNames] = await Promise.all([
     TeacherInvitationModel.find({ universityId })
@@ -1475,7 +1475,7 @@ export async function getTeacherInvitations() {
 
 export async function createTeacherInvitation(input: TeacherInvitationInput) {
   const session = await requireCampusAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const payload = teacherInvitationInputSchema.parse(input);
   const universityId = session.user.universityId as string;
   const department = await DepartmentModel.findOne({
@@ -1527,7 +1527,7 @@ export async function updateTeacherInvitation(
   input: TeacherInvitationInput,
 ) {
   const session = await requireCampusAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const payload = teacherInvitationInputSchema.parse(input);
   const universityId = session.user.universityId as string;
   const department = await DepartmentModel.findOne({
@@ -1578,7 +1578,7 @@ export async function updateTeacherInvitation(
 
 export async function resendTeacherInvitation(invitationId: string) {
   const session = await requireCampusAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const invitation = await TeacherInvitationModel.findOneAndUpdate(
     { _id: invitationId, universityId: session.user.universityId },
     {
@@ -1624,7 +1624,7 @@ export async function resendTeacherInvitation(invitationId: string) {
 
 export async function deactivateTeacherInvitation(invitationId: string) {
   const session = await requireCampusAdminSession();
-  await connectMongo();
+  await connectPostgres();
   const universityId = session.user.universityId as string;
   const invitation = await TeacherInvitationModel.findOneAndUpdate(
     { _id: invitationId, universityId },

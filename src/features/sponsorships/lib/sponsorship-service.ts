@@ -15,7 +15,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   CommunityModel,
   EventModel,
@@ -255,7 +255,7 @@ export async function createSponsorship(input: unknown) {
   if (!canCreateSponsorship(actor)) {
     throw forbidden("Sponsorship creation access is required.");
   }
-  await connectMongo();
+  await connectPostgres();
   const payload = createSponsorshipSchema.parse(input);
   const universityId = resolveUniversityId(actor, payload.universityId);
   await validateTarget({
@@ -306,7 +306,7 @@ export async function listSponsorships(query: unknown = {}) {
   if (!canReadSponsorship(actor)) {
     throw forbidden("Sponsorship read access is required.");
   }
-  await connectMongo();
+  await connectPostgres();
   const filters = sponsorshipQuerySchema.parse(query);
   const dbFilter: Record<string, unknown> = { ...deletedFilter };
   const universityId = filters.universityId
@@ -340,7 +340,7 @@ export async function listSponsorships(query: unknown = {}) {
 
 export async function getSponsorship(sponsorshipId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const sponsorship = await getSponsorshipOrThrow(sponsorshipId, actor);
 
   return serializeSponsorship(sponsorship as Record<string, unknown>);
@@ -348,7 +348,7 @@ export async function getSponsorship(sponsorshipId: string) {
 
 export async function updateSponsorship(sponsorshipId: string, input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const sponsorship = await getSponsorshipOrThrow(sponsorshipId, actor);
   if (
     sponsorship.requestedById !== actor.id &&
@@ -394,7 +394,7 @@ export async function submitSponsorshipInterest(
   if (!canSponsor(actor)) {
     throw forbidden("Sponsorship sponsor access is required.");
   }
-  await connectMongo();
+  await connectPostgres();
   const sponsorship = await getSponsorshipOrThrow(sponsorshipId, actor);
   if (!["OPEN", "APPROVED", "ACTIVE"].includes(String(sponsorship.status))) {
     throw forbidden("This sponsorship is not accepting sponsor interest.");
@@ -458,7 +458,7 @@ export async function submitSponsorshipInterest(
 
 export async function listSponsorshipInterests(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = sponsorshipInterestQuerySchema.parse(query);
   const dbFilter: Record<string, unknown> = {};
   if (filters.universityId) dbFilter.universityId = resolveUniversityId(actor, filters.universityId);
@@ -501,7 +501,7 @@ async function reviewInterest(
   input: unknown = {},
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const payload = reviewSponsorshipInterestSchema.parse(input);
   const interest = await SponsorshipInterestModel.findById(interestId).lean();
   if (!interest) throw notFound("Sponsorship interest not found.");
@@ -593,7 +593,7 @@ export function declineSponsorshipInterest(
 
 export async function withdrawSponsorshipInterest(interestId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const interest = await SponsorshipInterestModel.findById(interestId).lean();
   if (!interest) throw notFound("Sponsorship interest not found.");
   if (interest.sponsorId !== actor.id && !canManageSponsorships(actor)) {

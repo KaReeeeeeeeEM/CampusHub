@@ -11,7 +11,7 @@ import {
   serializeProject,
 } from "@/features/projects/lib/project-service";
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   ProjectAnalyticsModel,
   ProjectFavoriteModel,
@@ -146,7 +146,7 @@ async function serializeSavedProject(
 
 export async function starProject(projectId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const project = await getVisibleProjectForActor(projectId, actor);
 
   try {
@@ -214,7 +214,7 @@ export async function starProject(projectId: string) {
 
 export async function removeProjectStar(projectId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const project = await getVisibleProjectForActor(projectId, actor);
   const result = await ProjectStarModel.deleteOne({
     projectId,
@@ -264,7 +264,7 @@ async function setProjectCollectionState(
   active: boolean,
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const project = await getVisibleProjectForActor(projectId, actor);
   const counterField = type === "FAVORITE" ? "favoriteCount" : "savedCount";
   const auditAction = active
@@ -368,7 +368,7 @@ export async function getProjectAppreciation(
   query: unknown = {},
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = projectAppreciationQuerySchema.parse(query);
   const project = await getVisibleProjectForActor(projectId, actor);
   const since = daysAgo(filters.days);
@@ -424,7 +424,7 @@ export async function getProjectAppreciation(
 
 export async function listSavedProjects(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = savedProjectsQuerySchema.parse(query);
   const dbFilter: Record<string, unknown> = { userId: actor.id };
   if (filters.type) dbFilter.type = filters.type;

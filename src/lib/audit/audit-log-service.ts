@@ -4,13 +4,13 @@ import {
   auditEventSchema,
   type AuditEventInput,
 } from "@/features/auth/lib/schemas";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import { AuditLogModel } from "@/lib/db/models";
 
 export async function writeAuditLog(input: AuditEventInput) {
   const event = auditEventSchema.parse(input);
 
-  await connectMongo();
+  await connectPostgres();
 
   await AuditLogModel.create({
     _id: randomUUID(),

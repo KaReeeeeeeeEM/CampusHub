@@ -14,7 +14,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   BadgeModel,
   CareerProfileModel,
@@ -269,7 +269,7 @@ export async function createCareerProfile(input: unknown) {
   if (!canOwnCareerProfile(actor)) {
     throw forbidden("Only students and alumni can create career profiles.");
   }
-  await connectMongo();
+  await connectPostgres();
   const universityId = requireUniversity(actor);
   const existing = await CareerProfileModel.findOne({
     userId: actor.id,
@@ -315,7 +315,7 @@ export async function createCareerProfile(input: unknown) {
 
 export async function getMyCareerProfile(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const profile = await getProfileOrThrow(actor.id, actor);
 
   return {
@@ -332,7 +332,7 @@ export async function getCareerProfileByUserId(
   query: unknown = {},
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const profile = await getProfileOrThrow(userId, actor);
 
   return {
@@ -349,7 +349,7 @@ export async function updateMyCareerProfile(input: unknown) {
   if (!canOwnCareerProfile(actor)) {
     throw forbidden("Only students and alumni can update career profiles.");
   }
-  await connectMongo();
+  await connectPostgres();
   const before = await getProfileOrThrow(actor.id, actor);
   const payload = updateCareerProfileSchema.parse(input);
   const update: Record<string, unknown> = {};
@@ -391,7 +391,7 @@ export async function updateMyCareerProfile(input: unknown) {
 
 export async function uploadCareerCv(input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const before = await getProfileOrThrow(actor.id, actor);
   const payload = uploadCareerCvSchema.parse(input);
 
@@ -405,7 +405,7 @@ export async function uploadCareerCv(input: unknown) {
 
 export async function addCareerSkill(input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const before = await getProfileOrThrow(actor.id, actor);
   const payload = addCareerSkillSchema.parse(input);
   const skills = normalizeStringList([
@@ -423,7 +423,7 @@ export async function addCareerSkill(input: unknown) {
 
 export async function addCareerCertification(input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const before = await getProfileOrThrow(actor.id, actor);
   const payload = addCareerCertificationSchema.parse(input);
 
@@ -442,7 +442,7 @@ export async function addCareerCertification(input: unknown) {
 
 export async function addCareerExperience(input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const before = await getProfileOrThrow(actor.id, actor);
   const payload = addCareerExperienceSchema.parse(input);
 
@@ -461,7 +461,7 @@ export async function addCareerExperience(input: unknown) {
 
 export async function addCareerPortfolioLink(input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const before = await getProfileOrThrow(actor.id, actor);
   const payload = addCareerPortfolioLinkSchema.parse(input);
 

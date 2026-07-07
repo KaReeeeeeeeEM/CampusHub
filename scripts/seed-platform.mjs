@@ -1,6 +1,6 @@
 /* global console, process */
 import { readFile } from "node:fs/promises";
-import { MongoClient } from "mongodb";
+import { createPgSeedDb } from "./pg-document-db.mjs";
 
 const DAY = 24 * 60 * 60 * 1000;
 const now = new Date();
@@ -55,11 +55,7 @@ async function ensureById(db, collectionName, doc) {
 async function seed() {
   await loadEnv();
 
-  const uri = process.env.MONGODB_URI ?? "mongodb://127.0.0.1:27017/campushub";
-  const dbName = process.env.MONGODB_DB_NAME ?? "campushub";
-  const client = new MongoClient(uri);
-  await client.connect();
-  const db = client.db(dbName);
+  const db = await createPgSeedDb();
 
   const universityId = await ensure(
     db,
@@ -688,7 +684,7 @@ async function seed() {
     email: { $regex: /^seed\./ },
   });
 
-  await client.close();
+  await db.close();
   console.table(summary);
 }
 
@@ -952,7 +948,7 @@ function project(_id, universityId, ownerId, collegeId, departmentId, title, sum
     coverImage: "",
     projectStatus: "COMPLETED",
     category: "Technology",
-    techStack: ["Next.js", "MongoDB", "AI"],
+    techStack: ["Next.js", "Neon Postgres", "AI"],
     tags: ["innovation", "udsm", "student-project"],
     skills: ["Product thinking", "Software engineering"],
     visibility: "PUBLIC",

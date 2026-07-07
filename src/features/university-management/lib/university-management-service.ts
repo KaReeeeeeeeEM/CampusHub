@@ -22,7 +22,7 @@ import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { auth, getAcquisitionSecret } from "@/lib/auth/auth";
 import { requirePermission } from "@/lib/auth/authorization";
 import { requireRole } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   CollegeModel,
   DepartmentModel,
@@ -260,7 +260,7 @@ function activeFilter(includeInactive = false) {
 
 export async function listUniversities(query: unknown = {}) {
   await requireSuperAdminActor();
-  await connectMongo();
+  await connectPostgres();
   const options = listQuerySchema.parse(query);
   const universities = await UniversityModel.find(
     activeFilter(options.includeInactive),
@@ -275,7 +275,7 @@ export async function listUniversities(query: unknown = {}) {
 
 export async function getUniversity(universityId: string) {
   await requireSuperAdminActor();
-  await connectMongo();
+  await connectPostgres();
   const university = await UniversityModel.findOne({
     _id: universityId,
     ...deletedFilter,
@@ -290,7 +290,7 @@ export async function getUniversity(universityId: string) {
 
 export async function createUniversity(input: unknown) {
   const actor = await requireSuperAdminActor();
-  await connectMongo();
+  await connectPostgres();
   const payload = universityInputSchema.parse(input);
   const slug = slugify(payload.slug || payload.name);
   const existing = await UniversityModel.findOne({
@@ -330,7 +330,7 @@ export async function createUniversity(input: unknown) {
 
 export async function updateUniversity(universityId: string, input: unknown) {
   const actor = await requireSuperAdminActor();
-  await connectMongo();
+  await connectPostgres();
   const payload = universityInputSchema.parse(input);
   const slug = slugify(payload.slug || payload.name);
   const duplicate = await UniversityModel.findOne({
@@ -390,7 +390,7 @@ export async function updateUniversity(universityId: string, input: unknown) {
 
 export async function softDeleteUniversity(universityId: string) {
   const actor = await requireSuperAdminActor();
-  await connectMongo();
+  await connectPostgres();
   const before = await UniversityModel.findOne({
     _id: universityId,
     ...deletedFilter,
@@ -430,7 +430,7 @@ export async function softDeleteUniversity(universityId: string) {
 
 export async function listColleges(query: unknown = {}) {
   const actor = await requireCampusAdminActor();
-  await connectMongo();
+  await connectPostgres();
   const options = listQuerySchema.parse(query);
   const colleges = await CollegeModel.find({
     universityId: actor.universityId,
@@ -446,7 +446,7 @@ export async function listColleges(query: unknown = {}) {
 
 export async function getCollege(collegeId: string) {
   const actor = await requireCampusAdminActor();
-  await connectMongo();
+  await connectPostgres();
   const college = await CollegeModel.findOne({
     _id: collegeId,
     universityId: actor.universityId,
@@ -462,7 +462,7 @@ export async function getCollege(collegeId: string) {
 
 export async function createCollege(input: unknown) {
   const actor = await requireCampusAdminActor();
-  await connectMongo();
+  await connectPostgres();
   const payload = collegeInputSchema.parse(input);
   const universityId = actor.universityId as string;
   const slug = slugify(payload.name);
@@ -504,7 +504,7 @@ export async function createCollege(input: unknown) {
 
 export async function updateCollege(collegeId: string, input: unknown) {
   const actor = await requireCampusAdminActor();
-  await connectMongo();
+  await connectPostgres();
   const payload = collegeInputSchema.parse(input);
   const universityId = actor.universityId as string;
   const slug = slugify(payload.name);
@@ -564,7 +564,7 @@ export async function updateCollege(collegeId: string, input: unknown) {
 
 export async function softDeleteCollege(collegeId: string) {
   const actor = await requireCampusAdminActor();
-  await connectMongo();
+  await connectPostgres();
   const universityId = actor.universityId as string;
   const before = await CollegeModel.findOne({
     _id: collegeId,
@@ -606,7 +606,7 @@ export async function softDeleteCollege(collegeId: string) {
 
 export async function listDepartments(query: unknown = {}) {
   const actor = await requireCampusAdminActor();
-  await connectMongo();
+  await connectPostgres();
   const options = listQuerySchema.parse(query);
   const departments = await DepartmentModel.find({
     universityId: actor.universityId,
@@ -622,7 +622,7 @@ export async function listDepartments(query: unknown = {}) {
 
 export async function getDepartment(departmentId: string) {
   const actor = await requireCampusAdminActor();
-  await connectMongo();
+  await connectPostgres();
   const department = await DepartmentModel.findOne({
     _id: departmentId,
     universityId: actor.universityId,
@@ -638,7 +638,7 @@ export async function getDepartment(departmentId: string) {
 
 export async function createDepartment(input: unknown) {
   const actor = await requireCampusAdminActor();
-  await connectMongo();
+  await connectPostgres();
   const payload = departmentInputSchema.parse(input);
   const universityId = actor.universityId as string;
   await assertCollegeInUniversity(universityId, payload.collegeId);
@@ -693,7 +693,7 @@ export async function createDepartment(input: unknown) {
 
 export async function updateDepartment(departmentId: string, input: unknown) {
   const actor = await requireCampusAdminActor();
-  await connectMongo();
+  await connectPostgres();
   const payload = departmentInputSchema.parse(input);
   const universityId = actor.universityId as string;
   await assertCollegeInUniversity(universityId, payload.collegeId);
@@ -767,7 +767,7 @@ export async function updateDepartment(departmentId: string, input: unknown) {
 
 export async function softDeleteDepartment(departmentId: string) {
   const actor = await requireCampusAdminActor();
-  await connectMongo();
+  await connectPostgres();
   const universityId = actor.universityId as string;
   const before = await DepartmentModel.findOne({
     _id: departmentId,
@@ -824,7 +824,7 @@ async function findTeacher(actor: AuthUser, teacherId: string) {
 
 export async function listTeachers(query: unknown = {}) {
   const actor = await requireCampusAdminActor();
-  await connectMongo();
+  await connectPostgres();
   const options = listQuerySchema.parse(query);
   const teachers = await UserModel.find({
     universityId: actor.universityId,
@@ -841,7 +841,7 @@ export async function listTeachers(query: unknown = {}) {
 
 export async function getTeacher(teacherId: string) {
   const actor = await requireCampusAdminActor();
-  await connectMongo();
+  await connectPostgres();
   const teacher = await findTeacher(actor, teacherId);
 
   return serializeUser(teacher as Record<string, unknown>);
@@ -850,7 +850,7 @@ export async function getTeacher(teacherId: string) {
 export async function createTeacher(input: CreateTeacherManagementInput) {
   const actor = await requireCampusAdminActor();
   await requirePermission(PERMISSIONS.USER_CREATE);
-  await connectMongo();
+  await connectPostgres();
   const payload = createTeacherManagementSchema.parse(input);
   const universityId = actor.universityId as string;
   const department = await assertDepartmentInUniversity(
@@ -937,7 +937,7 @@ export async function updateTeacher(
 ) {
   const actor = await requireCampusAdminActor();
   await requirePermission(PERMISSIONS.USER_UPDATE);
-  await connectMongo();
+  await connectPostgres();
   const payload = updateTeacherManagementSchema.parse(input);
   const universityId = actor.universityId as string;
   const before = await findTeacher(actor, teacherId);
@@ -1030,7 +1030,7 @@ export async function assignTeacherDepartment(
 export async function deactivateTeacher(teacherId: string) {
   const actor = await requireCampusAdminActor();
   await requirePermission(PERMISSIONS.USER_UPDATE);
-  await connectMongo();
+  await connectPostgres();
   const universityId = actor.universityId as string;
   const before = await findTeacher(actor, teacherId);
   const teacher = await UserModel.findOneAndUpdate(
@@ -1061,7 +1061,7 @@ export async function deactivateTeacher(teacherId: string) {
 
 export async function listRepresentatives(query: unknown = {}) {
   const actor = await requireCampusAdminActor();
-  await connectMongo();
+  await connectPostgres();
   const options = listQuerySchema.parse(query);
   const representatives = await RepresentativeModel.find({
     universityId: actor.universityId,
@@ -1080,7 +1080,7 @@ export async function assignRepresentative(
 ) {
   const actor = await requireCampusAdminActor();
   await requirePermission(PERMISSIONS.USER_ASSIGN_POSITION);
-  await connectMongo();
+  await connectPostgres();
   const payload = representativeAssignmentSchema.parse(input);
   const universityId = actor.universityId as string;
   await assertCollegeInUniversity(universityId, payload.collegeId);
@@ -1175,7 +1175,7 @@ export async function transferRepresentative(
 ) {
   const actor = await requireCampusAdminActor();
   await requirePermission(PERMISSIONS.USER_ASSIGN_POSITION);
-  await connectMongo();
+  await connectPostgres();
   const payload = representativeTransferSchema.parse(input);
   const universityId = actor.universityId as string;
   await assertCollegeInUniversity(universityId, payload.collegeId);
@@ -1229,7 +1229,7 @@ export async function transferRepresentative(
 export async function removeRepresentative(representativeId: string) {
   const actor = await requireCampusAdminActor();
   await requirePermission(PERMISSIONS.USER_ASSIGN_POSITION);
-  await connectMongo();
+  await connectPostgres();
   const universityId = actor.universityId as string;
   const before = await findRepresentativeByIdOrUserId(actor, representativeId);
   const representative = await RepresentativeModel.findOneAndUpdate(
@@ -1277,7 +1277,7 @@ export async function removeRepresentative(representativeId: string) {
 
 export async function listCampusAdmins(universityId: string) {
   await requireSuperAdminActor();
-  await connectMongo();
+  await connectPostgres();
   await assertActiveUniversity(universityId);
   const users = await UserModel.find({
     universityId,
@@ -1295,7 +1295,7 @@ export async function assignCampusAdmin(
   input: CampusAdminAssignmentInput,
 ) {
   const actor = await requireSuperAdminActor();
-  await connectMongo();
+  await connectPostgres();
   const payload = campusAdminAssignmentSchema.parse(input);
   await assertActiveUniversity(universityId);
   const user = await UserModel.findOne({
@@ -1344,7 +1344,7 @@ export async function assignCampusAdmin(
 
 export async function removeCampusAdmin(universityId: string, userId: string) {
   const actor = await requireSuperAdminActor();
-  await connectMongo();
+  await connectPostgres();
   await assertActiveUniversity(universityId);
   const user = await UserModel.findOne({
     _id: userId,
@@ -1393,7 +1393,7 @@ export async function getUniversityDashboardStats(universityId?: string) {
   const actor = universityId
     ? await requireSuperAdminActor()
     : await requireCampusAdminActor();
-  await connectMongo();
+  await connectPostgres();
   const scopedUniversityId = universityId ?? actor.universityId;
 
   if (!scopedUniversityId) {

@@ -17,7 +17,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   MentorProfileModel,
   MentorshipRequestModel,
@@ -212,7 +212,7 @@ export async function becomeMentor(input: unknown) {
     throw forbidden("Mentorship creation access is required.");
   }
   if (!actor.universityId) throw forbidden("University scope is required.");
-  await connectMongo();
+  await connectPostgres();
 
   const payload = createMentorProfileSchema.parse(input);
   const existing = await MentorProfileModel.exists({
@@ -263,7 +263,7 @@ export async function becomeMentor(input: unknown) {
 
 export async function updateMyMentorProfile(input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
 
   const profile = await MentorProfileModel.findOne({
     userId: actor.id,
@@ -309,7 +309,7 @@ export async function updateMyMentorProfile(input: unknown) {
 
 export async function getMyMentorProfile() {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const profile = await MentorProfileModel.findOne({
     userId: actor.id,
     ...deletedFilter,
@@ -324,7 +324,7 @@ export async function listMentors(query: unknown = {}) {
   if (!canReadMentorship(actor)) {
     throw forbidden("Mentorship read access is required.");
   }
-  await connectMongo();
+  await connectPostgres();
 
   const filters = mentorProfileQuerySchema.parse(query);
   const universityId = resolveUniversityScope(actor, filters.universityId);
@@ -358,7 +358,7 @@ export async function requestMentor(input: unknown) {
   if (!canCreateMentorship(actor)) {
     throw forbidden("Mentorship creation access is required.");
   }
-  await connectMongo();
+  await connectPostgres();
 
   const payload = createMentorshipRequestSchema.parse(input);
   const mentor = await MentorProfileModel.findOne({
@@ -436,7 +436,7 @@ export async function listMentorshipRequests(query: unknown = {}) {
   if (!canReadMentorship(actor)) {
     throw forbidden("Mentorship read access is required.");
   }
-  await connectMongo();
+  await connectPostgres();
 
   const filters = mentorshipRequestQuerySchema.parse(query);
   const universityId = resolveUniversityScope(actor, filters.universityId);
@@ -471,7 +471,7 @@ async function decideMentorshipRequest(
   input: unknown = {},
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
 
   const payload = mentorshipDecisionSchema.parse(input);
   const request = await getRequestOrThrow(requestId, actor);
@@ -566,7 +566,7 @@ export function declineMentorshipRequest(
 
 export async function cancelMentorshipRequest(requestId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const request = await getRequestOrThrow(requestId, actor);
   if (request.menteeId !== actor.id && !canManageMentorship(actor)) {
     throw forbidden("Only the mentee can cancel this request.");
@@ -611,7 +611,7 @@ export async function cancelMentorshipRequest(requestId: string) {
 
 export async function completeMentorship(requestId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const request = await getRequestOrThrow(requestId, actor);
   if (
     request.mentorId !== actor.id &&
@@ -661,7 +661,7 @@ export async function createMentorshipSession(
   input: unknown,
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const request = await getRequestOrThrow(requestId, actor);
   if (
     request.mentorId !== actor.id &&
@@ -705,7 +705,7 @@ export async function createMentorshipSession(
 
 export async function listMentorshipSessions(requestId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   await getRequestOrThrow(requestId, actor);
 
   const sessions = await MentorshipSessionModel.find({
@@ -725,7 +725,7 @@ export async function updateMentorshipSession(
   input: unknown,
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const session = await MentorshipSessionModel.findOne({
     _id: sessionId,
     ...deletedFilter,

@@ -11,7 +11,7 @@ import {
 } from "@/features/announcements/lib/schemas";
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   AnnouncementModel,
   AnnouncementViewModel,
@@ -415,7 +415,7 @@ export async function createAnnouncement(input: CreateAnnouncementInput) {
     throw forbidden("You cannot create announcements.");
   }
 
-  await connectMongo();
+  await connectPostgres();
   const payload = createAnnouncementSchema.parse(input);
   const collegeIds = normalizeIds(payload.collegeIds);
   const departmentIds = normalizeIds(payload.departmentIds);
@@ -495,7 +495,7 @@ export async function createAnnouncement(input: CreateAnnouncementInput) {
 export async function listAnnouncements(query: unknown = {}) {
   const actor = await requireAuth();
   const universityId = assertUniversityScope(actor);
-  await connectMongo();
+  await connectPostgres();
   const filters = announcementQuerySchema.parse(query);
   const dbFilter: Record<string, unknown> = canManageAllAnnouncements(actor)
     ? { universityId, ...deletedFilter }
@@ -563,7 +563,7 @@ async function getAnnouncementForActor(
 
 export async function getAnnouncement(announcementId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const announcement = await getAnnouncementForActor(announcementId, actor);
 
   await trackAnnouncementView(actor, announcement as Record<string, unknown>);
@@ -594,7 +594,7 @@ export async function updateAnnouncement(
   input: UpdateAnnouncementInput,
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const payload = updateAnnouncementSchema.parse(input);
   const before = await getAnnouncementForActor(announcementId, actor);
 
@@ -689,7 +689,7 @@ export async function updateAnnouncement(
 
 export async function publishAnnouncement(announcementId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const before = await getAnnouncementForActor(announcementId, actor);
 
   assertCanMutate(actor, before as Record<string, unknown>);
@@ -732,7 +732,7 @@ export async function publishAnnouncement(announcementId: string) {
 
 export async function archiveAnnouncement(announcementId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const before = await getAnnouncementForActor(announcementId, actor);
 
   assertCanMutate(actor, before as Record<string, unknown>);
@@ -765,7 +765,7 @@ export async function archiveAnnouncement(announcementId: string) {
 
 export async function deleteAnnouncement(announcementId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const before = await getAnnouncementForActor(announcementId, actor);
 
   assertCanMutate(actor, before as Record<string, unknown>);

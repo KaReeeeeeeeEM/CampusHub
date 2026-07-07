@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { requireApiRole } from "@/lib/auth/authorization";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   AlmanacEventModel,
   AlmanacModel,
@@ -130,7 +130,7 @@ function dateValue(value: string | null | undefined, fallback: Date) {
 
 export async function listSuperAdminAlmanacs() {
   await requireApiRole(["SUPER_ADMIN"]);
-  await connectMongo();
+  await connectPostgres();
 
   const [universities, almanacs, events] = await Promise.all([
     UniversityModel.find({ deletedAt: null }).sort({ name: 1 }).lean(),
@@ -175,7 +175,7 @@ export async function listSuperAdminAlmanacs() {
 
 export async function createSuperAdminAlmanac(input: SuperAdminAlmanacInput) {
   const actor = await requireApiRole(["SUPER_ADMIN"]);
-  await connectMongo();
+  await connectPostgres();
 
   if (!input.universityId) throw new Error("University is required.");
 
@@ -203,7 +203,7 @@ export async function createSuperAdminAlmanacEvent(
   input: SuperAdminAlmanacEventInput,
 ) {
   const actor = await requireApiRole(["SUPER_ADMIN"]);
-  await connectMongo();
+  await connectPostgres();
 
   const almanac = await AlmanacModel.findOne({
     _id: almanacId,

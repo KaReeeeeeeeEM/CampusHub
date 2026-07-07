@@ -10,7 +10,7 @@ import type { CreateNotificationInput } from "@/features/notifications/lib/schem
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import { NotificationModel, UserModel } from "@/lib/db/models";
 import type { AuthUser } from "@/types/auth";
 
@@ -179,7 +179,7 @@ export async function dispatchIntelligentNotification(input: unknown) {
     throw forbidden("Notification intelligence management access is required.");
   }
 
-  await connectMongo();
+  await connectPostgres();
   const payload = notificationIntelligenceDispatchSchema.parse(input);
   const targetUniversityId = scopedUniversityId(
     actor,
@@ -289,7 +289,7 @@ export async function getNotificationIntelligenceSummary(query: unknown = {}) {
     throw forbidden("Notification intelligence access is required.");
   }
 
-  await connectMongo();
+  await connectPostgres();
   const filters = notificationIntelligenceSummaryQuerySchema.parse(query);
   const universityId = scopedUniversityId(actor, filters.universityId);
   const createdAt = dateRange(filters.from, filters.to);

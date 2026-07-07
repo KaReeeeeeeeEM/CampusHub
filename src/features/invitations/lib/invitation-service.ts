@@ -19,7 +19,7 @@ import {
   requireAuthorizedResource,
   requirePermission,
 } from "@/lib/auth/authorization";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   CampusAdminInvitationModel,
   CollegeModel,
@@ -179,7 +179,7 @@ export async function createStudentInvitation(
     },
   });
 
-  await connectMongo();
+  await connectPostgres();
 
   await assertActiveUniversity(payload.universityId);
   await assertActiveCollege(payload.universityId, payload.collegeId);
@@ -262,7 +262,7 @@ export async function createRepresentativeInvitation(
     },
   });
 
-  await connectMongo();
+  await connectPostgres();
 
   await ensureEmailCanJoin(payload.email);
   await ensureNoPendingInvitation(payload.email, "REPRESENTATIVE_INVITATION");
@@ -331,7 +331,7 @@ export async function createCampusAdminInvitation(
   const payload = createCampusAdminInvitationSchema.parse(input);
   const actor = await requirePermission(PERMISSIONS.USER_ASSIGN_ROLE);
 
-  await connectMongo();
+  await connectPostgres();
 
   if (!isSuperAdmin(actor)) {
     throw new Error("Only Super Admin can invite Campus Admin users.");
@@ -377,7 +377,7 @@ export async function createCampusAdminInvitation(
 }
 
 export async function resolveInvitation(token: string) {
-  await connectMongo();
+  await connectPostgres();
 
   const invitation = await InvitationModel.findOne({ token }).lean();
 
@@ -611,7 +611,7 @@ export async function acceptInvitedAccount(input: AcceptInvitedAccountInput) {
 
 export async function revokeInvitation(invitationId: string) {
   const actor = await requirePermission(PERMISSIONS.INVITATION_DELETE);
-  await connectMongo();
+  await connectPostgres();
 
   const invitation = await InvitationModel.findOne({
     _id: invitationId,

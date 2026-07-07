@@ -12,7 +12,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   ApplicationModel,
   ApplicationStatusEventModel,
@@ -280,7 +280,7 @@ export async function applyToOpportunity(
   const actor = await requireAuth();
   if (!canApply(actor))
     throw forbidden("Opportunity application access is required.");
-  await connectMongo();
+  await connectPostgres();
   const payload = applyOpportunitySchema.parse(input);
   const opportunity = await getOpportunityOrThrow(opportunityId);
 
@@ -371,7 +371,7 @@ export async function applyToOpportunity(
 
 export async function listApplications(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = applicationQuerySchema.parse(query);
   const dbFilter: Record<string, unknown> = { ...deletedFilter };
 
@@ -449,7 +449,7 @@ export async function listApplications(query: unknown = {}) {
 
 export async function getApplication(applicationId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const { application, opportunity } = await getApplicationWithOpportunity(
     applicationId,
     actor,
@@ -473,7 +473,7 @@ export async function getApplication(applicationId: string) {
 
 export async function withdrawApplication(applicationId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const { application, opportunity } = await getApplicationWithOpportunity(
     applicationId,
     actor,
@@ -558,7 +558,7 @@ async function transitionApplication(
   input: unknown = {},
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const notePayload = applicationTransitionNoteSchema.parse(input);
   const { application, opportunity } = await getApplicationWithOpportunity(
     applicationId,

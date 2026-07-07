@@ -8,7 +8,7 @@ import {
   type StudentLeadershipPosition,
 } from "@/features/authorization/roles";
 import { calculateProfileCompletionPercentage } from "@/features/auth/lib/profile-completion";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import { RoleModel, SessionModel, UserModel } from "@/lib/db/models";
 
 type AuthUserRecord = {
@@ -108,7 +108,7 @@ function resolvePrimaryPosition(positions: StudentLeadershipPosition[]) {
 }
 
 export async function ensureSystemRoles() {
-  await connectMongo();
+  await connectPostgres();
 
   await Promise.all(
     Object.values(ROLES).map((role) =>
@@ -131,7 +131,7 @@ export async function ensureSystemRoles() {
 }
 
 export async function syncAuthUser(user: AuthUserRecord) {
-  await connectMongo();
+  await connectPostgres();
 
   const existingUser = await UserModel.findById(user.id)
     .select({
@@ -314,7 +314,7 @@ export async function syncAuthUser(user: AuthUserRecord) {
 }
 
 export async function noteUserLogin(userId: string) {
-  await connectMongo();
+  await connectPostgres();
 
   await UserModel.updateOne(
     { _id: userId },
@@ -327,7 +327,7 @@ export async function noteUserLogin(userId: string) {
 }
 
 export async function syncAuthSession(session: AuthSessionRecord) {
-  await connectMongo();
+  await connectPostgres();
 
   await SessionModel.updateOne(
     { _id: session.id },
@@ -348,6 +348,6 @@ export async function syncAuthSession(session: AuthSessionRecord) {
 }
 
 export async function deleteAuthSession(sessionId: string) {
-  await connectMongo();
+  await connectPostgres();
   await SessionModel.deleteOne({ _id: sessionId });
 }

@@ -16,7 +16,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   ForumEngagementModel,
   ForumModel,
@@ -268,7 +268,7 @@ export async function createForumCategory(input: unknown) {
   const universityId = assertUniversityScope(actor);
   if (!canModerate(actor))
     throw forbidden("Forum moderation access is required.");
-  await connectMongo();
+  await connectPostgres();
   const payload = createForumCategorySchema.parse(input);
   const category = await ForumModel.create({
     _id: randomUUID(),
@@ -299,7 +299,7 @@ export async function createForumCategory(input: unknown) {
 export async function listForumCategories() {
   const actor = await requireAuth();
   const universityId = assertUniversityScope(actor);
-  await connectMongo();
+  await connectPostgres();
   await ensureDefaultCategories(universityId);
   const categories = await ForumModel.find({
     universityId,
@@ -318,7 +318,7 @@ export async function listForumCategories() {
 export async function createForumPost(input: unknown) {
   const actor = await requireAuth();
   const universityId = assertUniversityScope(actor);
-  await connectMongo();
+  await connectPostgres();
   const payload = createForumPostSchema.parse(input);
   const category = await ForumModel.findOne({
     _id: payload.categoryId,
@@ -392,7 +392,7 @@ export async function createForumPost(input: unknown) {
 
 export async function listForumPosts(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = forumPostQuerySchema.parse(query);
   const dbFilter: Record<string, unknown> = {
     status: filters.status && canModerate(actor) ? filters.status : "ACTIVE",
@@ -416,7 +416,7 @@ export async function listForumPosts(query: unknown = {}) {
 
 export async function getForumPost(postId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const post = await getVisiblePost(postId, actor);
 
   await viewForumPost(postId);
@@ -427,7 +427,7 @@ export async function getForumPost(postId: string) {
 
 export async function updateForumPost(postId: string, input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const payload = updateForumPostSchema.parse(input);
   const post = await getVisiblePost(postId, actor);
 
@@ -474,7 +474,7 @@ export async function updateForumPost(postId: string, input: unknown) {
 
 export async function deleteForumPost(postId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const post = await getVisiblePost(postId, actor);
 
   if (
@@ -513,7 +513,7 @@ export async function moderateForumPost(
   input: unknown = {},
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const payload = moderationSchema.parse(input);
   const post = await getVisiblePost(postId, actor);
   if (!canModerate(actor, post as Record<string, unknown>)) {
@@ -557,7 +557,7 @@ export async function moderateForumPost(
 
 export async function viewForumPost(postId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const post = await getVisiblePost(postId, actor);
   const result = await ForumEngagementModel.updateOne(
     {
@@ -596,7 +596,7 @@ export async function voteForumEntity(
   vote: unknown,
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const engagementType = forumVoteSchema.parse(vote);
   const entity =
     entityType === "POST"
@@ -644,7 +644,7 @@ export async function voteForumEntity(
 
 export async function toggleForumBookmark(postId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const post = await getVisiblePost(postId, actor);
   const existing = await ForumEngagementModel.findOne({
     entityType: "POST",
@@ -682,7 +682,7 @@ export async function toggleForumBookmark(postId: string) {
 
 export async function shareForumPost(postId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const post = await getVisiblePost(postId, actor);
   await ForumEngagementModel.updateOne(
     {
@@ -711,7 +711,7 @@ export async function shareForumPost(postId: string) {
 
 export async function createForumComment(postId: string, input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const payload = createForumCommentSchema.parse(input);
   const post = await getVisiblePost(postId, actor);
 
@@ -757,7 +757,7 @@ export async function createForumComment(postId: string, input: unknown) {
 
 export async function listForumComments(postId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   await getVisiblePost(postId, actor);
   const comments = await ForumReplyModel.find({
     postId,
@@ -774,7 +774,7 @@ export async function listForumComments(postId: string) {
 
 export async function updateForumComment(commentId: string, input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const payload = updateForumCommentSchema.parse(input);
   const comment = await getComment(commentId, actor);
 
@@ -807,7 +807,7 @@ export async function updateForumComment(commentId: string, input: unknown) {
 
 export async function deleteForumComment(commentId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const comment = await getComment(commentId, actor);
 
   if (comment.authorId !== actor.id && !canModerate(actor)) {
@@ -844,7 +844,7 @@ export async function deleteForumComment(commentId: string) {
 
 export async function reportForumEntity(entityId: string, input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const payload = forumReportSchema.parse(input);
   const entity =
     payload.entityType === "COMMENT"
@@ -883,7 +883,7 @@ export async function reportForumEntity(entityId: string, input: unknown) {
 
 export async function getTrendingForumPosts(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = forumPostQuerySchema.parse(query);
   const dbFilter: Record<string, unknown> = {
     status: "ACTIVE",
@@ -904,7 +904,7 @@ export async function getTrendingForumPosts(query: unknown = {}) {
 export async function getForumAnalytics() {
   const actor = await requireAuth();
   const universityId = assertUniversityScope(actor);
-  await connectMongo();
+  await connectPostgres();
   if (!canModerate(actor))
     throw forbidden("Forum moderation access is required.");
 

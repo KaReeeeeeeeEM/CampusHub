@@ -13,7 +13,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   ProductClickModel,
   ProductFavoriteModel,
@@ -169,7 +169,7 @@ export async function createProduct(input: unknown) {
   if (!canCreateProduct(actor)) {
     throw forbidden("Product creation access is required.");
   }
-  await connectMongo();
+  await connectPostgres();
   const payload = createProductSchema.parse(input);
   const shop = await getOwnedActiveShop(payload.shopId, actor);
   const product = await ProductModel.create({
@@ -227,7 +227,7 @@ export async function createProduct(input: unknown) {
 export async function listProducts(query: unknown = {}) {
   const actor = await requireAuth();
   const universityId = requireUniversity(actor);
-  await connectMongo();
+  await connectPostgres();
   const filters = productQuerySchema.parse(query);
   const dbFilter: Record<string, unknown> = {
     universityId,
@@ -282,7 +282,7 @@ export async function getFeaturedProducts(query: unknown = {}) {
 
 export async function getProduct(productId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const product = await getVisibleProductForActor(productId, actor);
 
   return serializeProduct(product as Record<string, unknown>);
@@ -290,7 +290,7 @@ export async function getProduct(productId: string) {
 
 export async function updateProduct(productId: string, input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const product = await getVisibleProductForActor(productId, actor);
   if (!canMutateProduct(actor, product as Record<string, unknown>)) {
     throw forbidden("You cannot update this product.");
@@ -346,7 +346,7 @@ async function setProductStatus(
   auditAction: "PRODUCT_DELETED" | "PRODUCT_ARCHIVED",
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const product = await getVisibleProductForActor(productId, actor);
   if (!canMutateProduct(actor, product as Record<string, unknown>)) {
     throw forbidden("You cannot manage this product.");
@@ -396,7 +396,7 @@ export function deleteProduct(productId: string) {
 
 export async function trackProductView(productId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const product = await getVisibleProductForActor(productId, actor);
 
   await ProductViewModel.create({
@@ -423,7 +423,7 @@ export async function trackProductClick(
   input: unknown = {},
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const payload = productClickTrackingSchema.parse(input);
   const product = await getVisibleProductForActor(productId, actor);
 
@@ -465,7 +465,7 @@ export async function trackProductClick(
 
 export async function favoriteProduct(productId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const product = await getVisibleProductForActor(productId, actor);
 
   try {
@@ -514,7 +514,7 @@ export async function favoriteProduct(productId: string) {
 
 export async function removeProductFavorite(productId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const product = await getVisibleProductForActor(productId, actor);
   const result = await ProductFavoriteModel.deleteOne({
     productId,
@@ -554,7 +554,7 @@ export async function getProductAnalytics(
   query: unknown = {},
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = productAnalyticsQuerySchema.parse(query);
   const product = await getVisibleProductForActor(productId, actor);
   if (!canMutateProduct(actor, product as Record<string, unknown>)) {

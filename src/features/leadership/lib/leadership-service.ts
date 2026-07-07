@@ -21,7 +21,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   CollegeModel,
   CommitteeModel,
@@ -304,7 +304,7 @@ async function applyLeadershipUserFlags(input: {
 export async function createLeadershipPosition(input: unknown) {
   const actor = await requireAuth();
   assertCanManageLeadership(actor);
-  await connectMongo();
+  await connectPostgres();
   const payload = createLeadershipPositionSchema.parse(input);
   const universityId = scopedUniversityId(actor, payload.universityId);
 
@@ -349,7 +349,7 @@ export async function createLeadershipPosition(input: unknown) {
 
 export async function getLeadershipPosition(id: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const position = await PositionModel.findOne({
     _id: id,
     ...deletedFilter,
@@ -363,7 +363,7 @@ export async function getLeadershipPosition(id: string) {
 export async function updateLeadershipPosition(id: string, input: unknown) {
   const actor = await requireAuth();
   assertCanManageLeadership(actor);
-  await connectMongo();
+  await connectPostgres();
   const before = await PositionModel.findOne({
     _id: id,
     ...deletedFilter,
@@ -436,7 +436,7 @@ export async function updateLeadershipPosition(id: string, input: unknown) {
 export async function removeLeadershipPosition(id: string) {
   const actor = await requireAuth();
   assertCanManageLeadership(actor);
-  await connectMongo();
+  await connectPostgres();
   const before = await PositionModel.findOne({
     _id: id,
     ...deletedFilter,
@@ -482,7 +482,7 @@ export async function removeLeadershipPosition(id: string) {
 
 export async function listLeadershipPositions(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = listLeadershipPositionsQuerySchema.parse(query);
   const universityId = scopedUniversityId(actor, filters.universityId);
 
@@ -518,7 +518,7 @@ export async function listLeadershipPositions(query: unknown = {}) {
 export async function assignLeadership(input: unknown) {
   const actor = await requireAuth();
   assertCanManageLeadership(actor);
-  await connectMongo();
+  await connectPostgres();
   const payload = assignLeadershipSchema.parse(input);
   const position = await getPositionOrThrow(payload.positionId, actor);
   await getActiveUserInUniversity(payload.userId, position.universityId);
@@ -604,7 +604,7 @@ async function getReportForActor(id: string, actor: AuthUser) {
 export async function endLeadershipTerm(id: string, input: unknown = {}) {
   const actor = await requireAuth();
   assertCanManageLeadership(actor);
-  await connectMongo();
+  await connectPostgres();
   const payload = endLeadershipTermSchema.parse(input);
   const before = await getAssignmentForActor(id, actor);
   const endedAt = payload.endDate ?? payload.endedAt ?? new Date();
@@ -647,7 +647,7 @@ export async function removeLeadershipAssignment(id: string, input: unknown = {}
 export async function transferLeadership(id: string, input: unknown = {}) {
   const actor = await requireAuth();
   assertCanManageLeadership(actor);
-  await connectMongo();
+  await connectPostgres();
   const payload = transferLeadershipSchema.parse(input);
   const before = await getAssignmentForActor(id, actor);
   const targetPosition = payload.positionId
@@ -712,7 +712,7 @@ export async function transferLeadership(id: string, input: unknown = {}) {
 
 export async function listLeadershipAssignments(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = leadershipAssignmentQuerySchema.parse(query);
   const universityId = scopedUniversityId(actor, filters.universityId);
 
@@ -744,7 +744,7 @@ export async function listLeadershipAssignments(query: unknown = {}) {
 
 export async function submitLeadershipReport(input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const payload = createLeadershipReportSchema.parse(input);
 
   let assignment: Record<string, unknown> | null = null;
@@ -818,7 +818,7 @@ export async function submitLeadershipReport(input: unknown) {
 
 export async function listLeadershipReports(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = leadershipReportQuerySchema.parse(query);
   const universityId = scopedUniversityId(actor, filters.universityId);
 
@@ -857,7 +857,7 @@ export async function listLeadershipReports(query: unknown = {}) {
 
 export async function submitLeadershipReportById(id: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const before = await getReportForActor(id, actor);
   if (before.authorId !== actor.id && !canManageLeadership(actor)) {
     throw forbidden("You can only submit your own leadership reports.");
@@ -892,7 +892,7 @@ export async function submitLeadershipReportById(id: string) {
 export async function reviewLeadershipReport(id: string, input: unknown = {}) {
   const actor = await requireAuth();
   assertCanManageLeadership(actor);
-  await connectMongo();
+  await connectPostgres();
   const payload = reviewLeadershipReportSchema.parse(input);
   const before = await getReportForActor(id, actor);
   const report = await LeadershipReportModel.findOneAndUpdate(
@@ -927,7 +927,7 @@ export async function reviewLeadershipReport(id: string, input: unknown = {}) {
 export async function approveLeadershipReport(id: string, input: unknown = {}) {
   const actor = await requireAuth();
   assertCanManageLeadership(actor);
-  await connectMongo();
+  await connectPostgres();
   const payload = approveLeadershipReportSchema.parse(input);
   const before = await getReportForActor(id, actor);
   const report = await LeadershipReportModel.findOneAndUpdate(
@@ -964,7 +964,7 @@ export async function approveLeadershipReport(id: string, input: unknown = {}) {
 export async function rejectLeadershipReport(id: string, input: unknown = {}) {
   const actor = await requireAuth();
   assertCanManageLeadership(actor);
-  await connectMongo();
+  await connectPostgres();
   const payload = rejectLeadershipReportSchema.parse(input);
   const before = await getReportForActor(id, actor);
   const report = await LeadershipReportModel.findOneAndUpdate(
@@ -1001,7 +1001,7 @@ export async function rejectLeadershipReport(id: string, input: unknown = {}) {
 export async function archiveLeadershipReport(id: string, input: unknown = {}) {
   const actor = await requireAuth();
   assertCanManageLeadership(actor);
-  await connectMongo();
+  await connectPostgres();
   const payload = archiveLeadershipReportSchema.parse(input);
   const before = await getReportForActor(id, actor);
   const report = await LeadershipReportModel.findOneAndUpdate(
@@ -1034,7 +1034,7 @@ export async function archiveLeadershipReport(id: string, input: unknown = {}) {
 
 export async function exportLeadershipReport(id: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const report = await getReportForActor(id, actor);
 
   await writeAuditLog({
@@ -1055,7 +1055,7 @@ export async function exportLeadershipReport(id: string) {
 export async function getLeadershipReportAnalytics(query: unknown = {}) {
   const actor = await requireAuth();
   assertCanManageLeadership(actor);
-  await connectMongo();
+  await connectPostgres();
   const filters = leadershipReportAnalyticsQuerySchema.parse(query);
   const universityId = scopedUniversityId(actor, filters.universityId);
 

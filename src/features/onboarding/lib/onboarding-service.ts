@@ -13,7 +13,7 @@ import type {
   SaveOnboardingInput,
 } from "@/features/onboarding/lib/schemas";
 import { auth } from "@/lib/auth/auth";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import { OnboardingProfileModel, UserModel } from "@/lib/db/models";
 import type { AuthSession } from "@/types/auth";
 
@@ -95,7 +95,7 @@ function serializeOnboarding(record: {
 
 export async function getOnboardingProgress() {
   const session = await getAuthenticatedSession();
-  await connectMongo();
+  await connectPostgres();
 
   const record = await OnboardingProfileModel.findOne({
     userId: session.user.id,
@@ -112,12 +112,12 @@ export async function getOnboardingProgress() {
     });
   }
 
-  return serializeOnboarding(record);
+  return serializeOnboarding(record as Parameters<typeof serializeOnboarding>[0]);
 }
 
 export async function saveOnboardingProgress(input: SaveOnboardingInput) {
   const session = await getAuthenticatedSession();
-  await connectMongo();
+  await connectPostgres();
 
   const now = new Date();
 
@@ -145,12 +145,12 @@ export async function saveOnboardingProgress(input: SaveOnboardingInput) {
     { $set: { onboardingCompleted: false } },
   );
 
-  return serializeOnboarding(record);
+  return serializeOnboarding(record as Parameters<typeof serializeOnboarding>[0]);
 }
 
 export async function completeOnboarding(input: CompleteOnboardingInput) {
   const session = await getAuthenticatedSession();
-  await connectMongo();
+  await connectPostgres();
 
   const now = new Date();
 
@@ -184,5 +184,5 @@ export async function completeOnboarding(input: CompleteOnboardingInput) {
     },
   );
 
-  return serializeOnboarding(record);
+  return serializeOnboarding(record as Parameters<typeof serializeOnboarding>[0]);
 }

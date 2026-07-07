@@ -10,7 +10,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import { RewardEventModel, UserModel } from "@/lib/db/models";
 import type { AuthUser } from "@/types/auth";
 
@@ -89,7 +89,7 @@ export async function createRewardEventForUser(
   actor: AuthUser,
   input: unknown,
 ) {
-  await connectMongo();
+  await connectPostgres();
   const payload = createRewardEventSchema.parse(input);
   const user = await getActiveUserOrThrow(payload.userId);
 
@@ -142,7 +142,7 @@ export async function createRewardEvent(input: unknown) {
 
 export async function listRewardEvents(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = rewardEventQuerySchema.parse(query);
   const dbFilter: Record<string, unknown> = {
     userId: actor.id,
@@ -165,7 +165,7 @@ export async function listRewardEvents(query: unknown = {}) {
 
 export async function getUnseenRewardEventCount() {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const count = await RewardEventModel.countDocuments({
     userId: actor.id,
     status: "UNSEEN",
@@ -179,7 +179,7 @@ export async function updateRewardEventStatus(
   input: unknown,
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const payload = updateRewardEventStatusSchema.parse(input);
   const event = await RewardEventModel.findById(rewardEventId).lean();
 
@@ -225,7 +225,7 @@ export async function updateRewardEventStatus(
 
 export async function markAllRewardEventsSeen() {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const now = new Date();
   const result = await RewardEventModel.updateMany(
     {

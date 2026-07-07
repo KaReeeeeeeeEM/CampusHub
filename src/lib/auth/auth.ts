@@ -1,5 +1,4 @@
 import { APIError, betterAuth } from "better-auth";
-import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { twoFactor } from "better-auth/plugins";
 import { passkey } from "@better-auth/passkey";
 import { randomUUID } from "node:crypto";
@@ -17,7 +16,7 @@ import {
   syncAuthUser,
 } from "@/lib/auth/user-sync";
 import { writeAuthAuditLog } from "@/lib/audit/audit-log-service";
-import { getMongoNativeClient, getMongoNativeDb } from "@/lib/db/mongodb";
+import { getKyselyDb } from "@/lib/db/postgres";
 
 type AuthHookContext = {
   path?: string;
@@ -162,10 +161,11 @@ export const auth = betterAuth({
   secret:
     process.env.BETTER_AUTH_SECRET ??
     "campushub-development-secret-replace-before-production",
-  database: mongodbAdapter(getMongoNativeDb(), {
-    client: getMongoNativeClient(),
+  database: {
+    db: getKyselyDb(),
+    type: "postgres",
     transaction: false,
-  }),
+  },
   trustedOrigins: getTrustedOrigins(),
   advanced: {
     database: {

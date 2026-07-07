@@ -14,7 +14,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import { OrderRequestModel, ProductModel, ShopModel } from "@/lib/db/models";
 import type { AuthUser } from "@/types/auth";
 
@@ -179,7 +179,7 @@ export async function createOrderRequest(input: unknown) {
   if (!canCreateOrderRequest(actor)) {
     throw forbidden("Order request access is required.");
   }
-  await connectMongo();
+  await connectPostgres();
   const payload = createOrderRequestSchema.parse(input);
   const product = await ProductModel.findOne({
     _id: payload.productId,
@@ -258,7 +258,7 @@ export async function createOrderRequest(input: unknown) {
 
 export async function listOrderRequests(query: unknown = {}) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const filters = orderRequestQuerySchema.parse(query);
   const dbFilter: Record<string, unknown> = {
     universityId: requireUniversity(actor),
@@ -289,7 +289,7 @@ export async function listOrderRequests(query: unknown = {}) {
 
 export async function getOrderRequest(requestId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const request = await getVisibleRequest(requestId, actor);
 
   return serializeOrderRequest(request as Record<string, unknown>);
@@ -300,7 +300,7 @@ export async function updateOrderRequestLocation(
   input: unknown,
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const payload = attachOrderRequestLocationSchema.parse(input);
   const request = await getVisibleRequest(requestId, actor);
 
@@ -358,7 +358,7 @@ async function transitionOrderRequest(
   input: unknown = {},
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const payload = orderRequestStatusMessageSchema.parse(input);
   const request = await getVisibleRequest(requestId, actor);
 

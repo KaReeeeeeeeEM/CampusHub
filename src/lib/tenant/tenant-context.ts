@@ -4,7 +4,7 @@ import { hasRole } from "@/features/authorization/rbac";
 import { TENANT_HEADER } from "@/features/tenant/tenant-utils";
 import { forbidden, notFound, unauthorized } from "@/lib/api/response";
 import { getCurrentUser } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import { UniversityModel } from "@/lib/db/models";
 import type { AuthUser } from "@/types/auth";
 
@@ -73,7 +73,7 @@ export async function getCurrentUniversity() {
     return null;
   }
 
-  await connectMongo();
+  await connectPostgres();
 
   const requestedSlug = await getRequestedUniversitySlug();
   const isSuperAdmin = hasRole(user.role, ["SUPER_ADMIN"], user.roles);

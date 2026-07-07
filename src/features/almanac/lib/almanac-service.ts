@@ -17,7 +17,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   AlmanacEventModel,
   AlmanacEventViewModel,
@@ -351,7 +351,7 @@ export async function listCampusAdminAlmanacs() {
   const actor = await requireAuth();
   const universityId = assertUniversityScope(actor);
   assertCanManage(actor);
-  await connectMongo();
+  await connectPostgres();
 
   const [almanacs, events] = await Promise.all([
     AlmanacModel.find({
@@ -390,7 +390,7 @@ export async function listCampusAdminAlmanacs() {
 export async function listVisibleAlmanacs() {
   const actor = await requireAuth();
   const universityId = assertUniversityScope(actor);
-  await connectMongo();
+  await connectPostgres();
 
   const almanacFilter = isCampusAdmin(actor)
     ? {
@@ -445,7 +445,7 @@ export async function createCampusAdminAlmanac(input: unknown) {
   const actor = await requireAuth();
   const universityId = assertUniversityScope(actor);
   assertCanManage(actor);
-  await connectMongo();
+  await connectPostgres();
 
   const payload = almanacShellSchema.parse(input);
 
@@ -489,7 +489,7 @@ export async function setCampusAdminAlmanacActive(almanacId: string) {
   const actor = await requireAuth();
   const universityId = assertUniversityScope(actor);
   assertCanManage(actor);
-  await connectMongo();
+  await connectPostgres();
 
   const almanac = await AlmanacModel.findOne({
     _id: almanacId,
@@ -559,7 +559,7 @@ export async function createCampusAdminAlmanacEntry(
   const actor = await requireAuth();
   const universityId = assertUniversityScope(actor);
   assertCanManage(actor);
-  await connectMongo();
+  await connectPostgres();
 
   const almanac = await AlmanacModel.findOne({
     _id: almanacId,
@@ -629,7 +629,7 @@ export async function createAlmanacEvent(input: CreateAlmanacEventInput) {
   const actor = await requireAuth();
   const universityId = assertUniversityScope(actor);
   assertCanManage(actor);
-  await connectMongo();
+  await connectPostgres();
 
   const payload = createAlmanacEventSchema.parse(input);
   const collegeIds = normalizeIds(payload.collegeIds);
@@ -675,7 +675,7 @@ export async function createAlmanacEvent(input: CreateAlmanacEventInput) {
 export async function listAlmanacEvents(query: unknown = {}) {
   const actor = await requireAuth();
   const universityId = assertUniversityScope(actor);
-  await connectMongo();
+  await connectPostgres();
   const filters = almanacQuerySchema.parse(query);
   const dbFilter: Record<string, unknown> = isCampusAdmin(actor)
     ? { universityId, ...deletedFilter }
@@ -705,7 +705,7 @@ export async function listAlmanacEvents(query: unknown = {}) {
 
 export async function getAlmanacEvent(eventId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const event = await getAlmanacEventForActor(eventId, actor);
   await trackView(actor, event as Record<string, unknown>);
   const refreshed = await AlmanacEventModel.findById(eventId).lean();
@@ -719,7 +719,7 @@ export async function updateAlmanacEvent(
 ) {
   const actor = await requireAuth();
   assertCanManage(actor);
-  await connectMongo();
+  await connectPostgres();
 
   const payload = updateAlmanacEventSchema.parse(input);
   const before = await getAlmanacEventForActor(eventId, actor);
@@ -795,7 +795,7 @@ export async function cancelAlmanacEvent(eventId: string) {
 export async function deleteAlmanacEvent(eventId: string) {
   const actor = await requireAuth();
   assertCanManage(actor);
-  await connectMongo();
+  await connectPostgres();
   const before = await getAlmanacEventForActor(eventId, actor);
   const event = await AlmanacEventModel.findOneAndUpdate(
     { _id: eventId, universityId: actor.universityId, ...deletedFilter },
@@ -832,7 +832,7 @@ async function setAlmanacEventStatus(
 ) {
   const actor = await requireAuth();
   assertCanManage(actor);
-  await connectMongo();
+  await connectPostgres();
   const before = await getAlmanacEventForActor(eventId, actor);
   const event = await AlmanacEventModel.findOneAndUpdate(
     { _id: eventId, universityId: actor.universityId, ...deletedFilter },
@@ -898,7 +898,7 @@ export async function sendAlmanacReminder(
 ) {
   const actor = await requireAuth();
   assertCanManage(actor);
-  await connectMongo();
+  await connectPostgres();
   const payload = sendReminderSchema.parse(input);
   const event = await getAlmanacEventForActor(eventId, actor);
   const reminders = Array.isArray(event.reminders) ? event.reminders : [];
@@ -936,7 +936,7 @@ export async function engageAlmanacReminder(
   reminderId: string,
 ) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const event = await getAlmanacEventForActor(eventId, actor);
   const result = await AlmanacReminderEngagementModel.updateOne(
     {

@@ -14,7 +14,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   OpportunityModel,
   OpportunityViewModel,
@@ -229,7 +229,7 @@ export async function createOpportunity(input: unknown) {
   if (!canCreateOpportunity(actor)) {
     throw forbidden("Opportunity creation access is required.");
   }
-  await connectMongo();
+  await connectPostgres();
   const payload = createOpportunitySchema.parse(input);
   const universityId = resolveWriteUniversity(actor, payload.universityId);
   const deadline = payload.applicationDeadline ?? null;
@@ -296,7 +296,7 @@ export async function listOpportunities(query: unknown = {}) {
   if (!canReadOpportunity(actor)) {
     throw forbidden("Opportunity read access is required.");
   }
-  await connectMongo();
+  await connectPostgres();
   const filters = opportunityQuerySchema.parse(query);
   const dbFilter: Record<string, unknown> = { ...deletedFilter };
   applyReadUniversityScope(actor, dbFilter, filters.universityId);
@@ -355,7 +355,7 @@ export async function getOpportunity(opportunityId: string) {
   if (!canReadOpportunity(actor)) {
     throw forbidden("Opportunity read access is required.");
   }
-  await connectMongo();
+  await connectPostgres();
   const opportunity = await assertOpportunityAccess(opportunityId, actor);
 
   if (
@@ -372,7 +372,7 @@ export async function getOpportunity(opportunityId: string) {
 
 export async function updateOpportunity(opportunityId: string, input: unknown) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const opportunity = await assertOpportunityAccess(opportunityId, actor);
   if (!canMutateOpportunity(actor, opportunity as Record<string, unknown>)) {
     throw forbidden("You cannot update this opportunity.");
@@ -443,7 +443,7 @@ export async function updateOpportunity(opportunityId: string, input: unknown) {
 
 export async function archiveOpportunity(opportunityId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const opportunity = await assertOpportunityAccess(opportunityId, actor);
   if (!canMutateOpportunity(actor, opportunity as Record<string, unknown>)) {
     throw forbidden("You cannot archive this opportunity.");
@@ -479,7 +479,7 @@ export async function saveOpportunity(input: unknown) {
   if (!canReadOpportunity(actor)) {
     throw forbidden("Opportunity read access is required.");
   }
-  await connectMongo();
+  await connectPostgres();
   const payload = saveOpportunitySchema.parse(input);
   const opportunity = await assertOpportunityAccess(
     payload.opportunityId,
@@ -529,7 +529,7 @@ export async function saveOpportunity(input: unknown) {
 
 export async function unsaveOpportunity(opportunityId: string) {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
   const result = await SavedOpportunityModel.deleteOne({
     userId: actor.id,
     opportunityId,
@@ -567,7 +567,7 @@ export async function shareOpportunity(
   if (!canReadOpportunity(actor)) {
     throw forbidden("Opportunity read access is required.");
   }
-  await connectMongo();
+  await connectPostgres();
   const payload = shareOpportunitySchema.parse(input);
   const opportunity = await assertOpportunityAccess(opportunityId, actor);
   if (opportunity.status !== "PUBLISHED") {
@@ -606,7 +606,7 @@ export async function trackOpportunityView(
   if (!canReadOpportunity(actor)) {
     throw forbidden("Opportunity read access is required.");
   }
-  await connectMongo();
+  await connectPostgres();
   const payload = opportunityViewTrackingSchema.parse(input);
   const opportunity = await assertOpportunityAccess(opportunityId, actor);
   if (opportunity.status !== "PUBLISHED") {

@@ -7,8 +7,7 @@ const serverEnvSchema = z.object({
   APP_ENV: z
     .enum(["development", "staging", "production"])
     .default("development"),
-  MONGODB_URI: z.string().url(),
-  MONGODB_DB_NAME: z.string().min(1).default("campushub"),
+  DATABASE_URL: z.string().url(),
   BETTER_AUTH_SECRET: z.string().min(32),
   BETTER_AUTH_URL: z.string().url(),
   CAMPUSHUB_ACQUISITION_SECRET: z.string().min(32),

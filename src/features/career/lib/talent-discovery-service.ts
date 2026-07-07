@@ -11,7 +11,7 @@ import {
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden, notFound } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   BadgeModel,
   CareerProfileModel,
@@ -413,7 +413,10 @@ async function getProfileDecorations(userIds: string[], employerId: string) {
   });
 
   return {
-    userById: new Map(decoratedUsers.map((user) => [String(user._id), user])),
+    userById: new Map(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      decoratedUsers.map((user) => [String((user as Record<string, any>)._id), user]),
+    ),
     projectsByUserId: projects.reduce((map, project) => {
       const ownerId = String(project.ownerId);
       const items = map.get(ownerId) ?? [];
@@ -450,7 +453,7 @@ async function getProfileDecorations(userIds: string[], employerId: string) {
 export async function searchTalent(input: unknown = {}) {
   const actor = await requireAuth();
   assertCanDiscoverTalent(actor);
-  await connectMongo();
+  await connectPostgres();
   const filters = talentDiscoveryQuerySchema.parse(input);
   const universityId = resolveUniversityScope(actor, filters.universityId);
   let candidateUserIds: Set<string> | null = await getCandidateUserIds({
@@ -734,7 +737,7 @@ async function trackProfileView(
 export async function getTalentProfile(userId: string) {
   const actor = await requireAuth();
   assertCanDiscoverTalent(actor);
-  await connectMongo();
+  await connectPostgres();
   const userRecord = await findCandidateUser(userId, actor);
   const profile = await CareerProfileModel.findOne({
     userId,
@@ -771,7 +774,7 @@ export async function getTalentProfile(userId: string) {
 export async function saveCandidate(input: unknown) {
   const actor = await requireAuth();
   assertCanSaveOrContact(actor);
-  await connectMongo();
+  await connectPostgres();
   const payload = saveCandidateSchema.parse(input);
   const profile = await ensureCandidateProfile(payload.candidateUserId, actor);
   const employer = await UserModel.findById(actor.id)
@@ -861,7 +864,7 @@ export async function saveCandidate(input: unknown) {
 export async function unsaveCandidate(candidateUserId: string) {
   const actor = await requireAuth();
   assertCanSaveOrContact(actor);
-  await connectMongo();
+  await connectPostgres();
   const saved = await SavedCandidateModel.findOneAndUpdate(
     {
       savedById: actor.id,
@@ -891,7 +894,7 @@ export async function unsaveCandidate(candidateUserId: string) {
 export async function listSavedCandidates(input: unknown = {}) {
   const actor = await requireAuth();
   assertCanSaveOrContact(actor);
-  await connectMongo();
+  await connectPostgres();
   const filters = savedCandidateQuerySchema.parse(input);
   const savedFilter: Record<string, unknown> = {
     savedById: actor.id,
@@ -953,7 +956,7 @@ export async function listSavedCandidates(input: unknown = {}) {
 export async function contactCandidate(userId: string, input: unknown) {
   const actor = await requireAuth();
   assertCanSaveOrContact(actor);
-  await connectMongo();
+  await connectPostgres();
   const payload = contactCandidateSchema.parse(input);
   const profile = await ensureCandidateProfile(userId, actor);
 

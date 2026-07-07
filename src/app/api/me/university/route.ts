@@ -1,6 +1,6 @@
 import { apiFailure, apiSuccess } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import { UniversityModel } from "@/lib/db/models";
 
 export async function GET() {
@@ -11,7 +11,7 @@ export async function GET() {
       return apiSuccess({ university: null });
     }
 
-    await connectMongo();
+    await connectPostgres();
 
     const university = await UniversityModel.findOne({
       _id: user.universityId,

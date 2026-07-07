@@ -4,7 +4,7 @@ import { marketplaceExecutiveAnalyticsQuerySchema } from "@/features/marketplace
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   OrderRequestModel,
   ProductClickModel,
@@ -166,7 +166,7 @@ export async function getMarketplaceExecutiveAnalytics(query: unknown = {}) {
     throw forbidden("Marketplace executive analytics access is required.");
   }
 
-  await connectMongo();
+  await connectPostgres();
   const filters = marketplaceExecutiveAnalyticsQuerySchema.parse(query);
   const universityId = scopedUniversityId(actor, filters.universityId);
 

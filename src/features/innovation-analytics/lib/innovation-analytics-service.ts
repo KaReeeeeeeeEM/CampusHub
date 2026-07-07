@@ -5,7 +5,7 @@ import { serializeProject } from "@/features/projects/lib/project-service";
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   ProjectAnalyticsModel,
   ProjectEngagementModel,
@@ -177,7 +177,7 @@ export async function getInnovationAnalytics(query: unknown = {}) {
     throw forbidden("Innovation analytics access is required.");
   }
 
-  await connectMongo();
+  await connectPostgres();
   const filters = innovationAnalyticsQuerySchema.parse(query);
   const universityId = scopedUniversityId(actor, filters.universityId);
   if (!universityId) throw forbidden("University scope is required.");

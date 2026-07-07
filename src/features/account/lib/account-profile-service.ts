@@ -1,6 +1,6 @@
 import { requireAuth } from "@/lib/auth/session";
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   AlmanacModel,
   AlumniProfileModel,
@@ -207,7 +207,7 @@ export type AccountProfileAnalytics = {
 
 export async function getAccountProfileAnalytics(): Promise<AccountProfileAnalytics | null> {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
 
   const universityId = actor.universityId;
 
@@ -320,7 +320,7 @@ export async function getAccountProfileAnalytics(): Promise<AccountProfileAnalyt
 
 export async function getAccountProfile(): Promise<AccountProfile> {
   const actor = await requireAuth();
-  await connectMongo();
+  await connectPostgres();
 
   const user = await UserModel.findById(actor.id).lean();
   if (!user) {
@@ -439,7 +439,7 @@ export async function updateAccountProfile(input: unknown) {
   const actor = await requireAuth();
   const payload = accountProfileMediaSchema.parse(input);
 
-  await connectMongo();
+  await connectPostgres();
 
   const existing = await UserModel.findById(actor.id)
     .select(

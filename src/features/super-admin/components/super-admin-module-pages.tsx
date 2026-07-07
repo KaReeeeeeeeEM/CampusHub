@@ -1,7 +1,7 @@
-import type { Model } from "mongoose";
+import type { Model } from "@/lib/db/model-compat";
 
 import { requireApiRole } from "@/lib/auth/authorization";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   AchievementModel,
   AlumniProfileModel,
@@ -980,7 +980,7 @@ function configured(value: string | undefined) {
 
 function buildIntegrationsPage(): SuperAdminPageData {
   const integrations = [
-    ["MongoDB", "Database", configured(process.env.MONGODB_URI), process.env.MONGODB_DB_NAME ?? "campushub"],
+    ["Neon Postgres", "Database", configured(process.env.DATABASE_URL), "DATABASE_URL"],
     ["Better Auth", "Authentication", configured(process.env.BETTER_AUTH_SECRET), process.env.BETTER_AUTH_URL ?? "Missing"],
     ["Web Push", "Notifications", configured(process.env.VAPID_PRIVATE_KEY), process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ? "Public key set" : "Public key missing"],
     ["Acquisition API", "Server secret", configured(process.env.CAMPUSHUB_ACQUISITION_SECRET), "Server-only acquisition flow"],
@@ -1063,7 +1063,7 @@ function buildSystemHealthPage(): SuperAdminPageData {
   const checks = [
     ["Application", "Runtime", process.env.NODE_ENV ?? "development", "Running"],
     ["Environment", "Deployment", process.env.APP_ENV ?? "development", "Running"],
-    ["MongoDB", "Database", process.env.MONGODB_URI ? "Configured" : "Missing", process.env.MONGODB_DB_NAME ?? "campushub"],
+    ["Neon Postgres", "Database", process.env.DATABASE_URL ? "Configured" : "Missing", "DATABASE_URL"],
     ["Better Auth", "Authentication", process.env.BETTER_AUTH_URL ? "Configured" : "Missing", process.env.BETTER_AUTH_URL ?? "Missing"],
     ["Public app URL", "Routing", process.env.NEXT_PUBLIC_APP_URL ? "Configured" : "Missing", process.env.NEXT_PUBLIC_APP_URL ?? "Missing"],
     ["Push notifications", "PWA", process.env.VAPID_PRIVATE_KEY ? "Configured" : "Missing", process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ? "Public key set" : "Public key missing"],
@@ -1104,7 +1104,7 @@ async function getPageData(slug: string): Promise<SuperAdminPageData | null> {
   if (slug === "system-health") return buildSystemHealthPage();
 
   await requireApiRole(["SUPER_ADMIN"]);
-  await connectMongo();
+  await connectPostgres();
   const refs = await loadReferenceMaps();
 
   switch (slug) {

@@ -4,7 +4,7 @@ import { executiveAnalyticsQuerySchema } from "@/features/executive-analytics/li
 import { writeAuditLog } from "@/lib/audit/audit-log-service";
 import { forbidden } from "@/lib/api/response";
 import { requireAuth } from "@/lib/auth/session";
-import { connectMongo } from "@/lib/db/mongodb";
+import { connectPostgres } from "@/lib/db/postgres";
 import {
   CollegeModel,
   DepartmentModel,
@@ -93,7 +93,7 @@ export async function getExecutiveAnalytics(query: unknown = {}) {
     throw forbidden("Executive analytics access is required.");
   }
 
-  await connectMongo();
+  await connectPostgres();
   const filters = executiveAnalyticsQuerySchema.parse(query);
   const universityId = scopedUniversityId(actor, filters.universityId);
   const endDate = filters.to ?? new Date();
