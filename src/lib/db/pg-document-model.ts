@@ -62,6 +62,10 @@ function matchesValue(actual: unknown, expected: unknown): boolean {
     return expected.test(String(actual ?? ""));
   }
 
+  if (expected === null) {
+    return actual == null;
+  }
+
   if (expected && typeof expected === "object" && !Array.isArray(expected)) {
     const conditions = expected as AnyDoc;
     return Object.entries(conditions).every(([operator, value]) => {

@@ -340,6 +340,10 @@ function matchesFilter(doc, filter) {
       return typeof value === "string" && expected.test(value);
     }
 
+    if (expected === null) {
+      return value == null;
+    }
+
     if (expected && typeof expected === "object" && !Array.isArray(expected)) {
       if ("$regex" in expected) {
         const regex = expected.$regex instanceof RegExp
@@ -358,6 +362,7 @@ function matchesFilter(doc, filter) {
       });
     }
 
+    if (Array.isArray(value)) return value.includes(expected);
     return value === expected;
   });
 }
@@ -366,6 +371,7 @@ function canUseJsonContainment(filter) {
   return Object.entries(filter).every(([, value]) => {
     if (value instanceof RegExp) return false;
     if (Array.isArray(value)) return true;
+    if (value === null) return false;
     if (!value || typeof value !== "object") return true;
     return !Object.keys(value).some((key) => key.startsWith("$"));
   });

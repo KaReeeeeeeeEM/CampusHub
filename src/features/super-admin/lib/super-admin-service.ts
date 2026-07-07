@@ -2408,7 +2408,12 @@ export async function resolveCampusAdminActivation(token: string) {
     return { status: "invalid" as const };
   }
 
-  if (invitation.expiresAt.getTime() < Date.now()) {
+  const expiresAt =
+    invitation.expiresAt instanceof Date
+      ? invitation.expiresAt
+      : new Date(String(invitation.expiresAt));
+
+  if (expiresAt.getTime() < Date.now()) {
     await CampusAdminInvitationModel.updateOne(
       { _id: invitation._id },
       { $set: { status: "EXPIRED" } },

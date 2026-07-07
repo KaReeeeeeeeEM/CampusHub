@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "db:migrate": "node scripts/migrate-postgres.mjs",
     "seed:all": "node scripts/seed-all.mjs",
+    "seed:api": "node scripts/seed-api-hierarchy.mjs",
     "seed:platform": "node scripts/seed-platform.mjs",
     "seed:test-accounts": "node scripts/seed-test-accounts.mjs",
     "format": "prettier --check .",
