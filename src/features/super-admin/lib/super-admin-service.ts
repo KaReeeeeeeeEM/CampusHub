@@ -208,6 +208,17 @@ export type SerializedCampusAdminInvitation = {
   createdAt: string | null;
 };
 
+export type SerializedCampusAdminAccount = {
+  id: string;
+  name: string;
+  email: string;
+  universityId: string | null;
+  universityName: string;
+  status: "ACTIVE" | "SUSPENDED" | "PENDING";
+  phone: string;
+  createdAt: string | null;
+};
+
 export type SerializedSuperAdminUser = {
   id: string;
   photo: string;
@@ -2267,6 +2278,45 @@ export async function getCampusAdminInvitations() {
         "Unknown university",
     ),
   );
+}
+
+export async function getCampusAdminAccounts() {
+  await requireSuperAdminSession();
+  await connectPostgres();
+
+  const [campusAdmins, universities] = await Promise.all([
+    UserModel.find({
+      $or: [{ role: "CAMPUS_ADMIN" }, { roles: "CAMPUS_ADMIN" }],
+    })
+      .sort({ createdAt: -1 })
+      .lean(),
+    UniversityModel.find().select({ name: 1 }).lean(),
+  ]);
+
+  const universityNames = new Map(
+    universities.map((university) => [
+      String(university._id),
+      String(university.name),
+    ]),
+  );
+
+  return campusAdmins.map((user) => {
+    const record = user as Record<string, unknown>;
+    const universityId = serializeOptionalString(record.universityId);
+
+    return {
+      id: String(record._id),
+      name: getDisplayName(record),
+      email: String(record.email ?? "No email"),
+      universityId,
+      universityName: universityId
+        ? assignedName(universityNames, universityId, "Unknown university")
+        : "Not assigned",
+      status: (record.status as SerializedCampusAdminAccount["status"]) ?? "ACTIVE",
+      phone: String(record.phoneNumber ?? record.phone ?? "Not provided"),
+      createdAt: serializeDate(record.createdAt),
+    } satisfies SerializedCampusAdminAccount;
+  });
 }
 
 export async function createCampusAdminInvitation(

@@ -34,6 +34,7 @@ import {
   type CampusAdminInvitationInput,
 } from "@/features/super-admin/lib/schemas";
 import type {
+  SerializedCampusAdminAccount,
   SerializedCampusAdminInvitation,
   SerializedUniversity,
 } from "@/features/super-admin/lib/super-admin-service";
@@ -48,6 +49,7 @@ type ApiResponse<T> = {
 
 type CampusAdminInvitationsManagementProps = {
   universities: SerializedUniversity[];
+  initialAccounts: SerializedCampusAdminAccount[];
   initialInvitations: SerializedCampusAdminInvitation[];
 };
 
@@ -223,8 +225,10 @@ function InvitationDetails({
 
 export function CampusAdminInvitationsManagement({
   universities,
+  initialAccounts,
   initialInvitations,
 }: CampusAdminInvitationsManagementProps) {
+  const [accounts] = useState(initialAccounts);
   const [invitations, setInvitations] = useState(initialInvitations);
   const [query, setQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
@@ -253,6 +257,28 @@ export function CampusAdminInvitationsManagement({
         .includes(normalized),
     );
   }, [invitations, query]);
+
+  const filteredAccounts = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+
+    if (!normalized) {
+      return accounts;
+    }
+
+    return accounts.filter((account) =>
+      [
+        account.name,
+        account.email,
+        account.universityName,
+        account.status,
+        account.phone,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(normalized),
+    );
+  }, [accounts, query]);
 
   async function refreshInvitations() {
     const response = await fetch("/api/super-admin/campus-admin-invitations", {
@@ -311,7 +337,31 @@ export function CampusAdminInvitationsManagement({
     });
   }
 
-  const columns: DataTableColumn<SerializedCampusAdminInvitation>[] = [
+  const accountColumns: DataTableColumn<SerializedCampusAdminAccount>[] = [
+    {
+      key: "name",
+      header: "Campus Admin",
+      cell: (account) => (
+        <div>
+          <p className="font-medium">{account.name}</p>
+          <p className="text-xs text-muted-foreground">{account.email}</p>
+        </div>
+      ),
+    },
+    { key: "universityName", header: "University" },
+    { key: "phone", header: "Phone" },
+    {
+      key: "status",
+      header: "Status",
+      cell: (account) => (
+        <span className="inline-flex rounded-md border border-border bg-background px-2 py-1 text-xs font-medium">
+          {account.status}
+        </span>
+      ),
+    },
+  ];
+
+  const invitationColumns: DataTableColumn<SerializedCampusAdminInvitation>[] = [
     {
       key: "name",
       header: "Recipient",
@@ -374,7 +424,7 @@ export function CampusAdminInvitationsManagement({
           />
           <CampusInput
             className="pl-9"
-            placeholder="Search invitations"
+            placeholder="Search Campus Admins"
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -391,8 +441,45 @@ export function CampusAdminInvitationsManagement({
       </div>
 
       <div className="mt-5">
+        <div className="mb-6">
+          <div className="mb-3">
+            <h2 className="text-base font-semibold">
+              Active Campus Admin Accounts
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Campus Admin users currently assigned to universities.
+            </p>
+          </div>
+          <CampusDataTable
+            columns={accountColumns}
+            data={filteredAccounts}
+            getRowId={(account) => account.id}
+            empty={
+              <EmptyState
+                title={
+                  query
+                    ? "No matching Campus Admin accounts"
+                    : "No active Campus Admin accounts yet"
+                }
+                description={
+                  query
+                    ? "Adjust your search and try again."
+                    : "Activated or seeded Campus Admin accounts will appear here."
+                }
+                className="mx-auto border-0 bg-transparent"
+              />
+            }
+          />
+        </div>
+
+        <div className="mb-3">
+          <h2 className="text-base font-semibold">Campus Admin Invitations</h2>
+          <p className="text-sm text-muted-foreground">
+            Generated activation links and their redemption status.
+          </p>
+        </div>
         <CampusDataTable
-          columns={columns}
+          columns={invitationColumns}
           data={filteredInvitations}
           getRowId={(invitation) => invitation.id}
           empty={
