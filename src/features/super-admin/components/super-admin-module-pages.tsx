@@ -424,25 +424,28 @@ async function buildDepartmentsPage(refs: ReferenceMaps): Promise<SuperAdminPage
 }
 
 async function buildStudentsPage(refs: ReferenceMaps): Promise<SuperAdminPageData> {
+  const filter = {
+    $or: [{ userType: "STUDENT" }, { role: "STUDENT" }, { roles: "STUDENT" }],
+  };
   const [total, active, pending, records] = await Promise.all([
-    count(StudentModel),
-    count(StudentModel, { status: "ACTIVE" }),
-    count(StudentModel, { status: "PENDING_VERIFICATION" }),
-    rows(StudentModel),
+    count(UserModel, filter),
+    count(UserModel, { ...filter, status: "ACTIVE" }),
+    count(UserModel, { ...filter, status: { $in: ["PENDING", "PENDING_VERIFICATION"] } }),
+    rows(UserModel, filter),
   ]);
 
   return {
     title: "Students",
-    description: "Student enrollment records across all universities.",
+    description: "Student accounts across all universities.",
     metrics: [
-      metric("Students", total, "All student records."),
-      metric("Active", active, "Active student records."),
-      metric("Pending", pending, "Pending verification records."),
+      metric("Students", total, "All student accounts."),
+      metric("Active", active, "Active student accounts."),
+      metric("Pending", pending, "Pending verification accounts."),
       metric("Universities", refs.universities.size, "Universities represented."),
     ],
     table: {
-      title: "Student records",
-      description: "Students are listed from the student collection, not mock data.",
+      title: "Student accounts",
+      description: "Students are listed from user accounts with student access.",
       columns: [
         { key: "student", header: "Student" },
         { key: "email", header: "Email" },
@@ -456,17 +459,17 @@ async function buildStudentsPage(refs: ReferenceMaps): Promise<SuperAdminPageDat
         cells: {
           student: [text(record, ["firstName"], ""), text(record, ["lastName"], "")]
             .join(" ")
-            .trim() || text(record, ["username"]),
+            .trim() || text(record, ["name", "username"]),
           email: text(record, ["email"]),
           university: mapValue(refs.universities, record.universityId),
           college: mapValue(refs.colleges, record.collegeId),
-          department: text(record, ["department"]),
+          department: mapValue(refs.departments, record.departmentId),
           status: renderStatus(text(record, ["status"])),
         },
       })),
       emptyTitle: "No students yet",
       emptyDescription:
-        "Student records will appear here once invited students complete enrollment.",
+        "Student accounts will appear here once students are invited or seeded.",
     },
   };
 }
