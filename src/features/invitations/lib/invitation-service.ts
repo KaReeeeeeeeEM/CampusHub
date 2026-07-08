@@ -47,8 +47,22 @@ function getExpiresAt(days: number) {
   return new Date(Date.now() + days * msPerDay);
 }
 
-function isExpired(expiresAt: Date) {
-  return expiresAt.getTime() <= Date.now();
+function parseDate(value: unknown) {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  return null;
+}
+
+function isExpired(expiresAt: unknown) {
+  const date = parseDate(expiresAt);
+  return date ? date.getTime() <= Date.now() : true;
 }
 
 async function getUniqueInvitationToken() {
