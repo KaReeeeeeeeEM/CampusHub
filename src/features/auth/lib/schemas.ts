@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { gmailEmailMessage, isGmailAddress } from "@/lib/email/gmail-validation";
+
 export const userRoleSchema = z.enum([
   "SUPER_ADMIN",
   "CAMPUS_ADMIN",
@@ -52,7 +54,11 @@ export const resetPasswordSchema = z
   });
 
 export const verifyEmailSchema = z.object({
-  email: z.string().email("Enter a valid email address."),
+  email: z
+    .string()
+    .trim()
+    .email("Enter a valid email address.")
+    .refine(isGmailAddress, gmailEmailMessage),
 });
 
 export const userProfileUpdateSchema = z.object({

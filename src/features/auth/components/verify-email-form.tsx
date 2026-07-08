@@ -102,7 +102,7 @@ export function VerifyEmailForm() {
           autoComplete="email"
           disabled={isVerifyingToken}
           invalid={Boolean(errors.email)}
-          placeholder="you@university.edu"
+          placeholder="you@gmail.com"
           type="email"
         />
       </AuthField>

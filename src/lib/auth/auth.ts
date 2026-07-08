@@ -17,6 +17,9 @@ import {
 } from "@/lib/auth/user-sync";
 import { writeAuthAuditLog } from "@/lib/audit/audit-log-service";
 import { getKyselyDb } from "@/lib/db/postgres";
+import { sendCampusHubEmail } from "@/lib/email/campushub-email";
+import { isGmailAddress } from "@/lib/email/gmail-validation";
+import { renderVerificationEmail } from "@/lib/email/templates/verification-email";
 
 type AuthHookContext = {
   path?: string;
@@ -68,6 +71,10 @@ function getAuthRpId() {
   }
 }
 
+function getPublicAssetUrl(path: string) {
+  return new URL(path, getAuthBaseUrl()).toString();
+}
+
 export function getAcquisitionSecret() {
   return (
     process.env.CAMPUSHUB_ACQUISITION_SECRET ??
@@ -93,6 +100,13 @@ function assertValidSignUpPayload(body: Record<string, unknown>) {
     typeof body.intendedRole === "string" ? body.intendedRole : "STUDENT";
 
   try {
+    if (typeof body.email === "string" && !isGmailAddress(body.email)) {
+      throw APIError.from("BAD_REQUEST", {
+        code: "GMAIL_EMAIL_REQUIRED",
+        message: "Use a Gmail address, for example yourname@gmail.com.",
+      });
+    }
+
     userRoleSchema.parse(intendedRole);
     userProfileUpdateSchema.partial().parse({
       username: body.username,
@@ -398,7 +412,27 @@ export const auth = betterAuth({
       const verificationUrl = new URL("/verify-email", getAuthBaseUrl());
       verificationUrl.searchParams.set("token", token);
 
-      console.info("CampusHub verification email requested", {
+      if (!isGmailAddress(user.email)) {
+        throw APIError.from("BAD_REQUEST", {
+          code: "GMAIL_EMAIL_REQUIRED",
+          message: "Use a Gmail address, for example yourname@gmail.com.",
+        });
+      }
+
+      const email = renderVerificationEmail({
+        userName: user.name,
+        verificationUrl: verificationUrl.toString(),
+        logoUrl: getPublicAssetUrl("/logo.png"),
+      });
+
+      await sendCampusHubEmail({
+        to: user.email,
+        subject: "Verify your CampusHub email",
+        html: email.html,
+        text: email.text,
+      });
+
+      console.info("CampusHub verification email delivered", {
         email: user.email,
         url,
         verificationUrl: verificationUrl.toString(),
